@@ -544,7 +544,7 @@ It is to make the cost model explicit and analyzable.
 
 ---
 
-## Non-Goals for v0.1
+## Non-Goals for v0.5
 
 This document does not yet define:
 
