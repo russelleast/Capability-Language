@@ -22,7 +22,7 @@ Createing job is a capability
 Different capabilities do the jobs, they need to update the job status and progress (percentage)
 Retrying, failing and complete could be part of the job management capability
 
-* Could DCL describe UI behavior
+* Could DCL describe UI behavior (no, this is not core to capabilities, maybe an extension in the future)
 * Could DCL describe queries 
 * Could DCL describe batch jobs
 * Could DCL describe file processing
@@ -34,23 +34,7 @@ Retrying, failing and complete could be part of the job management capability
   - retry delay (time)
   - retry staggered delay (time) 
 
-* lifecycle
 
-instead of: 
-
-begin Pending
-end Verified
-end Rejected
-
-step Pending
-step Verified
-step Rejected
-
-streamline as:
-
-begin step Pending
-end step Verified
-end step Rejected
 
 
 
