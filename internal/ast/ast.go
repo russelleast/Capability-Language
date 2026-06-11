@@ -56,7 +56,6 @@ type PolicyDecl struct {
 
 type CapabilityDecl struct {
 	Name      string
-	Input     *IntentDecl
 	Intents   []IntentDecl
 	Actors    []ActorRole
 	Outcomes  []OutcomeDecl
@@ -64,7 +63,6 @@ type CapabilityDecl struct {
 	Effects   []EffectUse
 	Policies  []PolicyUse
 	When      []WhenBranch
-	Emits     []EmitDecl
 	Lifecycle *LifecycleDecl
 	Span      diagnostic.Span
 }
@@ -114,12 +112,6 @@ type WhenBranch struct {
 	Outcome    string
 	Otherwise  bool
 	Span       diagnostic.Span
-}
-
-type EmitDecl struct {
-	Outcome string
-	Event   string
-	Span    diagnostic.Span
 }
 
 type LifecycleDecl struct {

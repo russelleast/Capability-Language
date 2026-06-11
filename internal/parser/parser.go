@@ -56,54 +56,25 @@ func (p *Parser) parseShape() ast.ShapeDecl {
 func (p *Parser) parseActor() ast.ActorDecl {
 	start := p.expectText("actor")
 	name := p.expectIdent("actor name")
-	p.expect(lexer.LBrace, "{")
-	var kind string
-	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
-		p.skipNewlines()
-		if p.matchText("kind") {
-			kind = p.expectIdent("actor kind").Text
-			continue
-		}
-		if !p.at(lexer.RBrace) {
-			p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected actor property", p.peek().Span, p.peek().Text)
-			p.advance()
-		}
-	}
-	p.expect(lexer.RBrace, "}")
+	p.expectText("is")
+	kind := p.expectIdent("actor kind").Text
 	return ast.ActorDecl{Name: name.Text, Kind: kind, Span: start.Span}
 }
 
 func (p *Parser) parseEffect() ast.EffectDecl {
 	start := p.expectText("effect")
 	name := p.expectIdent("effect name")
-	p.expect(lexer.LBrace, "{")
-	kind := p.parseKindBlock("effect")
+	p.expectText("is")
+	kind := p.expectIdent("effect kind").Text
 	return ast.EffectDecl{Name: name.Text, Kind: kind, Span: start.Span}
 }
 
 func (p *Parser) parsePolicy() ast.PolicyDecl {
 	start := p.expectText("policy")
 	name := p.expectIdent("policy name")
-	p.expect(lexer.LBrace, "{")
-	kind := p.parseKindBlock("policy")
+	p.expectText("is")
+	kind := p.expectIdent("policy kind").Text
 	return ast.PolicyDecl{Name: name.Text, Kind: kind, Span: start.Span}
-}
-
-func (p *Parser) parseKindBlock(owner string) string {
-	var kind string
-	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
-		p.skipNewlines()
-		if p.matchText("kind") {
-			kind = p.expectIdent(owner + " kind").Text
-			continue
-		}
-		if !p.at(lexer.RBrace) {
-			p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected "+owner+" property", p.peek().Span, p.peek().Text)
-			p.advance()
-		}
-	}
-	p.expect(lexer.RBrace, "}")
-	return kind
 }
 
 func (p *Parser) parseEvent() ast.EventDecl {
@@ -163,25 +134,28 @@ func (p *Parser) parseCapability() ast.CapabilityDecl {
 			break
 		}
 		switch p.peek().Text {
-		case "input":
-			intent := p.parseInput()
-			cap.Input = &intent
+		case "intent":
+			cap.Intents = append(cap.Intents, p.parseIntent())
 		case "intents":
 			cap.Intents = append(cap.Intents, p.parseIntentsBlock()...)
 		case "actors":
 			cap.Actors = append(cap.Actors, p.parseActorsBlock()...)
+		case "outcome":
+			cap.Outcomes = append(cap.Outcomes, p.parseOutcome())
 		case "outcomes":
 			cap.Outcomes = append(cap.Outcomes, p.parseOutcomesBlock()...)
+		case "rule":
+			cap.Rules = append(cap.Rules, p.parseRule())
 		case "rules":
 			cap.Rules = append(cap.Rules, p.parseRulesBlock()...)
+		case "effect":
+			cap.Effects = append(cap.Effects, p.parseEffectUse())
 		case "effects":
 			cap.Effects = append(cap.Effects, p.parseEffectsBlock()...)
 		case "policies":
 			cap.Policies = append(cap.Policies, p.parsePoliciesBlock()...)
 		case "when":
 			cap.When = append(cap.When, p.parseWhenBlock()...)
-		case "emits":
-			cap.Emits = append(cap.Emits, p.parseEmitsBlock()...)
 		case "lifecycle":
 			lifecycle := p.parseLifecycleBlock()
 			cap.Lifecycle = &lifecycle
@@ -194,12 +168,12 @@ func (p *Parser) parseCapability() ast.CapabilityDecl {
 	return cap
 }
 
-func (p *Parser) parseInput() ast.IntentDecl {
-	start := p.expectText("input")
+func (p *Parser) parseIntent() ast.IntentDecl {
+	start := p.expectText("intent")
 	inputType := p.parseType()
 	p.expectText("from")
 	actor := p.expectIdent("actor").Text
-	return ast.IntentDecl{Name: "input", InputType: inputType, Actor: actor, Span: start.Span}
+	return ast.IntentDecl{Name: inputType, InputType: inputType, Actor: actor, Span: start.Span}
 }
 
 func (p *Parser) parseIntentsBlock() []ast.IntentDecl {
@@ -240,6 +214,16 @@ func (p *Parser) parseActorsBlock() []ast.ActorRole {
 	return actors
 }
 
+func (p *Parser) parseOutcome() ast.OutcomeDecl {
+	start := p.expectText("outcome")
+	name := p.expectIdent("outcome")
+	var payload ast.Payload
+	if p.matchText("is") {
+		payload = p.parsePayload()
+	}
+	return ast.OutcomeDecl{Name: name.Text, Payload: payload, Span: start.Span}
+}
+
 func (p *Parser) parseOutcomesBlock() []ast.OutcomeDecl {
 	p.expectText("outcomes")
 	p.expect(lexer.LBrace, "{")
@@ -258,6 +242,14 @@ func (p *Parser) parseOutcomesBlock() []ast.OutcomeDecl {
 	}
 	p.expect(lexer.RBrace, "}")
 	return outcomes
+}
+
+func (p *Parser) parseRule() ast.RuleDecl {
+	start := p.expectText("rule")
+	name := p.expectIdent("rule name")
+	p.expect(lexer.Colon, ":")
+	expr := p.collectRuleExpressionLine()
+	return ast.RuleDecl{Name: name.Text, Expression: expr, Span: start.Span}
 }
 
 func (p *Parser) parseRulesBlock() []ast.RuleDecl {
@@ -301,6 +293,28 @@ func (p *Parser) collectRuleExpression() string {
 	return normalizeParts(parts)
 }
 
+func (p *Parser) collectRuleExpressionLine() string {
+	var parts []string
+	for !p.at(lexer.EOF) && !p.at(lexer.Newline) && !p.at(lexer.RBrace) {
+		parts = append(parts, p.advance().Text)
+	}
+	return normalizeParts(parts)
+}
+
+func (p *Parser) parseEffectUse() ast.EffectUse {
+	start := p.expectText("effect")
+	name := p.expectIdent("effect")
+	use := ast.EffectUse{Name: name.Text, Span: start.Span}
+	if p.matchText("is") {
+		kind := p.expectIdent("effect kind")
+		p.diags.Error("DCL_PARSE_LOCAL_EFFECT_DECL_UNSUPPORTED", "capability-local effect declarations are not part of v0.2", kind.Span, kind.Text)
+	}
+	if p.matchText("after") {
+		use.After = p.expectIdent("effect dependency").Text
+	}
+	return use
+}
+
 func (p *Parser) parseEffectsBlock() []ast.EffectUse {
 	p.expectText("effects")
 	p.expect(lexer.LBrace, "{")
@@ -312,6 +326,10 @@ func (p *Parser) parseEffectsBlock() []ast.EffectUse {
 		}
 		name := p.expectIdent("effect")
 		use := ast.EffectUse{Name: name.Text, Span: name.Span}
+		if p.matchText("is") {
+			kind := p.expectIdent("effect kind")
+			p.diags.Error("DCL_PARSE_LOCAL_EFFECT_DECL_UNSUPPORTED", "capability-local effect declarations are not part of v0.2", kind.Span, kind.Text)
+		}
 		if p.matchText("after") {
 			use.After = p.expectIdent("effect dependency").Text
 		}
@@ -332,11 +350,9 @@ func (p *Parser) parsePoliciesBlock() []ast.PolicyUse {
 		}
 		name := p.expectIdent("policy")
 		use := ast.PolicyUse{Name: name.Text, Span: name.Span}
-		if p.matchText("applies") {
-			p.expectText("to")
-			use.TargetKind = p.expectIdent("policy target kind").Text
-			use.TargetName = p.expectIdent("policy target name").Text
-		}
+		p.expectText("governs")
+		use.TargetKind = "effect"
+		use.TargetName = p.expectIdent("policy target").Text
 		policies = append(policies, use)
 	}
 	p.expect(lexer.RBrace, "}")
@@ -354,38 +370,19 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 		}
 		start := p.peek()
 		if p.matchText("otherwise") {
-			p.expect(lexer.Arrow, "=>")
+			p.expectText("then")
 			outcome := p.expectIdent("outcome").Text
 			branches = append(branches, ast.WhenBranch{Otherwise: true, Outcome: outcome, Span: start.Span})
 			continue
 		}
-		sourceKind := p.expectIdent("causation source kind").Text
 		sourceName := p.expectIdent("causation source").Text
 		decision := p.expectIdent("causation decision").Text
-		p.expect(lexer.Arrow, "=>")
+		p.expectText("then")
 		outcome := p.expectIdent("outcome").Text
-		branches = append(branches, ast.WhenBranch{SourceKind: sourceKind, SourceName: sourceName, Decision: decision, Outcome: outcome, Span: start.Span})
+		branches = append(branches, ast.WhenBranch{SourceName: sourceName, Decision: decision, Outcome: outcome, Span: start.Span})
 	}
 	p.expect(lexer.RBrace, "}")
 	return branches
-}
-
-func (p *Parser) parseEmitsBlock() []ast.EmitDecl {
-	p.expectText("emits")
-	p.expect(lexer.LBrace, "{")
-	var emits []ast.EmitDecl
-	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
-		p.skipNewlines()
-		if p.at(lexer.RBrace) {
-			break
-		}
-		outcome := p.expectIdent("emitting outcome")
-		p.expect(lexer.Arrow, "=>")
-		event := p.expectIdent("event")
-		emits = append(emits, ast.EmitDecl{Outcome: outcome.Text, Event: event.Text, Span: outcome.Span})
-	}
-	p.expect(lexer.RBrace, "}")
-	return emits
 }
 
 func (p *Parser) parseLifecycleBlock() ast.LifecycleDecl {
@@ -400,12 +397,14 @@ func (p *Parser) parseLifecycleBlock() ast.LifecycleDecl {
 		switch p.peek().Text {
 		case "begin":
 			tok := p.advance()
+			p.expectText("step")
 			lifecycle.Begin = p.expectIdent("initial lifecycle step").Text
 			if lifecycle.Span.Line == 0 {
 				lifecycle.Span = tok.Span
 			}
 		case "end":
 			p.advance()
+			p.expectText("step")
 			lifecycle.Ends = append(lifecycle.Ends, p.expectIdent("terminal lifecycle step").Text)
 		case "step":
 			p.advance()
@@ -477,6 +476,9 @@ func (p *Parser) expect(kind lexer.Kind, label string) lexer.Token {
 	}
 	tok := p.peek()
 	p.diags.Error("DCL_PARSE_EXPECTED_TOKEN", fmt.Sprintf("expected %s", label), tok.Span, tok.Text)
+	if !p.at(lexer.EOF) {
+		p.advance()
+	}
 	return lexer.Token{Kind: kind, Span: tok.Span}
 }
 
@@ -486,6 +488,9 @@ func (p *Parser) expectText(text string) lexer.Token {
 	}
 	tok := p.peek()
 	p.diags.Error("DCL_PARSE_EXPECTED_TOKEN", "expected "+text, tok.Span, tok.Text)
+	if !p.at(lexer.EOF) {
+		p.advance()
+	}
 	return lexer.Token{Kind: lexer.Ident, Text: text, Span: tok.Span}
 }
 
@@ -495,6 +500,9 @@ func (p *Parser) expectIdent(label string) lexer.Token {
 	}
 	tok := p.peek()
 	p.diags.Error("DCL_PARSE_EXPECTED_IDENTIFIER", "expected "+label, tok.Span, tok.Text)
+	if !p.at(lexer.EOF) {
+		p.advance()
+	}
 	return lexer.Token{Kind: lexer.Ident, Span: tok.Span}
 }
 

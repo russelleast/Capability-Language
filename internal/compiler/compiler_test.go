@@ -11,9 +11,7 @@ import (
 )
 
 const helloWorld = `
-actor User {
-  kind human
-}
+actor User is human
 
 shape HelloInput {
   name: Text required
@@ -24,40 +22,29 @@ shape GreetingResult {
 }
 
 capability SayHello {
-  input HelloInput from User
+  intent HelloInput from User
 
   outcomes {
     Greeted is GreetingResult
     MissingName
   }
 
-  rules {
-    NamePresent: input.name is present
-  }
+  rule NamePresent: input.name is present
 
   when {
-    rule NamePresent fails => MissingName
-    otherwise => Greeted
+    NamePresent violated then MissingName
+    otherwise then Greeted
   }
 }
 `
 
 const registration = `
-actor Customer {
-  kind human
-}
+actor Customer is human
 
-effect SaveRegistration {
-  kind persist
-}
+effect SaveRegistration is persist
+effect SendVerification is notify
 
-effect SendVerification {
-  kind notify
-}
-
-policy SafeRetry {
-  kind retry
-}
+policy SafeRetry is retry
 
 shape RegisterCustomerInput {
   email: Email required
@@ -70,7 +57,7 @@ event CustomerRegistered is {
 }
 
 capability RegisterCustomer {
-  input RegisterCustomerInput from Customer
+  intent RegisterCustomerInput from Customer
 
   outcomes {
     Accepted
@@ -89,27 +76,19 @@ capability RegisterCustomer {
   }
 
   policies {
-    SafeRetry applies to effect SendVerification
+    SafeRetry governs SendVerification
   }
 
   when {
-    rule TermsAccepted fails => TermsNotAccepted
-    effect SendVerification failed => VerificationDeferred
-    otherwise => Accepted
-  }
-
-  emits {
-    Accepted => CustomerRegistered
+    TermsAccepted violated then TermsNotAccepted
+    SendVerification unresolved then VerificationDeferred
+    otherwise then Accepted
   }
 
   lifecycle {
-    begin Pending
-    end Verified
-    end Rejected
-
-    step Pending
+    begin step Pending
     step Verified
-    step Rejected
+    end step Rejected
 
     move Pending to Verified on event CustomerRegistered
     move Pending to Rejected on outcome VerificationDeferred
@@ -118,13 +97,8 @@ capability RegisterCustomer {
 `
 
 const requestLeave = `
-actor Employee {
-  kind human
-}
-
-actor Manager {
-  kind human
-}
+actor Employee is human
+actor Manager is human
 
 shape LeaveRequestInput {
   startDate: Date required
@@ -132,15 +106,15 @@ shape LeaveRequestInput {
 }
 
 capability RequestLeave {
-  input LeaveRequestInput from Employee
+  intent LeaveRequestInput from Employee
 
   actors {
     requester: Employee
     approver: Manager
   }
 
+  outcome Requested
   outcomes {
-    Requested
     InvalidDates
     SelfApprovalAttempt
   }
@@ -155,19 +129,19 @@ capability RequestLeave {
   }
 
   when {
-    rule DatesValid fails => InvalidDates
-    rule SelfApprovalNotAllowed fails => SelfApprovalAttempt
-    otherwise => Requested
+    DatesValid violated then InvalidDates
+    SelfApprovalNotAllowed violated then SelfApprovalAttempt
+    otherwise then Requested
   }
 }
 `
 
-func TestLexerCoversV01Tokens(t *testing.T) {
-	tokens, diags := lexer.Lex("test.dcl", "shape Order { items: List<OrderLine> required }\nwhen { otherwise => Accepted }")
+func TestLexerCoversV02Tokens(t *testing.T) {
+	tokens, diags := lexer.Lex("test.dcl", "shape Order { items: List<OrderLine> required }\nwhen { otherwise then Accepted }")
 	if len(diags) != 0 {
 		t.Fatalf("unexpected diagnostics: %#v", diags)
 	}
-	wantKinds := map[lexer.Kind]bool{lexer.LBrace: false, lexer.RBrace: false, lexer.Colon: false, lexer.Less: false, lexer.Greater: false, lexer.Arrow: false, lexer.Newline: false}
+	wantKinds := map[lexer.Kind]bool{lexer.LBrace: false, lexer.RBrace: false, lexer.Colon: false, lexer.Less: false, lexer.Greater: false, lexer.Newline: false}
 	for _, token := range tokens {
 		if _, ok := wantKinds[token.Kind]; ok {
 			wantKinds[token.Kind] = true
@@ -183,7 +157,7 @@ func TestLexerCoversV01Tokens(t *testing.T) {
 	}
 }
 
-func TestDocumentedExamplesCompile(t *testing.T) {
+func TestDocumentedV02ExamplesCompile(t *testing.T) {
 	for name, src := range map[string]string{
 		"hello":        helloWorld,
 		"registration": registration,
@@ -204,16 +178,64 @@ func TestDocumentedExamplesCompile(t *testing.T) {
 	}
 }
 
+func TestIntentNameIsAuthoredTypeForSingularIntent(t *testing.T) {
+	result := CompileFiles([]string{writeTempDCL(t, helloWorld)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	intents := result.IR.Capabilities[0].Intents
+	if len(intents) != 1 {
+		t.Fatalf("expected one intent, got %d", len(intents))
+	}
+	if intents[0].Name != "HelloInput" {
+		t.Fatalf("intent name should use authored type, got %q", intents[0].Name)
+	}
+}
+
+func TestSingularAndBlockFormsCompileEquivalently(t *testing.T) {
+	src := `
+actor User is human
+effect SendEmail is notify
+policy SafeRetry is retry
+shape Input { email: Email required }
+
+capability NotifyUser {
+  intents {
+    Notify with Input from User
+  }
+  outcome Accepted
+  rule EmailPresent: input.email is present
+  effect SendEmail
+  policies {
+    SafeRetry governs SendEmail
+  }
+  when {
+    EmailPresent violated then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	cap := result.IR.Capabilities[0]
+	if cap.Intents[0].Name != "Notify" {
+		t.Fatalf("expected named block intent, got %q", cap.Intents[0].Name)
+	}
+	if len(cap.Outcomes) != 1 || len(cap.Invariants) != 1 || len(cap.Effects) != 1 || len(cap.Policies) != 1 {
+		t.Fatalf("unexpected normalized capability IR: %#v", cap)
+	}
+}
+
 func TestCrossFileResolutionAndDeterministicIR(t *testing.T) {
 	dir := t.TempDir()
 	shared := filepath.Join(dir, "shared.dcl")
 	capability := filepath.Join(dir, "capability.dcl")
-	mustWrite(t, shared, "actor User { kind human }\nshape HelloInput { name: Text required }\n")
+	mustWrite(t, shared, "actor User is human\nshape HelloInput { name: Text required }\n")
 	mustWrite(t, capability, `
 capability SayHello {
-  input HelloInput from User
-  outcomes { Greeted }
-  when { otherwise => Greeted }
+  intent HelloInput from User
+  outcome Greeted
+  when { otherwise then Greeted }
 }`)
 
 	first := CompileFiles([]string{capability, shared})
@@ -228,22 +250,75 @@ capability SayHello {
 	}
 }
 
-func TestSemanticFailures(t *testing.T) {
-	src := `
+func TestRemovedV01FormsAreRejected(t *testing.T) {
+	for name, src := range map[string]string{
+		"input": `
+actor User is human
+shape Input {}
+capability Old { input Input from User outcome Accepted when { otherwise then Accepted } }`,
+		"kind-block": `
 actor User {
   kind human
+}`,
+		"arrow": `
+actor User is human
+shape Input {}
+capability Old { intent Input from User outcome Accepted when { otherwise => Accepted } }`,
+		"applies": `
+actor User is human
+effect SendEmail is notify
+policy SafeRetry is retry
+shape Input {}
+capability Old {
+  intent Input from User
+  outcome Accepted
+  effect SendEmail
+  policies { SafeRetry applies to effect SendEmail }
+  when { otherwise then Accepted }
+}`,
+		"old-lifecycle": `
+actor User is human
+shape Input {}
+capability Old {
+  intent Input from User
+  outcome Accepted
+  when { otherwise then Accepted }
+  lifecycle { begin Pending step Pending }
+}`,
+		"emits": `
+actor User is human
+shape Input {}
+event AcceptedEvent is Input
+capability Old {
+  intent Input from User
+  outcome Accepted
+  when { otherwise then Accepted }
+  emits { Accepted => AcceptedEvent }
+}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := CompileFiles([]string{writeTempDCL(t, src)})
+			if !HasErrors(result.Diagnostics) {
+				t.Fatalf("expected removed v0.1 syntax to fail")
+			}
+		})
+	}
 }
 
+func TestSemanticFailures(t *testing.T) {
+	src := `
+actor User is human
+
 capability Broken {
-  input MissingInput from User
+  intent MissingInput from User
   outcomes {
     Accepted
     Rejected
     Orphaned
   }
   when {
-    otherwise => Accepted
-    otherwise => Rejected
+    otherwise then Accepted
+    otherwise then Rejected
   }
 }`
 	result := CompileFiles([]string{writeTempDCL(t, src)})
@@ -252,29 +327,56 @@ capability Broken {
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_OUTCOME_CAUSE_REQUIRED")
 }
 
-func TestLifecycleAndPolicyFailures(t *testing.T) {
+func TestWhenDecisionInferenceFailures(t *testing.T) {
 	src := `
-actor Customer { kind human }
-effect SendVerification { kind notify }
-policy SafeRetry { kind retry }
+actor Customer is human
+effect SendVerification is notify
+policy SafeRetry is retry
 shape Input { email: Email required }
 capability RegisterCustomer {
-  input Input from Customer
-  outcomes { Accepted Deferred }
-  effects { SendVerification }
-  policies { SafeRetry applies to event MissingEvent }
+  intent Input from Customer
+  outcomes { Accepted Deferred Rejected }
+  effect SendVerification
+  policies { SafeRetry governs MissingEffect }
   when {
-    effect SendVerification failed => Deferred
-    otherwise => Accepted
+    MissingRule violated then Rejected
+    MissingEffect unresolved then Deferred
+    UnknownPolicy denied then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_RULE")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_EFFECT_USE")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_POLICY")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_TARGET_UNKNOWN")
+}
+
+func TestLifecycleAndEffectFailures(t *testing.T) {
+	src := `
+actor Customer is human
+effect SendVerification is notify
+shape Input { email: Email required }
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effects {
+    SendVerification after MissingEffect
+    LocalEffect is notify
+  }
+  when {
+    SendVerification unresolved then Deferred
+    otherwise then Accepted
   }
   lifecycle {
-    begin Pending
+    begin step Pending
     step Pending
     move Pending to Missing on outcome Deferred
   }
 }`
 	result := CompileFiles([]string{writeTempDCL(t, src)})
-	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_TARGET_UNSUPPORTED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_PARSE_LOCAL_EFFECT_DECL_UNSUPPORTED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_EFFECT_ORDER_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_EFFECT")
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_UNKNOWN_STATE")
 }
 

@@ -129,11 +129,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		Analysis: ir.CapabilityAnalysis{Portability: "portable"},
 	}
 
-	intents := cap.Intents
-	if cap.Input != nil {
-		intents = append([]ast.IntentDecl{*cap.Input}, intents...)
-	}
-	if len(intents) == 0 {
+	if len(cap.Intents) == 0 {
 		c.diags.Error("DCL_SEM_CAPABILITY_INTENT_REQUIRED", "capability must declare at least one intent", cap.Span, cap.Name)
 	}
 	if len(cap.Outcomes) == 0 {
@@ -144,8 +140,9 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	localRules := map[string]ast.RuleDecl{}
 	localEffects := map[string]ast.EffectUse{}
 	localActorRoles := map[string]ast.ActorRole{}
+	localPolicies := map[string]ast.PolicyUse{}
 
-	for _, intent := range intents {
+	for _, intent := range cap.Intents {
 		c.requireGlobal("actor", intent.Actor, intent.Span)
 		c.requireGlobal("shape", intent.InputType, intent.Span)
 		capIR.Intents = append(capIR.Intents, ir.IntentIR{
@@ -183,6 +180,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		capIR.Effects = append(capIR.Effects, ir.EffectUseIR{Effect: effect.Name, After: effect.After, Origin: cap.Name, Ordering: ordering(effect)})
 	}
 	for _, policy := range cap.Policies {
+		localPolicies[policy.Name] = policy
 		c.requireGlobal("policy", policy.Name, policy.Span)
 		if policy.TargetKind != "" {
 			c.validatePolicyTarget(policy, localEffects)
@@ -190,15 +188,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		capIR.Policies = append(capIR.Policies, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policy.TargetName})
 	}
 
-	c.validateWhen(cap, localOutcomes, localRules, localEffects, &capIR)
-	for _, emit := range cap.Emits {
-		if _, ok := localOutcomes[emit.Outcome]; !ok {
-			c.diags.Error("DCL_SEM_UNKNOWN_OUTCOME", "event emission references unknown outcome", emit.Span, emit.Outcome)
-		}
-		c.requireGlobal("event", emit.Event, emit.Span)
-		capIR.Events = append(capIR.Events, ir.EmitIR{Outcome: emit.Outcome, Event: emit.Event, Source: cap.Name})
-		capIR.Relations = append(capIR.Relations, ir.RelationIR{Kind: "emits", From: emit.Outcome, To: emit.Event})
-	}
+	c.validateWhen(cap, localOutcomes, localRules, localEffects, localPolicies, &capIR)
 	if cap.Lifecycle != nil {
 		capIR.Lifecycle = c.lifecycleIR(cap, localOutcomes)
 	}
@@ -207,10 +197,11 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	return capIR
 }
 
-func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl, rules map[string]ast.RuleDecl, effects map[string]ast.EffectUse, capIR *ir.CapabilityIR) {
+func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl, rules map[string]ast.RuleDecl, effects map[string]ast.EffectUse, policies map[string]ast.PolicyUse, capIR *ir.CapabilityIR) {
 	caused := map[string]bool{}
 	otherwiseSeen := false
 	for i, branch := range cap.When {
+		sourceKind := branch.SourceKind
 		if branch.Otherwise {
 			if otherwiseSeen {
 				c.diags.Error("DCL_SEM_OTHERWISE_DUPLICATE", "otherwise branch appears more than once", branch.Span, cap.Name)
@@ -220,41 +211,31 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 			}
 			otherwiseSeen = true
 		} else {
-			switch branch.SourceKind {
-			case "rule":
+			switch branch.Decision {
+			case "violated":
+				sourceKind = "rule"
 				if _, ok := rules[branch.SourceName]; !ok {
 					c.diags.Error("DCL_SEM_UNKNOWN_RULE", "when branch references unknown rule", branch.Span, branch.SourceName)
 				}
-				if branch.Decision != "fails" {
-					c.diags.Warning("DCL_SEM_RULE_DECISION_UNKNOWN", "rule causation decision is not a known v0.1 form", branch.Span, branch.Decision)
-				}
-			case "effect":
+			case "unresolved":
+				sourceKind = "effect"
 				if _, ok := effects[branch.SourceName]; !ok {
 					c.diags.Error("DCL_SEM_UNKNOWN_EFFECT_USE", "when branch references effect not used by capability", branch.Span, branch.SourceName)
 				}
-				if branch.Decision != "failed" && branch.Decision != "completed" {
-					c.diags.Warning("DCL_SEM_EFFECT_DECISION_UNKNOWN", "effect causation decision is not a known v0.1 form", branch.Span, branch.Decision)
-				}
-			case "policy":
-				if !c.hasGlobal("policy", branch.SourceName) {
+			case "denied":
+				sourceKind = "policy"
+				if _, ok := policies[branch.SourceName]; !ok && !c.hasGlobal("policy", branch.SourceName) {
 					c.diags.Error("DCL_SEM_UNKNOWN_POLICY", "when branch references unknown policy", branch.Span, branch.SourceName)
 				}
-				if branch.Decision != "denies" {
-					c.diags.Warning("DCL_SEM_POLICY_DECISION_UNKNOWN", "policy causation decision is not a known v0.1 form", branch.Span, branch.Decision)
-				}
-			case "intent":
-				if branch.Decision != "selected" {
-					c.diags.Warning("DCL_SEM_INTENT_DECISION_UNKNOWN", "intent causation decision is not a known v0.1 form", branch.Span, branch.Decision)
-				}
 			default:
-				c.diags.Error("DCL_SEM_CAUSATION_SOURCE_UNKNOWN", "unknown causation source kind", branch.Span, branch.SourceKind)
+				c.diags.Error("DCL_SEM_CAUSATION_DECISION_UNKNOWN", "unknown v0.2 causation decision", branch.Span, branch.Decision)
 			}
 		}
 		if _, ok := outcomes[branch.Outcome]; !ok {
 			c.diags.Error("DCL_SEM_UNKNOWN_OUTCOME", "when branch references unknown outcome", branch.Span, branch.Outcome)
 		}
 		caused[branch.Outcome] = true
-		source := branch.SourceKind + ":" + branch.SourceName
+		source := sourceKind + ":" + branch.SourceName
 		condition := branch.Decision
 		if branch.Otherwise {
 			source = "capability:" + cap.Name
@@ -533,9 +514,13 @@ func sortCapabilityIR(out *ir.CapabilityIR) {
 	sort.Slice(out.Outcomes, func(i, j int) bool { return out.Outcomes[i].Name < out.Outcomes[j].Name })
 	sort.Slice(out.Invariants, func(i, j int) bool { return out.Invariants[i].Name < out.Invariants[j].Name })
 	sort.Slice(out.Effects, func(i, j int) bool { return out.Effects[i].Effect < out.Effects[j].Effect })
-	sort.Slice(out.Events, func(i, j int) bool { return out.Events[i].Outcome+out.Events[i].Event < out.Events[j].Outcome+out.Events[j].Event })
+	sort.Slice(out.Events, func(i, j int) bool {
+		return out.Events[i].Outcome+out.Events[i].Event < out.Events[j].Outcome+out.Events[j].Event
+	})
 	sort.Slice(out.Policies, func(i, j int) bool { return out.Policies[i].Policy < out.Policies[j].Policy })
-	sort.Slice(out.Relations, func(i, j int) bool { return out.Relations[i].Kind+out.Relations[i].From+out.Relations[i].To < out.Relations[j].Kind+out.Relations[j].From+out.Relations[j].To })
+	sort.Slice(out.Relations, func(i, j int) bool {
+		return out.Relations[i].Kind+out.Relations[i].From+out.Relations[i].To < out.Relations[j].Kind+out.Relations[j].From+out.Relations[j].To
+	})
 	sort.Strings(out.Analysis.ReachableOutcomes)
 	sort.Slice(out.Analysis.OutcomeCauses, func(i, j int) bool {
 		return out.Analysis.OutcomeCauses[i].Precedence < out.Analysis.OutcomeCauses[j].Precedence
