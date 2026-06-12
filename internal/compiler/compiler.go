@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"capabilitylanguage/internal/ast"
@@ -65,15 +66,28 @@ func MarshalIR(program ir.ProgramIR) ([]byte, error) {
 }
 
 type compiler struct {
-	program      ast.Program
-	diags        *diagnostic.Bag
-	symbols      map[string]map[string]diagnostic.Span
-	observations []ir.ObservationIR
+	program           ast.Program
+	diags             *diagnostic.Bag
+	symbols           map[string]map[string]diagnostic.Span
+	policies          map[string]ast.PolicyDecl
+	policyAttachments map[string][]ir.PolicyAttachmentIR
+	observations      []ir.ObservationIR
 }
 
 func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
-	c := &compiler{program: program, diags: diags, symbols: map[string]map[string]diagnostic.Span{}}
+	c := &compiler{
+		program:           program,
+		diags:             diags,
+		symbols:           map[string]map[string]diagnostic.Span{},
+		policies:          map[string]ast.PolicyDecl{},
+		policyAttachments: map[string][]ir.PolicyAttachmentIR{},
+	}
 	c.indexSymbols()
+	for _, policy := range program.Policies {
+		if _, exists := c.policies[policy.Name]; !exists {
+			c.policies[policy.Name] = policy
+		}
+	}
 	return c
 }
 
@@ -113,7 +127,8 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		} else if !validPolicyFamily(policy.Family) {
 			c.diags.Error("DCL_SEM_POLICY_FAMILY_UNKNOWN", "unknown policy family "+policy.Family, policy.Span, policy.Name)
 		}
-		out.Policies = append(out.Policies, ir.PolicyIR{ID: id("policy", policy.Name), Name: policy.Name, Family: policy.Family, Concern: policy.Concern})
+		c.validatePolicyConcerns(policy)
+		out.Policies = append(out.Policies, c.policyIR(policy))
 		out.Symbols = append(out.Symbols, symbol("policy", policy.Name, policy.Span))
 	}
 	for _, capability := range c.program.Capabilities {
@@ -121,6 +136,7 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		out.Symbols = append(out.Symbols, symbol("capability", capability.Name, capability.Span))
 	}
 	out.Observations = append(out.Observations, c.observations...)
+	c.applyPolicyAttachments(&out)
 
 	sortProgramIR(&out)
 	return out
@@ -190,6 +206,8 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		if policy.TargetKind != "" {
 			c.validatePolicyTarget(cap, policy, localOutcomes, localEffects)
 		}
+		c.validatePolicyAttachmentConcerns(cap, policy, localOutcomes)
+		c.recordPolicyAttachment(cap, policy)
 		capIR.Policies = append(capIR.Policies, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policyTargetName(cap, policy)})
 	}
 
@@ -419,6 +437,234 @@ func (c *compiler) validatePayload(payload ast.Payload) {
 	c.validateFields(payload.Fields)
 }
 
+func (c *compiler) validatePolicyConcerns(policy ast.PolicyDecl) {
+	seen := map[string]diagnostic.Span{}
+	for _, concern := range policy.Concerns {
+		if old, exists := seen[concern.Name]; exists {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_CONFLICT", fmt.Sprintf("conflicting concern %s; first declared at %s:%d:%d", concern.Name, old.File, old.Line, old.Column), concern.Span, concern.Name)
+		}
+		seen[concern.Name] = concern.Span
+		if !knownConcern(concern.Name) {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_UNKNOWN", "unknown policy concern", concern.Span, concern.Name)
+			continue
+		}
+		if policy.Family != "" && validPolicyFamily(policy.Family) && !concernAllowedInFamily(concern.Name, policy.Family) {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_WRONG_FAMILY", "concern used under wrong policy family", concern.Span, concern.Name)
+			continue
+		}
+		c.validateConcernShape(policy, concern)
+	}
+	if concern, ok := findConcern(policy, "backoff"); ok {
+		if _, hasRetry := findConcern(policy, "retry"); !hasRetry {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED", "backoff requires retry", concern.Span, concern.Name)
+		}
+	}
+}
+
+func (c *compiler) validateConcernShape(policy ast.PolicyDecl, concern ast.ConcernDecl) {
+	c.validateConcernParameters(concern)
+	switch concern.Name {
+	case "retry":
+		attempts, ok := parameter(concern, "attempts")
+		if !ok {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED", "retry requires attempts", concern.Span, concern.Name)
+		} else if len(attempts.Values) != 1 || !positiveInteger(attempts.Values[0]) {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", "retry attempts must be a positive integer", attempts.Span, attempts.Name)
+		}
+		if backoff, ok := parameter(concern, "backoff"); ok && (len(backoff.Values) != 1 || backoff.Values[0] == "") {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", "backoff requires a strategy", backoff.Span, backoff.Name)
+		}
+	case "backoff":
+		values := scalarValues(concern)
+		if len(values) != 1 || values[0] == "" {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_MALFORMED", "backoff requires a strategy", concern.Span, concern.Name)
+		}
+	case "timeout", "budget":
+		c.validatePositiveDurationConcern(concern)
+	case "idempotency", "authentication", "authorization", "encryption", "audit", "approval", "evidence", "masking", "minimization", "deletion", "dependency_tolerance":
+		c.validateRequiredAllowedForbidden(concern)
+	case "degradation", "queue":
+		c.validateAllowedForbidden(concern)
+	case "circuit_breaker":
+		if policy.Family != "reliability" {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_WRONG_FAMILY", "circuit_breaker is valid only under reliability", concern.Span, concern.Name)
+		}
+		c.validateCircuitBreaker(concern)
+	case "fallback":
+		values := scalarValues(concern)
+		if len(values) != 1 || values[0] == "" {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_MALFORMED", "fallback requires an outcome name", concern.Span, concern.Name)
+		}
+	case "concurrency":
+		c.validatePositiveIntegerConcern(concern, "concurrency must be positive")
+	case "rate_limit":
+		c.validateRateLimit(concern)
+	case "backpressure":
+		values := scalarValues(concern)
+		if len(values) != 1 || values[0] == "" {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED", "backpressure requires a strategy", concern.Span, concern.Name)
+		}
+	case "latency":
+		values := scalarValues(concern)
+		if len(values) != 3 || values[1] != "under" || !positiveDuration([]string{values[2]}) {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", "latency target must be valid", concern.Span, concern.Name)
+		}
+	case "throughput":
+		values := scalarValues(concern)
+		if len(values) != 4 || values[0] != "above" || !positiveInteger(values[1]) || values[2] != "per" || values[3] == "" {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", "throughput target must be valid", concern.Span, concern.Name)
+		}
+	case "classification":
+		c.validateEnumConcern(concern, map[string]bool{"public": true, "internal": true, "confidential": true, "restricted": true}, "classification value must be valid")
+	case "retention":
+		values := scalarValues(concern)
+		if len(values) != 2 || !positiveInteger(values[0]) || !validPeriodUnit(values[1]) {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", "retention period must be valid", concern.Span, concern.Name)
+		}
+	case "sensitivity":
+		c.validateEnumConcern(concern, map[string]bool{"none": true, "personal": true, "sensitive": true, "special_category": true}, "sensitivity value must be valid")
+	case "compensation":
+		values := scalarValues(concern)
+		if len(values) == 0 {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_MALFORMED", "compensation requires a value", concern.Span, concern.Name)
+		}
+	}
+}
+
+func (c *compiler) validateConcernParameters(concern ast.ConcernDecl) {
+	allowed := map[string]bool{}
+	switch concern.Name {
+	case "retry":
+		allowed["attempts"] = true
+		allowed["backoff"] = true
+	case "circuit_breaker":
+		allowed["opens"] = true
+		allowed["resets"] = true
+	default:
+		allowed["value"] = true
+	}
+	for _, param := range concern.Parameters {
+		if !allowed[param.Name] {
+			c.diags.Error("DCL_SEM_POLICY_CONCERN_UNSUPPORTED", "unsupported concern parameter", param.Span, param.Name)
+		}
+	}
+}
+
+func (c *compiler) validateRateLimit(concern ast.ConcernDecl) {
+	values := scalarValues(concern)
+	if len(values) != 3 || !positiveInteger(values[0]) || values[1] != "per" || values[2] == "" {
+		c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", "rate_limit must be positive and use 'per <unit>'", concern.Span, concern.Name)
+	}
+}
+
+func (c *compiler) validatePositiveIntegerConcern(concern ast.ConcernDecl, message string) {
+	values := scalarValues(concern)
+	if len(values) != 1 || !positiveInteger(values[0]) {
+		c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", message, concern.Span, concern.Name)
+	}
+}
+
+func (c *compiler) validatePositiveDurationConcern(concern ast.ConcernDecl) {
+	values := scalarValues(concern)
+	if !positiveDuration(values) {
+		c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", concern.Name+" must be a positive duration", concern.Span, concern.Name)
+	}
+}
+
+func (c *compiler) validateAllowedForbidden(concern ast.ConcernDecl) {
+	c.validateEnumConcern(concern, map[string]bool{"allowed": true, "forbidden": true}, concern.Name+" must be allowed or forbidden")
+}
+
+func (c *compiler) validateRequiredAllowedForbidden(concern ast.ConcernDecl) {
+	c.validateEnumConcern(concern, map[string]bool{"required": true, "allowed": true, "forbidden": true}, concern.Name+" value must be valid")
+}
+
+func (c *compiler) validateEnumConcern(concern ast.ConcernDecl, allowed map[string]bool, message string) {
+	values := scalarValues(concern)
+	if len(values) != 1 || !allowed[values[0]] {
+		c.diags.Error("DCL_SEM_POLICY_CONCERN_VALUE_INVALID", message, concern.Span, concern.Name)
+	}
+}
+
+func (c *compiler) validateCircuitBreaker(concern ast.ConcernDecl) {
+	opens, hasOpens := parameter(concern, "opens")
+	if !hasOpens || len(opens.Values) != 3 || opens.Values[0] != "after" || !positiveInteger(opens.Values[1]) || opens.Values[2] != "failures" {
+		c.diags.Error("DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED", "circuit_breaker requires opens after <positive integer> failures", concern.Span, concern.Name)
+	}
+	resets, hasResets := parameter(concern, "resets")
+	if !hasResets || len(resets.Values) != 2 || resets.Values[0] != "after" || !positiveDuration(resets.Values[1:]) {
+		c.diags.Error("DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED", "circuit_breaker requires resets after <positive duration>", concern.Span, concern.Name)
+	}
+}
+
+func (c *compiler) validatePolicyAttachmentConcerns(cap ast.CapabilityDecl, use ast.PolicyUse, outcomes map[string]ast.OutcomeDecl) {
+	policy, ok := c.policies[use.Name]
+	if !ok {
+		return
+	}
+	for _, concern := range policy.Concerns {
+		switch concern.Name {
+		case "fallback":
+			values := scalarValues(concern)
+			if len(values) == 1 {
+				if _, ok := outcomes[values[0]]; !ok {
+					c.diags.Error("DCL_SEM_POLICY_FALLBACK_OUTCOME_UNKNOWN", "fallback references an unresolved outcome", concern.Span, values[0])
+				}
+			}
+		case "circuit_breaker":
+			if use.TargetKind != "effect" {
+				c.diags.Error("DCL_SEM_POLICY_CONCERN_ATTACHMENT_INVALID", "circuit_breaker may only govern effects", use.Span, use.Name)
+			}
+		}
+	}
+}
+
+func (c *compiler) recordPolicyAttachment(cap ast.CapabilityDecl, use ast.PolicyUse) {
+	if !c.hasGlobal("policy", use.Name) {
+		return
+	}
+	c.policyAttachments[use.Name] = append(c.policyAttachments[use.Name], ir.PolicyAttachmentIR{
+		Capability: cap.Name,
+		TargetKind: use.TargetKind,
+		TargetName: policyTargetName(cap, use),
+	})
+}
+
+func (c *compiler) policyIR(policy ast.PolicyDecl) ir.PolicyIR {
+	out := ir.PolicyIR{ID: id("policy", policy.Name), Name: policy.Name, Family: policy.Family, Concern: policy.Concern}
+	for _, concern := range policy.Concerns {
+		out.Concerns = append(out.Concerns, concernIR(policy.Family, concern))
+		if objective := objectiveIR(concern); objective.Concern != "" {
+			out.Objectives = append(out.Objectives, objective)
+		}
+		out.DerivedObligations = append(out.DerivedObligations, obligationIR(concern, "", ""))
+	}
+	return out
+}
+
+func (c *compiler) applyPolicyAttachments(out *ir.ProgramIR) {
+	for i := range out.Policies {
+		attachments := append([]ir.PolicyAttachmentIR(nil), c.policyAttachments[out.Policies[i].Name]...)
+		sort.Slice(attachments, func(a, b int) bool {
+			x, y := attachments[a], attachments[b]
+			return x.Capability+x.TargetKind+x.TargetName < y.Capability+y.TargetKind+y.TargetName
+		})
+		out.Policies[i].AttachmentPoints = attachments
+		if len(attachments) == 0 {
+			continue
+		}
+		var obligations []ir.DerivedObligationIR
+		for _, concern := range out.Policies[i].Concerns {
+			for _, attachment := range attachments {
+				obligations = append(obligations, obligationIRFromConcernIR(concern, attachment.TargetKind, attachment.TargetName))
+			}
+		}
+		if len(obligations) > 0 {
+			out.Policies[i].DerivedObligations = obligations
+		}
+	}
+}
+
 func (c *compiler) validateType(name string, span diagnostic.Span) {
 	if name == "" || isBuiltinType(name) || strings.HasPrefix(name, "List<") {
 		return
@@ -537,6 +783,184 @@ func validObservationType(observationType string) bool {
 	default:
 		return false
 	}
+}
+
+func knownConcern(name string) bool {
+	switch name {
+	case "retry", "backoff", "timeout", "idempotency", "compensation", "circuit_breaker",
+		"degradation", "fallback", "dependency_tolerance",
+		"concurrency", "rate_limit", "queue", "backpressure",
+		"latency", "throughput", "budget",
+		"authentication", "authorization", "classification", "encryption",
+		"audit", "retention", "approval", "evidence",
+		"sensitivity", "masking", "minimization", "deletion":
+		return true
+	default:
+		return false
+	}
+}
+
+func concernAllowedInFamily(name, family string) bool {
+	switch family {
+	case "reliability":
+		return in(name, "retry", "backoff", "timeout", "idempotency", "compensation", "circuit_breaker")
+	case "availability":
+		return in(name, "degradation", "fallback", "dependency_tolerance")
+	case "scalability":
+		return in(name, "concurrency", "rate_limit", "queue", "backpressure")
+	case "performance":
+		return in(name, "latency", "throughput", "budget")
+	case "security":
+		return in(name, "authentication", "authorization", "classification", "encryption")
+	case "compliance", "governance":
+		return in(name, "audit", "retention", "approval", "evidence")
+	case "data_protection":
+		return in(name, "sensitivity", "masking", "minimization", "retention", "deletion")
+	default:
+		return false
+	}
+}
+
+func findConcern(policy ast.PolicyDecl, name string) (ast.ConcernDecl, bool) {
+	for _, concern := range policy.Concerns {
+		if concern.Name == name {
+			return concern, true
+		}
+	}
+	return ast.ConcernDecl{}, false
+}
+
+func parameter(concern ast.ConcernDecl, name string) (ast.ConcernParameter, bool) {
+	for _, param := range concern.Parameters {
+		if param.Name == name {
+			return param, true
+		}
+	}
+	return ast.ConcernParameter{}, false
+}
+
+func scalarValues(concern ast.ConcernDecl) []string {
+	if param, ok := parameter(concern, "value"); ok {
+		return param.Values
+	}
+	return nil
+}
+
+func positiveInteger(value string) bool {
+	n, err := strconv.Atoi(value)
+	return err == nil && n > 0
+}
+
+func positiveDuration(values []string) bool {
+	switch len(values) {
+	case 1:
+		number, unit := splitNumberUnit(values[0])
+		return positiveInteger(number) && validDurationUnit(unit)
+	case 2:
+		return positiveInteger(values[0]) && validDurationUnit(values[1])
+	default:
+		return false
+	}
+}
+
+func splitNumberUnit(value string) (string, string) {
+	for i, r := range value {
+		if r < '0' || r > '9' {
+			return value[:i], value[i:]
+		}
+	}
+	return value, ""
+}
+
+func validDurationUnit(unit string) bool {
+	switch unit {
+	case "ms", "millisecond", "milliseconds", "s", "second", "seconds", "m", "minute", "minutes", "h", "hour", "hours":
+		return true
+	default:
+		return false
+	}
+}
+
+func validPeriodUnit(unit string) bool {
+	switch unit {
+	case "day", "days", "month", "months", "year", "years":
+		return true
+	default:
+		return false
+	}
+}
+
+func concernIR(family string, concern ast.ConcernDecl) ir.ConcernIR {
+	out := ir.ConcernIR{Name: concern.Name, Family: family, SourceLocation: concern.Span}
+	for _, param := range concern.Parameters {
+		out.Parameters = append(out.Parameters, ir.ConcernParameterIR{Name: param.Name, Values: append([]string(nil), param.Values...)})
+	}
+	return out
+}
+
+func objectiveIR(concern ast.ConcernDecl) ir.ObjectiveIR {
+	switch concern.Name {
+	case "latency", "throughput", "budget", "retention":
+		return ir.ObjectiveIR{Concern: concern.Name, Values: scalarOrParameterValues(concern)}
+	default:
+		return ir.ObjectiveIR{}
+	}
+}
+
+func obligationIR(concern ast.ConcernDecl, targetKind, targetName string) ir.DerivedObligationIR {
+	return ir.DerivedObligationIR{
+		Concern:    concern.Name,
+		Obligation: obligationName(concern.Name),
+		TargetKind: targetKind,
+		TargetName: targetName,
+	}
+}
+
+func obligationIRFromConcernIR(concern ir.ConcernIR, targetKind, targetName string) ir.DerivedObligationIR {
+	return ir.DerivedObligationIR{
+		Concern:    concern.Name,
+		Obligation: obligationName(concern.Name),
+		TargetKind: targetKind,
+		TargetName: targetName,
+	}
+}
+
+func obligationName(concern string) string {
+	switch concern {
+	case "retry", "backoff", "timeout", "idempotency", "compensation":
+		return "verify reliability behavior"
+	case "circuit_breaker":
+		return "protect dependency effect"
+	case "latency", "throughput", "budget":
+		return "verify performance objective"
+	case "audit", "evidence":
+		return "preserve governance evidence"
+	case "retention", "deletion", "masking", "minimization":
+		return "verify data protection obligation"
+	default:
+		return "verify policy concern"
+	}
+}
+
+func scalarOrParameterValues(concern ast.ConcernDecl) []string {
+	if values := scalarValues(concern); len(values) > 0 {
+		return append([]string(nil), values...)
+	}
+	var out []string
+	for _, param := range concern.Parameters {
+		out = append(out, param.Name)
+		out = append(out, param.Values...)
+	}
+	return out
+}
+
+func in(value string, choices ...string) bool {
+	for _, choice := range choices {
+		if value == choice {
+			return true
+		}
+	}
+	return false
 }
 
 func derivedMetricName(capability string, observation ast.ObservationDecl, targetReference string) string {

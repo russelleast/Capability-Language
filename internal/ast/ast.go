@@ -49,10 +49,23 @@ type EffectDecl struct {
 }
 
 type PolicyDecl struct {
-	Name    string
-	Family  string
-	Concern string
-	Span    diagnostic.Span
+	Name     string
+	Family   string
+	Concern  string
+	Concerns []ConcernDecl
+	Span     diagnostic.Span
+}
+
+type ConcernDecl struct {
+	Name       string
+	Parameters []ConcernParameter
+	Span       diagnostic.Span
+}
+
+type ConcernParameter struct {
+	Name   string
+	Values []string
+	Span   diagnostic.Span
 }
 
 type CapabilityDecl struct {

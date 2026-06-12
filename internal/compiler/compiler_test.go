@@ -165,6 +165,24 @@ func TestLexerCoversV02Tokens(t *testing.T) {
 	}
 }
 
+func TestLexerCoversV04ConcernValues(t *testing.T) {
+	tokens, diags := lexer.Lex("test.dcl", "timeout 30s\nlatency p95 under 500ms\nretention 7 years")
+	if len(diags) != 0 {
+		t.Fatalf("unexpected diagnostics: %#v", diags)
+	}
+	want := map[string]bool{"30s": false, "500ms": false, "7": false}
+	for _, token := range tokens {
+		if _, ok := want[token.Text]; ok {
+			want[token.Text] = true
+		}
+	}
+	for text, seen := range want {
+		if !seen {
+			t.Fatalf("expected token %q in %#v", text, tokens)
+		}
+	}
+}
+
 func TestDocumentedV02ExamplesCompile(t *testing.T) {
 	for name, src := range map[string]string{
 		"hello":        helloWorld,
@@ -486,6 +504,273 @@ capability RegisterCustomer {
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_OBSERVE_METRIC_DUPLICATE")
 }
 
+func TestV04PolicyConcernExamplesCompileToIR(t *testing.T) {
+	src := `
+policy RegisterCustomerReliability {
+  family reliability
+  retry {
+    attempts 3
+    backoff exponential
+  }
+  timeout 30s
+  idempotency required
+}
+
+policy RegisterCustomerAvailability {
+  family availability
+  degradation allowed
+  fallback RegistrationDeferred
+  dependency_tolerance required
+}
+
+policy RegisterCustomerScalability {
+  family scalability
+  concurrency 100
+  rate_limit 1000 per minute
+  queue allowed
+  backpressure defer
+}
+
+policy RegisterCustomerPerformance {
+  family performance
+  latency p95 under 500ms
+  throughput above 100 per second
+  budget 1s
+}
+
+policy CustomerSecurity {
+  family security
+  authentication required
+  authorization required
+  classification confidential
+  encryption required
+}
+
+policy CustomerGovernance {
+  family compliance
+  audit required
+  retention 7 years
+  approval required
+  evidence required
+}
+
+policy CustomerDataProtection {
+  family data_protection
+  sensitivity personal
+  masking required
+  minimization required
+  retention 2 years
+  deletion required
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	if len(result.IR.Policies) != 7 {
+		t.Fatalf("expected seven policies, got %#v", result.IR.Policies)
+	}
+	wantConcerns := map[string]int{
+		"RegisterCustomerReliability":  3,
+		"RegisterCustomerAvailability": 3,
+		"RegisterCustomerScalability":  4,
+		"RegisterCustomerPerformance":  3,
+		"CustomerSecurity":             4,
+		"CustomerGovernance":           4,
+		"CustomerDataProtection":       5,
+	}
+	for _, policy := range result.IR.Policies {
+		if len(policy.Concerns) != wantConcerns[policy.Name] {
+			t.Fatalf("unexpected concerns for %s: %#v", policy.Name, policy.Concerns)
+		}
+		for _, concern := range policy.Concerns {
+			if concern.Family != policy.Family {
+				t.Fatalf("concern should carry policy family: %#v in %#v", concern, policy)
+			}
+			if concern.SourceLocation.Line == 0 {
+				t.Fatalf("concern should carry source location: %#v", concern)
+			}
+		}
+	}
+}
+
+func TestV04InlineBlockConcernParses(t *testing.T) {
+	src := `
+policy InlineRetry {
+  family reliability
+  retry { attempts 3 backoff exponential }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	concern := result.IR.Policies[0].Concerns[0]
+	if len(concern.Parameters) != 2 {
+		t.Fatalf("expected inline block parameters to split, got %#v", concern)
+	}
+}
+
+func TestV04PolicyConcernSemanticFailures(t *testing.T) {
+	src := `
+policy UnknownConcern {
+  family reliability
+  hedging allowed
+}
+
+policy WrongFamily {
+  family security
+  timeout 30s
+}
+
+policy InvalidValues {
+  family scalability
+  concurrency 0
+  rate_limit 0 per minute
+}
+
+policy Conflicting {
+  family availability
+  queue allowed
+  queue forbidden
+}
+
+policy UnsupportedParam {
+  family reliability
+  retry {
+    attempts 3
+    window 1m
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_WRONG_FAMILY")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_VALUE_INVALID")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_CONFLICT")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_UNSUPPORTED")
+}
+
+func TestV04BackoffRequiresRetry(t *testing.T) {
+	src := `
+policy BadRetry {
+  family reliability
+  backoff exponential
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED")
+	assertDiagnosticMessage(t, result.Diagnostics, "backoff requires retry")
+}
+
+func TestV04CircuitBreakerProtectsOnlyEffects(t *testing.T) {
+	src := `
+actor Customer is human
+effect CallPaymentGateway is request
+shape Input { email: Email required }
+
+policy PaymentDependencyProtection {
+  family reliability
+  circuit_breaker {
+    opens after 5 failures
+    resets after 30s
+  }
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effect CallPaymentGateway
+  policies {
+    PaymentDependencyProtection governs effect CallPaymentGateway
+  }
+  when {
+    CallPaymentGateway unresolved then Deferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	policy := result.IR.Policies[0]
+	if len(policy.Concerns) != 1 || policy.Concerns[0].Name != "circuit_breaker" {
+		t.Fatalf("expected circuit_breaker concern in IR: %#v", policy)
+	}
+	if len(policy.AttachmentPoints) != 1 || policy.AttachmentPoints[0].TargetKind != "effect" {
+		t.Fatalf("expected effect attachment in policy IR: %#v", policy.AttachmentPoints)
+	}
+}
+
+func TestV04CircuitBreakerAttachmentAndParameterFailures(t *testing.T) {
+	src := `
+actor Customer is human
+effect CallPaymentGateway is request
+shape Input {}
+
+policy BadCircuitTarget {
+  family reliability
+  circuit_breaker {
+    opens after 5 failures
+    resets after 30s
+  }
+}
+
+policy BadCircuitParams {
+  family reliability
+  circuit_breaker {
+    opens after 0 failures
+  }
+}
+
+policy WrongCircuitFamily {
+  family availability
+  circuit_breaker {
+    opens after 5 failures
+    resets after 30s
+  }
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effect CallPaymentGateway
+  policies {
+    BadCircuitTarget governs capability
+    BadCircuitParams governs effect CallPaymentGateway
+  }
+  when {
+    CallPaymentGateway unresolved then Deferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_ATTACHMENT_INVALID")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_WRONG_FAMILY")
+}
+
+func TestV04FallbackOutcomeResolution(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input {}
+
+policy Availability {
+  family availability
+  degradation allowed
+  fallback MissingOutcome
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcome Accepted
+  policies {
+    Availability governs capability
+  }
+  when {
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_FALLBACK_OUTCOME_UNKNOWN")
+}
+
 func TestTopLevelObserveIsRejected(t *testing.T) {
 	src := `
 observe {
@@ -534,6 +819,16 @@ func assertDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) 
 		}
 	}
 	t.Fatalf("expected diagnostic %s in %#v", code, diags)
+}
+
+func assertDiagnosticMessage(t *testing.T, diags []diagnostic.Diagnostic, message string) {
+	t.Helper()
+	for _, diag := range diags {
+		if diag.Message == message {
+			return
+		}
+	}
+	t.Fatalf("expected diagnostic message %q in %#v", message, diags)
 }
 
 func writeTempDCL(t *testing.T, src string) string {

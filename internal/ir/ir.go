@@ -123,13 +123,47 @@ type EmitIR struct {
 }
 
 type PolicyIR struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Family   string `json:"family"`
-	Concern  string `json:"concern,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Category string `json:"category,omitempty"`
-	Target   string `json:"target,omitempty"`
+	ID                 string                `json:"id"`
+	Name               string                `json:"name"`
+	Family             string                `json:"family"`
+	Concern            string                `json:"concern,omitempty"`
+	Concerns           []ConcernIR           `json:"concerns,omitempty"`
+	Objectives         []ObjectiveIR         `json:"objectives,omitempty"`
+	AttachmentPoints   []PolicyAttachmentIR  `json:"attachment_points,omitempty"`
+	DerivedObligations []DerivedObligationIR `json:"derived_obligations,omitempty"`
+	Type               string                `json:"type,omitempty"`
+	Category           string                `json:"category,omitempty"`
+	Target             string                `json:"target,omitempty"`
+}
+
+type ConcernIR struct {
+	Name           string               `json:"name"`
+	Family         string               `json:"family"`
+	Parameters     []ConcernParameterIR `json:"parameters,omitempty"`
+	SourceLocation diagnostic.Span      `json:"source_location,omitempty"`
+}
+
+type ConcernParameterIR struct {
+	Name   string   `json:"name"`
+	Values []string `json:"values,omitempty"`
+}
+
+type ObjectiveIR struct {
+	Concern string   `json:"concern"`
+	Values  []string `json:"values,omitempty"`
+}
+
+type PolicyAttachmentIR struct {
+	Capability string `json:"capability"`
+	TargetKind string `json:"target_kind"`
+	TargetName string `json:"target_name,omitempty"`
+}
+
+type DerivedObligationIR struct {
+	Concern    string `json:"concern"`
+	Obligation string `json:"obligation"`
+	TargetKind string `json:"target_kind,omitempty"`
+	TargetName string `json:"target_name,omitempty"`
 }
 
 type PolicyUseIR struct {

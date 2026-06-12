@@ -89,12 +89,53 @@ func (p *Parser) parsePolicy() ast.PolicyDecl {
 			p.advance()
 			policy.Family = p.expectIdent("policy family").Text
 		default:
-			tok := p.advance()
-			p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected policy family", tok.Span, tok.Text)
+			policy.Concerns = append(policy.Concerns, p.parseConcern())
 		}
 	}
 	p.expect(lexer.RBrace, "}")
 	return policy
+}
+
+func (p *Parser) parseConcern() ast.ConcernDecl {
+	name := p.expectIdent("policy concern")
+	concern := ast.ConcernDecl{Name: name.Text, Span: name.Span}
+	if p.match(lexer.LBrace) {
+		for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+			p.skipNewlines()
+			if p.at(lexer.RBrace) {
+				break
+			}
+			paramName := p.expectIdent("concern parameter")
+			values := p.collectConcernParameterValues()
+			concern.Parameters = append(concern.Parameters, ast.ConcernParameter{Name: paramName.Text, Values: values, Span: paramName.Span})
+		}
+		p.expect(lexer.RBrace, "}")
+		return concern
+	}
+	values := p.collectConcernValues()
+	if len(values) > 0 {
+		concern.Parameters = append(concern.Parameters, ast.ConcernParameter{Name: "value", Values: values, Span: name.Span})
+	}
+	return concern
+}
+
+func (p *Parser) collectConcernParameterValues() []string {
+	var values []string
+	for !p.at(lexer.EOF) && !p.at(lexer.Newline) && !p.at(lexer.RBrace) {
+		if len(values) > 0 && isConcernParameterName(p.peek().Text) {
+			break
+		}
+		values = append(values, p.advance().Text)
+	}
+	return values
+}
+
+func (p *Parser) collectConcernValues() []string {
+	var values []string
+	for !p.at(lexer.EOF) && !p.at(lexer.Newline) && !p.at(lexer.RBrace) {
+		values = append(values, p.advance().Text)
+	}
+	return values
 }
 
 func (p *Parser) parseEvent() ast.EventDecl {
@@ -605,6 +646,15 @@ func isObservationTypeToken(text string) bool {
 func isPolicyTargetKindToken(text string) bool {
 	switch text {
 	case "capability", "effect", "outcome", "event", "lifecycle", "intent", "rule", "transition", "policy":
+		return true
+	default:
+		return false
+	}
+}
+
+func isConcernParameterName(text string) bool {
+	switch text {
+	case "attempts", "backoff", "opens", "resets":
 		return true
 	default:
 		return false
