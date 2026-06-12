@@ -487,11 +487,17 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 			branches = append(branches, ast.WhenBranch{Otherwise: true, Outcome: outcome, Span: start.Span})
 			continue
 		}
-		sourceName := p.expectIdent("causation source").Text
+		source := p.expectIdent("causation source")
+		sourceKind := ""
+		sourceName := source.Text
+		if source.Text == "policy" {
+			sourceKind = "policy"
+			sourceName = p.expectIdent("policy causation source").Text
+		}
 		decision := p.expectIdent("causation decision").Text
 		p.expectText("then")
 		outcome := p.expectIdent("outcome").Text
-		branches = append(branches, ast.WhenBranch{SourceName: sourceName, Decision: decision, Outcome: outcome, Span: start.Span})
+		branches = append(branches, ast.WhenBranch{SourceKind: sourceKind, SourceName: sourceName, Decision: decision, Outcome: outcome, Span: start.Span})
 	}
 	p.expect(lexer.RBrace, "}")
 	return branches

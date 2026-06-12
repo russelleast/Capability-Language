@@ -3,17 +3,18 @@ package ir
 import "capabilitylanguage/internal/diagnostic"
 
 type ProgramIR struct {
-	Modules      []ModuleIR                  `json:"modules"`
-	Symbols      []SymbolIR                  `json:"symbols"`
-	Capabilities []CapabilityIR              `json:"capabilities"`
-	Actors       []ActorIR                   `json:"actors"`
-	Effects      []EffectIR                  `json:"effects"`
-	Events       []EventIR                   `json:"events"`
-	Policies     []PolicyIR                  `json:"policies"`
-	Observations []ObservationIR             `json:"observations,omitempty"`
-	Shapes       []ShapeIR                   `json:"shapes"`
-	Diagnostics  []diagnostic.Diagnostic     `json:"diagnostics"`
-	Analysis     map[string]PortabilityFacts `json:"analysis,omitempty"`
+	Modules           []ModuleIR                  `json:"modules"`
+	Symbols           []SymbolIR                  `json:"symbols"`
+	Capabilities      []CapabilityIR              `json:"capabilities"`
+	Actors            []ActorIR                   `json:"actors"`
+	Effects           []EffectIR                  `json:"effects"`
+	Events            []EventIR                   `json:"events"`
+	Policies          []PolicyIR                  `json:"policies"`
+	EffectivePolicies []EffectivePolicyIR         `json:"effective_policies,omitempty"`
+	Observations      []ObservationIR             `json:"observations,omitempty"`
+	Shapes            []ShapeIR                   `json:"shapes"`
+	Diagnostics       []diagnostic.Diagnostic     `json:"diagnostics"`
+	Analysis          map[string]PortabilityFacts `json:"analysis,omitempty"`
 }
 
 type ModuleIR struct {
@@ -134,6 +135,74 @@ type PolicyIR struct {
 	Type               string                `json:"type,omitempty"`
 	Category           string                `json:"category,omitempty"`
 	Target             string                `json:"target,omitempty"`
+}
+
+type EffectivePolicyIR struct {
+	ID                   string                      `json:"id"`
+	TargetKind           string                      `json:"target_kind"`
+	TargetSymbol         string                      `json:"target_symbol"`
+	ContainingCapability string                      `json:"containing_capability"`
+	AppliedPolicies      []string                    `json:"applied_policies,omitempty"`
+	EffectiveConcerns    []EffectiveConcernIR        `json:"effective_concerns,omitempty"`
+	CompositionResults   []PolicyCompositionResultIR `json:"composition_results,omitempty"`
+	Conflicts            []PolicyConflictIR          `json:"conflicts,omitempty"`
+	Obligations          []PolicyObligationIR        `json:"obligations,omitempty"`
+	Causations           []PolicyCausationIR         `json:"causations,omitempty"`
+	Portability          string                      `json:"portability"`
+	SourceLocations      []diagnostic.Span           `json:"source_locations,omitempty"`
+}
+
+type EffectiveConcernIR struct {
+	Name                string               `json:"name"`
+	Family              string               `json:"family"`
+	TargetKind          string               `json:"target_kind"`
+	TargetSymbol        string               `json:"target_symbol"`
+	SourcePolicies      []string             `json:"source_policies,omitempty"`
+	EffectiveParameters []ConcernParameterIR `json:"effective_parameters,omitempty"`
+	CompositionMode     string               `json:"composition_mode"`
+	InheritedFrom       string               `json:"inherited_from,omitempty"`
+	NarrowedFrom        string               `json:"narrowed_from,omitempty"`
+	Overrides           []string             `json:"overrides,omitempty"`
+	Diagnostics         []string             `json:"diagnostics,omitempty"`
+}
+
+type PolicyCompositionResultIR struct {
+	Concern        string   `json:"concern"`
+	TargetKind     string   `json:"target_kind"`
+	TargetSymbol   string   `json:"target_symbol"`
+	Mode           string   `json:"mode"`
+	SourcePolicies []string `json:"source_policies,omitempty"`
+	Result         string   `json:"result"`
+	Diagnostics    []string `json:"diagnostics,omitempty"`
+}
+
+type PolicyConflictIR struct {
+	Concern      string   `json:"concern"`
+	TargetKind   string   `json:"target_kind"`
+	TargetSymbol string   `json:"target_symbol"`
+	Policies     []string `json:"policies,omitempty"`
+	Reason       string   `json:"reason"`
+}
+
+type PolicyObligationIR struct {
+	SourcePolicy             string   `json:"source_policy"`
+	SourceConcern            string   `json:"source_concern"`
+	TargetKind               string   `json:"target_kind"`
+	TargetSymbol             string   `json:"target_symbol"`
+	CompilerObligations      []string `json:"compiler_obligations,omitempty"`
+	RuntimeObligations       []string `json:"runtime_obligations,omitempty"`
+	ObservabilityObligations []string `json:"observability_obligations,omitempty"`
+	VerificationObligations  []string `json:"verification_obligations,omitempty"`
+}
+
+type PolicyCausationIR struct {
+	Policy         string          `json:"policy"`
+	Concern        string          `json:"concern,omitempty"`
+	State          string          `json:"state"`
+	Outcome        string          `json:"outcome"`
+	TargetKind     string          `json:"target_kind,omitempty"`
+	TargetSymbol   string          `json:"target_symbol,omitempty"`
+	SourceLocation diagnostic.Span `json:"source_location,omitempty"`
 }
 
 type ConcernIR struct {

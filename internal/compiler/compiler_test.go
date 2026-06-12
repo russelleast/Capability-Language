@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"capabilitylanguage/internal/diagnostic"
+	"capabilitylanguage/internal/ir"
 	"capabilitylanguage/internal/lexer"
 )
 
@@ -771,6 +772,200 @@ capability RegisterCustomer {
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_FALLBACK_OUTCOME_UNKNOWN")
 }
 
+func TestV05EffectivePolicyEnvelopeNarrowsAndDerivesObligations(t *testing.T) {
+	src := `
+actor Customer is human
+effect CallPaymentGateway is request
+shape Input { email: Email required }
+
+policy CapabilityReliability {
+  family reliability
+  timeout 30s
+  idempotency allowed
+}
+
+policy PaymentReliability {
+  family reliability
+  timeout 5s
+  retry { attempts 3 }
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted PaymentDeferred }
+  effect CallPaymentGateway
+  policies {
+    CapabilityReliability governs capability
+    PaymentReliability governs effect CallPaymentGateway
+  }
+  when {
+    policy PaymentReliability exhausted then PaymentDeferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	effect := findEffectivePolicy(t, result.IR.EffectivePolicies, "effect", "CallPaymentGateway")
+	timeout := findEffectiveConcern(t, effect.EffectiveConcerns, "timeout")
+	if timeout.CompositionMode != "narrow" || scalarParameterValue(timeout.EffectiveParameters) != "5s" {
+		t.Fatalf("expected narrowed effect timeout, got %#v", timeout)
+	}
+	retry := findEffectiveConcern(t, effect.EffectiveConcerns, "retry")
+	if retry.CompositionMode != "target-local" {
+		t.Fatalf("expected target-local retry, got %#v", retry)
+	}
+	if len(effect.Obligations) == 0 {
+		t.Fatalf("expected derived policy obligations in effect envelope")
+	}
+	if len(effect.Causations) != 1 || effect.Causations[0].State != "exhausted" || effect.Causations[0].Outcome != "PaymentDeferred" {
+		t.Fatalf("expected retry exhaustion policy causation, got %#v", effect.Causations)
+	}
+	if len(timeout.Overrides) != 0 {
+		t.Fatalf("v0.5 must not populate override semantics: %#v", timeout.Overrides)
+	}
+}
+
+func TestV05PolicyNarrowingViolation(t *testing.T) {
+	src := `
+actor Customer is human
+effect CallPaymentGateway is request
+shape Input {}
+
+policy CapabilityReliability {
+  family reliability
+  timeout 30s
+}
+
+policy SlowPaymentReliability {
+  family reliability
+  timeout 60s
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effect CallPaymentGateway
+  policies {
+    CapabilityReliability governs capability
+    SlowPaymentReliability governs effect CallPaymentGateway
+  }
+  when {
+    CallPaymentGateway unresolved then Deferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_NARROWING_VIOLATION")
+}
+
+func TestV05PolicyWeakenedGuarantee(t *testing.T) {
+	src := `
+actor Customer is human
+effect SendVerification is notify
+shape Input {}
+
+policy RequiredIdempotency {
+  family reliability
+  idempotency required
+}
+
+policy WeakenedIdempotency {
+  family reliability
+  idempotency allowed
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effect SendVerification
+  policies {
+    RequiredIdempotency governs capability
+    WeakenedIdempotency governs effect SendVerification
+  }
+  when {
+    SendVerification unresolved then Deferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_WEAKENED_GUARANTEE")
+}
+
+func TestV05RetryRequiresIdempotency(t *testing.T) {
+	src := `
+actor Customer is human
+effect SendVerification is notify
+shape Input {}
+
+policy RetryEmail {
+  family reliability
+  retry { attempts 3 }
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effect SendVerification
+  policies {
+    RetryEmail governs effect SendVerification
+  }
+  when {
+    policy RetryEmail exhausted then Deferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_RETRY_REQUIRES_IDEMPOTENCY")
+}
+
+func TestV05PolicyCausationRequiresMatchingConcern(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input {}
+
+policy CustomerSecurity {
+  family security
+  authorization required
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  policies {
+    CustomerSecurity governs capability
+  }
+  when {
+    policy CustomerSecurity exhausted then Deferred
+    otherwise then Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CAUSATION_CONCERN_MISSING")
+}
+
+func TestV05ConcernStrengthOrdering(t *testing.T) {
+	required := []ir.ConcernParameterIR{{Name: "value", Values: []string{"required"}}}
+	allowed := []ir.ConcernParameterIR{{Name: "value", Values: []string{"allowed"}}}
+	if got := compareConcernStrength("idempotency", allowed, required); got != strengthStronger {
+		t.Fatalf("required should strengthen allowed, got %s", got)
+	}
+	if got := compareConcernStrength("idempotency", required, allowed); got != strengthWeaker {
+		t.Fatalf("allowed should weaken required, got %s", got)
+	}
+	public := []ir.ConcernParameterIR{{Name: "value", Values: []string{"public"}}}
+	restricted := []ir.ConcernParameterIR{{Name: "value", Values: []string{"restricted"}}}
+	if got := compareConcernStrength("classification", public, restricted); got != strengthStronger {
+		t.Fatalf("restricted should strengthen public, got %s", got)
+	}
+	parentRate := []ir.ConcernParameterIR{{Name: "value", Values: []string{"1000", "per", "minute"}}}
+	childRate := []ir.ConcernParameterIR{{Name: "value", Values: []string{"10", "per", "second"}}}
+	if got := compareConcernStrength("rate_limit", parentRate, childRate); got != strengthIncomparable {
+		t.Fatalf("different rate units should be incomparable, got %s", got)
+	}
+}
+
 func TestTopLevelObserveIsRejected(t *testing.T) {
 	src := `
 observe {
@@ -829,6 +1024,28 @@ func assertDiagnosticMessage(t *testing.T, diags []diagnostic.Diagnostic, messag
 		}
 	}
 	t.Fatalf("expected diagnostic message %q in %#v", message, diags)
+}
+
+func findEffectivePolicy(t *testing.T, policies []ir.EffectivePolicyIR, targetKind, targetSymbol string) ir.EffectivePolicyIR {
+	t.Helper()
+	for _, policy := range policies {
+		if policy.TargetKind == targetKind && policy.TargetSymbol == targetSymbol {
+			return policy
+		}
+	}
+	t.Fatalf("expected effective policy for %s %s in %#v", targetKind, targetSymbol, policies)
+	return ir.EffectivePolicyIR{}
+}
+
+func findEffectiveConcern(t *testing.T, concerns []ir.EffectiveConcernIR, name string) ir.EffectiveConcernIR {
+	t.Helper()
+	for _, concern := range concerns {
+		if concern.Name == name {
+			return concern
+		}
+	}
+	t.Fatalf("expected effective concern %s in %#v", name, concerns)
+	return ir.EffectiveConcernIR{}
 }
 
 func writeTempDCL(t *testing.T, src string) string {

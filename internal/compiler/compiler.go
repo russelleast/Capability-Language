@@ -137,6 +137,7 @@ func (c *compiler) buildIR() ir.ProgramIR {
 	}
 	out.Observations = append(out.Observations, c.observations...)
 	c.applyPolicyAttachments(&out)
+	c.deriveEffectivePolicies(&out)
 
 	sortProgramIR(&out)
 	return out
@@ -237,28 +238,39 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 			}
 			otherwiseSeen = true
 		} else {
-			switch branch.Decision {
-			case "violated":
-				sourceKind = "rule"
-				if _, ok := rules[branch.SourceName]; !ok {
-					c.diags.Error("DCL_SEM_UNKNOWN_RULE", "when branch references unknown rule", branch.Span, branch.SourceName)
-				}
-			case "unresolved":
-				sourceKind = "effect"
-				if _, ok := effects[branch.SourceName]; !ok {
-					c.diags.Error("DCL_SEM_UNKNOWN_EFFECT_USE", "when branch references effect not used by capability", branch.Span, branch.SourceName)
-				}
-			case "denied":
+			if branch.SourceKind == "policy" {
 				sourceKind = "policy"
-				if _, ok := policies[branch.SourceName]; !ok && !c.hasGlobal("policy", branch.SourceName) {
-					c.diags.Error("DCL_SEM_UNKNOWN_POLICY", "when branch references unknown policy", branch.Span, branch.SourceName)
+				if !c.hasGlobal("policy", branch.SourceName) {
+					c.diags.Error("DCL_SEM_POLICY_CAUSATION_POLICY_UNKNOWN", "when branch references unknown policy", branch.Span, branch.SourceName)
 				}
-			default:
-				c.diags.Error("DCL_SEM_CAUSATION_DECISION_UNKNOWN", "unknown v0.2 causation decision", branch.Span, branch.Decision)
+			} else {
+				switch branch.Decision {
+				case "violated":
+					sourceKind = "rule"
+					if _, ok := rules[branch.SourceName]; !ok {
+						c.diags.Error("DCL_SEM_UNKNOWN_RULE", "when branch references unknown rule", branch.Span, branch.SourceName)
+					}
+				case "unresolved":
+					sourceKind = "effect"
+					if _, ok := effects[branch.SourceName]; !ok {
+						c.diags.Error("DCL_SEM_UNKNOWN_EFFECT_USE", "when branch references effect not used by capability", branch.Span, branch.SourceName)
+					}
+				case "denied", "denies":
+					sourceKind = "policy"
+					if _, ok := policies[branch.SourceName]; !ok && !c.hasGlobal("policy", branch.SourceName) {
+						c.diags.Error("DCL_SEM_UNKNOWN_POLICY", "when branch references unknown policy", branch.Span, branch.SourceName)
+					}
+				default:
+					c.diags.Error("DCL_SEM_CAUSATION_DECISION_UNKNOWN", "unknown v0.2 causation decision", branch.Span, branch.Decision)
+				}
 			}
 		}
 		if _, ok := outcomes[branch.Outcome]; !ok {
-			c.diags.Error("DCL_SEM_UNKNOWN_OUTCOME", "when branch references unknown outcome", branch.Span, branch.Outcome)
+			if sourceKind == "policy" {
+				c.diags.Error("DCL_SEM_POLICY_CAUSATION_OUTCOME_UNKNOWN", "policy causation references unknown outcome", branch.Span, branch.Outcome)
+			} else {
+				c.diags.Error("DCL_SEM_UNKNOWN_OUTCOME", "when branch references unknown outcome", branch.Span, branch.Outcome)
+			}
 		}
 		caused[branch.Outcome] = true
 		source := sourceKind + ":" + branch.SourceName
@@ -1044,6 +1056,7 @@ func sortProgramIR(out *ir.ProgramIR) {
 	sort.Slice(out.Effects, func(i, j int) bool { return out.Effects[i].Name < out.Effects[j].Name })
 	sort.Slice(out.Events, func(i, j int) bool { return out.Events[i].Name < out.Events[j].Name })
 	sort.Slice(out.Policies, func(i, j int) bool { return out.Policies[i].Name < out.Policies[j].Name })
+	sortEffectivePolicyIR(out.EffectivePolicies)
 	sort.Slice(out.Observations, func(i, j int) bool {
 		a, b := out.Observations[i], out.Observations[j]
 		return a.TargetKind+a.TargetReference+a.ObservationType+a.MetricName < b.TargetKind+b.TargetReference+b.ObservationType+b.MetricName
