@@ -10,6 +10,7 @@ type ProgramIR struct {
 	Effects      []EffectIR                  `json:"effects"`
 	Events       []EventIR                   `json:"events"`
 	Policies     []PolicyIR                  `json:"policies"`
+	Observations []ObservationIR             `json:"observations,omitempty"`
 	Shapes       []ShapeIR                   `json:"shapes"`
 	Diagnostics  []diagnostic.Diagnostic     `json:"diagnostics"`
 	Analysis     map[string]PortabilityFacts `json:"analysis,omitempty"`
@@ -61,12 +62,12 @@ type CapabilityIR struct {
 }
 
 type IntentIR struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Capability  string `json:"capability"`
-	InputShape  string `json:"input_shape"`
-	Actor       string `json:"actor"`
-	Source      string `json:"source"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Capability string `json:"capability"`
+	InputShape string `json:"input_shape"`
+	Actor      string `json:"actor"`
+	Source     string `json:"source"`
 }
 
 type ActorRoleIR struct {
@@ -84,7 +85,7 @@ type OutcomeIR struct {
 	Name           string    `json:"name"`
 	Capability     string    `json:"capability"`
 	Classification string    `json:"classification,omitempty"`
-	Payload         PayloadIR `json:"payload,omitempty"`
+	Payload        PayloadIR `json:"payload,omitempty"`
 }
 
 type InvariantIR struct {
@@ -102,9 +103,9 @@ type EffectIR struct {
 }
 
 type EffectUseIR struct {
-	Effect  string `json:"effect"`
-	After   string `json:"after,omitempty"`
-	Origin  string `json:"origin"`
+	Effect   string `json:"effect"`
+	After    string `json:"after,omitempty"`
+	Origin   string `json:"origin"`
 	Ordering string `json:"ordering,omitempty"`
 }
 
@@ -124,8 +125,10 @@ type EmitIR struct {
 type PolicyIR struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Category string `json:"category"`
+	Family   string `json:"family"`
+	Concern  string `json:"concern,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Category string `json:"category,omitempty"`
 	Target   string `json:"target,omitempty"`
 }
 
@@ -133,6 +136,13 @@ type PolicyUseIR struct {
 	Policy     string `json:"policy"`
 	TargetKind string `json:"target_kind,omitempty"`
 	TargetName string `json:"target_name,omitempty"`
+}
+
+type ObservationIR struct {
+	TargetKind      string `json:"target_kind"`
+	TargetReference string `json:"target_reference"`
+	ObservationType string `json:"observation_type"`
+	MetricName      string `json:"metric_name"`
 }
 
 type LifecycleIR struct {

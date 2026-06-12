@@ -49,9 +49,10 @@ type EffectDecl struct {
 }
 
 type PolicyDecl struct {
-	Name string
-	Kind string
-	Span diagnostic.Span
+	Name    string
+	Family  string
+	Concern string
+	Span    diagnostic.Span
 }
 
 type CapabilityDecl struct {
@@ -62,6 +63,7 @@ type CapabilityDecl struct {
 	Rules     []RuleDecl
 	Effects   []EffectUse
 	Policies  []PolicyUse
+	Observe   []ObservationDecl
 	When      []WhenBranch
 	Lifecycle *LifecycleDecl
 	Span      diagnostic.Span
@@ -103,6 +105,14 @@ type PolicyUse struct {
 	TargetKind string
 	TargetName string
 	Span       diagnostic.Span
+}
+
+type ObservationDecl struct {
+	TargetKind      string
+	TargetName      string
+	ObservationType string
+	MetricName      string
+	Span            diagnostic.Span
 }
 
 type WhenBranch struct {

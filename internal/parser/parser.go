@@ -72,9 +72,29 @@ func (p *Parser) parseEffect() ast.EffectDecl {
 func (p *Parser) parsePolicy() ast.PolicyDecl {
 	start := p.expectText("policy")
 	name := p.expectIdent("policy name")
-	p.expectText("is")
-	kind := p.expectIdent("policy kind").Text
-	return ast.PolicyDecl{Name: name.Text, Kind: kind, Span: start.Span}
+	policy := ast.PolicyDecl{Name: name.Text, Span: start.Span}
+	if !p.match(lexer.LBrace) {
+		tok := p.peek()
+		p.diags.Error("DCL_PARSE_EXPECTED_TOKEN", "expected {", tok.Span, tok.Text)
+		p.synchronizeTopLevel()
+		return policy
+	}
+	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+		p.skipNewlines()
+		if p.at(lexer.RBrace) {
+			break
+		}
+		switch p.peek().Text {
+		case "family":
+			p.advance()
+			policy.Family = p.expectIdent("policy family").Text
+		default:
+			tok := p.advance()
+			p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected policy family", tok.Span, tok.Text)
+		}
+	}
+	p.expect(lexer.RBrace, "}")
+	return policy
 }
 
 func (p *Parser) parseEvent() ast.EventDecl {
@@ -154,6 +174,8 @@ func (p *Parser) parseCapability() ast.CapabilityDecl {
 			cap.Effects = append(cap.Effects, p.parseEffectsBlock()...)
 		case "policies":
 			cap.Policies = append(cap.Policies, p.parsePoliciesBlock()...)
+		case "observe":
+			cap.Observe = append(cap.Observe, p.parseObserveBlock()...)
 		case "when":
 			cap.When = append(cap.When, p.parseWhenBlock()...)
 		case "lifecycle":
@@ -351,12 +373,61 @@ func (p *Parser) parsePoliciesBlock() []ast.PolicyUse {
 		name := p.expectIdent("policy")
 		use := ast.PolicyUse{Name: name.Text, Span: name.Span}
 		p.expectText("governs")
-		use.TargetKind = "effect"
-		use.TargetName = p.expectIdent("policy target").Text
+		target := p.expectIdent("policy target").Text
+		switch target {
+		case "capability", "lifecycle":
+			use.TargetKind = target
+		case "effect", "outcome", "event":
+			use.TargetKind = target
+			use.TargetName = p.expectIdent("policy target name").Text
+		default:
+			if isPolicyTargetKindToken(target) {
+				use.TargetKind = target
+				use.TargetName = p.expectIdent("policy target name").Text
+			} else {
+				use.TargetKind = "effect"
+				use.TargetName = target
+			}
+		}
 		policies = append(policies, use)
 	}
 	p.expect(lexer.RBrace, "}")
 	return policies
+}
+
+func (p *Parser) parseObserveBlock() []ast.ObservationDecl {
+	p.expectText("observe")
+	p.expect(lexer.LBrace, "{")
+	var observations []ast.ObservationDecl
+	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+		p.skipNewlines()
+		if p.at(lexer.RBrace) {
+			break
+		}
+		start := p.peek()
+		targetKind := p.expectIdent("observation target kind").Text
+		obs := ast.ObservationDecl{TargetKind: targetKind, Span: start.Span}
+		switch targetKind {
+		case "effect", "outcome", "event":
+			obs.TargetName = p.expectIdent("observation target").Text
+		default:
+			if !p.at(lexer.Newline) && !p.at(lexer.RBrace) && !p.at(lexer.EOF) && !isObservationTypeToken(p.peek().Text) && p.peek().Text != "as" {
+				obs.TargetName = p.expectIdent("observation target").Text
+			}
+		}
+		p.skipNewlines()
+		obsType := p.expectIdent("observation type").Text
+		if obsType == "count" && p.peek().Kind == lexer.Ident && p.peek().Text != "as" {
+			obsType = p.advance().Text
+		}
+		obs.ObservationType = obsType
+		if p.matchText("as") {
+			obs.MetricName = p.expectIdent("metric name").Text
+		}
+		observations = append(observations, obs)
+	}
+	p.expect(lexer.RBrace, "}")
+	return observations
 }
 
 func (p *Parser) parseWhenBlock() []ast.WhenBranch {
@@ -520,4 +591,22 @@ func normalizeParts(parts []string) string {
 		}
 	}
 	return strings.Join(clean, " ")
+}
+
+func isObservationTypeToken(text string) bool {
+	switch text {
+	case "count", "duration", "violations", "failures", "transitions":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPolicyTargetKindToken(text string) bool {
+	switch text {
+	case "capability", "effect", "outcome", "event", "lifecycle", "intent", "rule", "transition", "policy":
+		return true
+	default:
+		return false
+	}
 }

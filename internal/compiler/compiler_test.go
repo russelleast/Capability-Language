@@ -44,7 +44,9 @@ actor Customer is human
 effect SaveRegistration is persist
 effect SendVerification is notify
 
-policy SafeRetry is retry
+policy SafeRetry {
+  family reliability
+}
 
 shape RegisterCustomerInput {
   email: Email required
@@ -76,7 +78,13 @@ capability RegisterCustomer {
   }
 
   policies {
-    SafeRetry governs SendVerification
+    SafeRetry governs effect SendVerification
+  }
+
+  observe {
+    capability duration
+    outcome Accepted count as registrations_completed
+    effect SendVerification count failures as verification_failures
   }
 
   when {
@@ -196,7 +204,9 @@ func TestSingularAndBlockFormsCompileEquivalently(t *testing.T) {
 	src := `
 actor User is human
 effect SendEmail is notify
-policy SafeRetry is retry
+policy SafeRetry {
+  family reliability
+}
 shape Input { email: Email required }
 
 capability NotifyUser {
@@ -223,6 +233,86 @@ capability NotifyUser {
 	}
 	if len(cap.Outcomes) != 1 || len(cap.Invariants) != 1 || len(cap.Effects) != 1 || len(cap.Policies) != 1 {
 		t.Fatalf("unexpected normalized capability IR: %#v", cap)
+	}
+}
+
+func TestV03PolicyAttachmentsAndObservationIR(t *testing.T) {
+	src := `
+actor Customer is human
+effect SendVerification is notify
+policy QualityEnvelope {
+  family reliability
+}
+shape Input { email: Email required }
+event CustomerRegistered is Input
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcomes { Accepted Deferred }
+  effect SendVerification
+  policies {
+    QualityEnvelope governs capability
+    QualityEnvelope governs effect SendVerification
+    QualityEnvelope governs outcome Accepted
+    QualityEnvelope governs event CustomerRegistered
+    QualityEnvelope governs lifecycle
+  }
+  observe {
+    capability duration
+    outcome Accepted count as registrations_completed
+    effect SendVerification count failures as verification_failures
+    lifecycle transitions
+  }
+  when {
+    SendVerification unresolved then Deferred
+    otherwise then Accepted
+  }
+  lifecycle {
+    begin step Pending
+    end step Done
+    move Pending to Done on outcome Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	if len(result.IR.Policies) != 1 {
+		t.Fatalf("expected one policy, got %#v", result.IR.Policies)
+	}
+	policy := result.IR.Policies[0]
+	if policy.Family != "reliability" || policy.Concern != "" {
+		t.Fatalf("unexpected policy IR: %#v", policy)
+	}
+	cap := result.IR.Capabilities[0]
+	if len(cap.Policies) != 5 {
+		t.Fatalf("expected five policy attachments, got %#v", cap.Policies)
+	}
+	wantTargets := map[string]string{
+		"capability": "RegisterCustomer",
+		"effect":     "SendVerification",
+		"outcome":    "Accepted",
+		"event":      "CustomerRegistered",
+		"lifecycle":  "RegisterCustomer",
+	}
+	for _, attachment := range cap.Policies {
+		if wantTargets[attachment.TargetKind] != attachment.TargetName {
+			t.Fatalf("unexpected attachment target: %#v", attachment)
+		}
+	}
+	if len(result.IR.Observations) != 4 {
+		t.Fatalf("expected four observations, got %#v", result.IR.Observations)
+	}
+	wantMetrics := map[string]bool{
+		"registercustomer_capability_registercustomer_duration":   true,
+		"registrations_completed":                                 true,
+		"verification_failures":                                   true,
+		"registercustomer_lifecycle_registercustomer_transitions": true,
+	}
+	for _, observation := range result.IR.Observations {
+		if !wantMetrics[observation.MetricName] {
+			t.Fatalf("unexpected observation metric: %#v", observation)
+		}
 	}
 }
 
@@ -264,10 +354,14 @@ actor User {
 actor User is human
 shape Input {}
 capability Old { intent Input from User outcome Accepted when { otherwise => Accepted } }`,
+		"old-policy": `
+policy SafeRetry is retry`,
 		"applies": `
 actor User is human
 effect SendEmail is notify
-policy SafeRetry is retry
+policy SafeRetry {
+  family reliability
+}
 shape Input {}
 capability Old {
   intent Input from User
@@ -331,7 +425,9 @@ func TestWhenDecisionInferenceFailures(t *testing.T) {
 	src := `
 actor Customer is human
 effect SendVerification is notify
-policy SafeRetry is retry
+policy SafeRetry {
+  family reliability
+}
 shape Input { email: Email required }
 capability RegisterCustomer {
   intent Input from Customer
@@ -349,6 +445,56 @@ capability RegisterCustomer {
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_EFFECT_USE")
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_POLICY")
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_TARGET_UNKNOWN")
+}
+
+func TestV03PolicyAndObservationFailures(t *testing.T) {
+	src := `
+actor Customer is human
+effect SendVerification is notify
+policy MissingFamily {
+}
+policy UnknownFamily {
+  family resilience
+}
+shape Input { email: Email required }
+event CustomerRegistered is Input
+capability RegisterCustomer {
+  intent Input from Customer
+  outcome Accepted
+  effect SendVerification
+  policies {
+    MissingFamily governs lifecycle
+    UnknownFamily governs rule TermsAccepted
+    UnknownFamily governs effect MissingEffect
+    UnknownFamily governs outcome MissingOutcome
+    UnknownFamily governs event MissingEvent
+  }
+  observe {
+    effect MissingEffect count as duplicate_metric
+    outcome Accepted latency as duplicate_metric
+    rule TermsAccepted count as rule_count
+  }
+  when { otherwise then Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_FAMILY_REQUIRED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_FAMILY_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_ATTACHMENT_INVALID")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_TARGET_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_OBSERVE_TARGET_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_OBSERVE_TYPE_UNSUPPORTED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_OBSERVE_METRIC_DUPLICATE")
+}
+
+func TestTopLevelObserveIsRejected(t *testing.T) {
+	src := `
+observe {
+  capability duration
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if !HasErrors(result.Diagnostics) {
+		t.Fatalf("expected top-level observe to fail")
+	}
 }
 
 func TestLifecycleAndEffectFailures(t *testing.T) {

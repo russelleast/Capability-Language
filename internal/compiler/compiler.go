@@ -65,9 +65,10 @@ func MarshalIR(program ir.ProgramIR) ([]byte, error) {
 }
 
 type compiler struct {
-	program ast.Program
-	diags   *diagnostic.Bag
-	symbols map[string]map[string]diagnostic.Span
+	program      ast.Program
+	diags        *diagnostic.Bag
+	symbols      map[string]map[string]diagnostic.Span
+	observations []ir.ObservationIR
 }
 
 func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
@@ -107,16 +108,19 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		out.Symbols = append(out.Symbols, symbol("event", event.Name, event.Span))
 	}
 	for _, policy := range c.program.Policies {
-		if !validPolicyKind(policy.Kind) {
-			c.diags.Error("DCL_SEM_POLICY_KIND_UNSUPPORTED", "unsupported policy kind "+policy.Kind, policy.Span, policy.Name)
+		if policy.Family == "" {
+			c.diags.Error("DCL_SEM_POLICY_FAMILY_REQUIRED", "policy must declare a family", policy.Span, policy.Name)
+		} else if !validPolicyFamily(policy.Family) {
+			c.diags.Error("DCL_SEM_POLICY_FAMILY_UNKNOWN", "unknown policy family "+policy.Family, policy.Span, policy.Name)
 		}
-		out.Policies = append(out.Policies, ir.PolicyIR{ID: id("policy", policy.Name), Name: policy.Name, Type: policy.Kind, Category: policy.Kind})
+		out.Policies = append(out.Policies, ir.PolicyIR{ID: id("policy", policy.Name), Name: policy.Name, Family: policy.Family, Concern: policy.Concern})
 		out.Symbols = append(out.Symbols, symbol("policy", policy.Name, policy.Span))
 	}
 	for _, capability := range c.program.Capabilities {
 		out.Capabilities = append(out.Capabilities, c.capabilityIR(capability))
 		out.Symbols = append(out.Symbols, symbol("capability", capability.Name, capability.Span))
 	}
+	out.Observations = append(out.Observations, c.observations...)
 
 	sortProgramIR(&out)
 	return out
@@ -141,6 +145,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	localEffects := map[string]ast.EffectUse{}
 	localActorRoles := map[string]ast.ActorRole{}
 	localPolicies := map[string]ast.PolicyUse{}
+	metricNames := map[string]diagnostic.Span{}
 
 	for _, intent := range cap.Intents {
 		c.requireGlobal("actor", intent.Actor, intent.Span)
@@ -183,14 +188,17 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		localPolicies[policy.Name] = policy
 		c.requireGlobal("policy", policy.Name, policy.Span)
 		if policy.TargetKind != "" {
-			c.validatePolicyTarget(policy, localEffects)
+			c.validatePolicyTarget(cap, policy, localOutcomes, localEffects)
 		}
-		capIR.Policies = append(capIR.Policies, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policy.TargetName})
+		capIR.Policies = append(capIR.Policies, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policyTargetName(cap, policy)})
 	}
 
 	c.validateWhen(cap, localOutcomes, localRules, localEffects, localPolicies, &capIR)
 	if cap.Lifecycle != nil {
 		capIR.Lifecycle = c.lifecycleIR(cap, localOutcomes)
+	}
+	for _, observation := range cap.Observe {
+		c.validateObservation(cap, observation, localOutcomes, localEffects, metricNames)
 	}
 
 	sortCapabilityIR(&capIR)
@@ -302,14 +310,88 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	return out
 }
 
-func (c *compiler) validatePolicyTarget(policy ast.PolicyUse, effects map[string]ast.EffectUse) {
+func (c *compiler) validatePolicyTarget(cap ast.CapabilityDecl, policy ast.PolicyUse, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) {
 	switch policy.TargetKind {
+	case "capability":
+		if policy.TargetName == "" {
+			return
+		}
+		if policy.TargetName != cap.Name {
+			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target capability is not the current capability", policy.Span, policy.TargetName)
+		}
 	case "effect":
 		if _, ok := effects[policy.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target effect is not used by this capability", policy.Span, policy.TargetName)
 		}
+	case "outcome":
+		if _, ok := outcomes[policy.TargetName]; !ok {
+			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target outcome is not declared by this capability", policy.Span, policy.TargetName)
+		}
+	case "event":
+		if !c.hasGlobal("event", policy.TargetName) {
+			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target event is not declared", policy.Span, policy.TargetName)
+		}
+	case "lifecycle":
+		if cap.Lifecycle == nil {
+			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target lifecycle is not declared by this capability", policy.Span, cap.Name)
+		}
 	default:
-		c.diags.Error("DCL_SEM_POLICY_TARGET_UNSUPPORTED", "unsupported policy target kind", policy.Span, policy.TargetKind)
+		c.diags.Error("DCL_SEM_POLICY_ATTACHMENT_INVALID", "unsupported policy attachment target kind", policy.Span, policy.TargetKind)
+	}
+}
+
+func (c *compiler) validateObservation(cap ast.CapabilityDecl, observation ast.ObservationDecl, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse, metricNames map[string]diagnostic.Span) {
+	if !validObservationType(observation.ObservationType) {
+		c.diags.Error("DCL_SEM_OBSERVE_TYPE_UNSUPPORTED", "unsupported observation type", observation.Span, observation.ObservationType)
+	}
+	targetReference := c.resolveObservationTarget(cap, observation, outcomes, effects)
+	metricName := observation.MetricName
+	if metricName == "" {
+		metricName = derivedMetricName(cap.Name, observation, targetReference)
+	}
+	if old, exists := metricNames[metricName]; exists {
+		c.diags.Error("DCL_SEM_OBSERVE_METRIC_DUPLICATE", fmt.Sprintf("duplicate observation metric name; first declared at %s:%d:%d", old.File, old.Line, old.Column), observation.Span, metricName)
+	} else {
+		metricNames[metricName] = observation.Span
+	}
+	c.observations = append(c.observations, ir.ObservationIR{
+		TargetKind:      observation.TargetKind,
+		TargetReference: targetReference,
+		ObservationType: observation.ObservationType,
+		MetricName:      metricName,
+	})
+}
+
+func (c *compiler) resolveObservationTarget(cap ast.CapabilityDecl, observation ast.ObservationDecl, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) string {
+	switch observation.TargetKind {
+	case "capability":
+		if observation.TargetName != "" && observation.TargetName != cap.Name {
+			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target capability is not the current capability", observation.Span, observation.TargetName)
+		}
+		return id("capability", cap.Name)
+	case "effect":
+		if _, ok := effects[observation.TargetName]; !ok {
+			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target effect is not used by this capability", observation.Span, observation.TargetName)
+		}
+		return id("effect", observation.TargetName)
+	case "outcome":
+		if _, ok := outcomes[observation.TargetName]; !ok {
+			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target outcome is not declared by this capability", observation.Span, observation.TargetName)
+		}
+		return id("outcome", cap.Name+"."+observation.TargetName)
+	case "event":
+		if !c.hasGlobal("event", observation.TargetName) {
+			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target event is not declared", observation.Span, observation.TargetName)
+		}
+		return id("event", observation.TargetName)
+	case "lifecycle":
+		if cap.Lifecycle == nil {
+			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target lifecycle is not declared by this capability", observation.Span, cap.Name)
+		}
+		return id("lifecycle", cap.Name)
+	default:
+		c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "unsupported observation target kind", observation.Span, observation.TargetKind)
+		return observation.TargetKind + ":" + observation.TargetName
 	}
 }
 
@@ -439,12 +521,45 @@ func isBuiltinType(name string) bool {
 	return false
 }
 
-func validPolicyKind(kind string) bool {
-	switch kind {
-	case "authorization", "timeout", "retry", "idempotency", "consistency", "visibility", "audit", "retention", "security":
+func validPolicyFamily(family string) bool {
+	switch family {
+	case "reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection":
 		return true
 	default:
 		return false
+	}
+}
+
+func validObservationType(observationType string) bool {
+	switch observationType {
+	case "count", "duration", "violations", "failures", "transitions":
+		return true
+	default:
+		return false
+	}
+}
+
+func derivedMetricName(capability string, observation ast.ObservationDecl, targetReference string) string {
+	target := observation.TargetName
+	if target == "" {
+		target = strings.TrimPrefix(targetReference, observation.TargetKind+":")
+	}
+	parts := []string{capability, observation.TargetKind, target, observation.ObservationType}
+	var clean []string
+	for _, part := range parts {
+		if part != "" {
+			clean = append(clean, strings.ReplaceAll(part, ".", "_"))
+		}
+	}
+	return strings.ToLower(strings.Join(clean, "_"))
+}
+
+func policyTargetName(cap ast.CapabilityDecl, policy ast.PolicyUse) string {
+	switch policy.TargetKind {
+	case "capability", "lifecycle":
+		return cap.Name
+	default:
+		return policy.TargetName
 	}
 }
 
@@ -505,6 +620,10 @@ func sortProgramIR(out *ir.ProgramIR) {
 	sort.Slice(out.Effects, func(i, j int) bool { return out.Effects[i].Name < out.Effects[j].Name })
 	sort.Slice(out.Events, func(i, j int) bool { return out.Events[i].Name < out.Events[j].Name })
 	sort.Slice(out.Policies, func(i, j int) bool { return out.Policies[i].Name < out.Policies[j].Name })
+	sort.Slice(out.Observations, func(i, j int) bool {
+		a, b := out.Observations[i], out.Observations[j]
+		return a.TargetKind+a.TargetReference+a.ObservationType+a.MetricName < b.TargetKind+b.TargetReference+b.ObservationType+b.MetricName
+	})
 	sort.Slice(out.Capabilities, func(i, j int) bool { return out.Capabilities[i].Name < out.Capabilities[j].Name })
 }
 
