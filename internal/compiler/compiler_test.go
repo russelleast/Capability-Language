@@ -1177,6 +1177,147 @@ shape Local { value: Text required }`
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNUSED_DEPENDENCY")
 }
 
+func TestV07ValidSupervisedLifecycle(t *testing.T) {
+	src := v07OrderFulfilmentSource(`
+  supervises lifecycle FulfilmentLifecycle {
+    identity orderId
+
+    begin step Received
+    step PaymentPending
+    step Picking
+    step Dispatching
+    end step Completed
+    end step Failed
+
+    move Received to PaymentPending on outcome OrderAccepted from AcceptOrder
+    move PaymentPending to Picking on outcome PaymentAuthorised from AuthorisePayment
+    move PaymentPending to Failed on outcome PaymentDeclined from AuthorisePayment
+    move Picking to Dispatching on outcome Picked from PickOrder
+    move Dispatching to Completed on outcome Dispatched from DispatchOrder
+  }`)
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	cap := findCapability(t, result.IR.Capabilities, "OrderFulfilment")
+	if cap.Lifecycle == nil {
+		t.Fatalf("expected supervised lifecycle in IR")
+	}
+	lifecycle := cap.Lifecycle
+	if lifecycle.Name != "FulfilmentLifecycle" || lifecycle.OwnerCapability != "OrderFulfilment" || lifecycle.IdentityBinding != "orderId" {
+		t.Fatalf("unexpected lifecycle metadata: %#v", lifecycle)
+	}
+	for _, participant := range []string{"AcceptOrder", "AuthorisePayment", "OrderFulfilment"} {
+		if !contains(lifecycle.ParticipatingCapabilities, participant) {
+			t.Fatalf("expected lifecycle participant %s in %#v", participant, lifecycle.ParticipatingCapabilities)
+		}
+	}
+	var authorised ir.TransitionIR
+	for _, transition := range lifecycle.Transitions {
+		if transition.SourceSymbol == "PaymentAuthorised" {
+			authorised = transition
+		}
+	}
+	if authorised.SourceCapability != "AuthorisePayment" || authorised.SourceKind != "outcome" || authorised.CorrelationBinding != "orderId" {
+		t.Fatalf("unexpected transition IR: %#v", authorised)
+	}
+}
+
+func TestV07DuplicateLifecycleOwnershipRejected(t *testing.T) {
+	src := v07OrderFulfilmentSource(`
+  supervises lifecycle FulfilmentLifecycle {
+    identity orderId
+    begin step Received
+    end step Completed
+    move Received to Completed on outcome OrderAccepted from AcceptOrder
+  }`) + `
+
+capability FulfilmentReporting {
+  intent OrderInput from Customer
+  outcome ReportingReady
+  when { otherwise then ReportingReady }
+  supervises lifecycle FulfilmentLifecycle {
+    identity orderId
+    begin step Started
+    end step Done
+    move Started to Done on outcome OrderAccepted from AcceptOrder
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_MULTIPLE_OWNERS")
+}
+
+func TestV07MissingTransitionSourceCapabilityRejected(t *testing.T) {
+	src := v07OrderFulfilmentSource(`
+  supervises lifecycle FulfilmentLifecycle {
+    identity orderId
+    begin step Received
+    end step PaymentPending
+    move Received to PaymentPending on outcome OrderAccepted from MissingCapability
+  }`)
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNDEFINED_TRANSITION_SOURCE_CAPABILITY")
+}
+
+func TestV07MissingTransitionSourceOutcomeRejected(t *testing.T) {
+	src := v07OrderFulfilmentSource(`
+  supervises lifecycle FulfilmentLifecycle {
+    identity orderId
+    begin step Received
+    end step PaymentPending
+    move Received to PaymentPending on outcome MissingOutcome from AcceptOrder
+  }`)
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNDEFINED_TRANSITION_SOURCE_SYMBOL")
+}
+
+func TestV07CrossCapabilityTransitionRequiresIdentity(t *testing.T) {
+	src := v07OrderFulfilmentSource(`
+  supervises lifecycle FulfilmentLifecycle {
+    begin step Received
+    end step PaymentPending
+    move Received to PaymentPending on outcome OrderAccepted from AcceptOrder
+  }`)
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNCORRELATED_TRANSITION_SOURCE")
+}
+
+func TestV07AmbiguousLifecycleTransitionRejected(t *testing.T) {
+	src := v07OrderFulfilmentSource(`
+  supervises lifecycle FulfilmentLifecycle {
+    identity orderId
+    begin step Received
+    step PaymentPending
+    end step Failed
+    move Received to PaymentPending on outcome OrderAccepted from AcceptOrder
+    move Received to Failed on outcome OrderAccepted from AcceptOrder
+  }`)
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_AMBIGUOUS_LIFECYCLE_TRANSITION")
+}
+
+func TestV07OrdinaryLocalLifecycleAndLocalEventStillCompile(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input { orderId: Text required }
+event OrderCompleted is Input
+
+capability CompleteOrder {
+  intent Input from Customer
+  outcome Completed
+  when { otherwise then Completed }
+  lifecycle {
+    begin step Pending
+    end step Done
+    move Pending to Done on event OrderCompleted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+}
+
 func assertDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) {
 	t.Helper()
 	for _, diag := range diags {
@@ -1185,6 +1326,64 @@ func assertDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) 
 		}
 	}
 	t.Fatalf("expected diagnostic %s in %#v", code, diags)
+}
+
+func v07OrderFulfilmentSource(lifecycle string) string {
+	return `
+actor Customer is human
+
+shape OrderInput {
+  orderId: Text required
+}
+
+capability AcceptOrder {
+  intent OrderInput from Customer
+  outcome OrderAccepted
+  when { otherwise then OrderAccepted }
+}
+
+capability AuthorisePayment {
+  intent OrderInput from Customer
+  outcomes {
+    PaymentAuthorised
+    PaymentDeclined
+  }
+  rule PaymentDetailsPresent: input.orderId is present
+  when {
+    PaymentDetailsPresent violated then PaymentDeclined
+    otherwise then PaymentAuthorised
+  }
+}
+
+capability PickOrder {
+  intent OrderInput from Customer
+  outcome Picked
+  when { otherwise then Picked }
+}
+
+capability DispatchOrder {
+  intent OrderInput from Customer
+  outcome Dispatched
+  when { otherwise then Dispatched }
+}
+
+capability OrderFulfilment {
+  intent OrderInput from Customer
+  outcome FulfilmentSupervised
+  when { otherwise then FulfilmentSupervised }
+` + lifecycle + `
+}`
+}
+
+func findCapability(t *testing.T, capabilities []ir.CapabilityIR, name string) ir.CapabilityIR {
+	t.Helper()
+	for _, capability := range capabilities {
+		if capability.Name == name {
+			return capability
+		}
+	}
+	t.Fatalf("expected capability %s in %#v", name, capabilities)
+	return ir.CapabilityIR{}
 }
 
 func assertDiagnosticMessage(t *testing.T, diags []diagnostic.Diagnostic, message string) {

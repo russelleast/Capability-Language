@@ -163,6 +163,9 @@ type WhenBranch struct {
 }
 
 type LifecycleDecl struct {
+	Name        string
+	Supervised  bool
+	Identity    string
 	Begin       string
 	Steps       []string
 	Ends        []string
@@ -171,9 +174,10 @@ type LifecycleDecl struct {
 }
 
 type TransitionDecl struct {
-	From        string
-	To          string
-	TriggerKind string
-	TriggerName string
-	Span        diagnostic.Span
+	From             string
+	To               string
+	TriggerKind      string
+	TriggerName      string
+	SourceCapability string
+	Span             diagnostic.Span
 }

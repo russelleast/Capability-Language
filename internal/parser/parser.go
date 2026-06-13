@@ -298,7 +298,10 @@ func (p *Parser) parseCapability() ast.CapabilityDecl {
 		case "when":
 			cap.When = append(cap.When, p.parseWhenBlock()...)
 		case "lifecycle":
-			lifecycle := p.parseLifecycleBlock()
+			lifecycle := p.parseLifecycleBlock(false)
+			cap.Lifecycle = &lifecycle
+		case "supervises":
+			lifecycle := p.parseSupervisesLifecycleBlock()
 			cap.Lifecycle = &lifecycle
 		default:
 			tok := p.advance()
@@ -581,9 +584,25 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 	return branches
 }
 
-func (p *Parser) parseLifecycleBlock() ast.LifecycleDecl {
+func (p *Parser) parseSupervisesLifecycleBlock() ast.LifecycleDecl {
+	p.expectText("supervises")
+	p.expectText("lifecycle")
+	name := p.expectIdent("lifecycle name")
+	lifecycle := p.parseLifecycleBody(name.Span)
+	lifecycle.Name = name.Text
+	lifecycle.Supervised = true
+	return lifecycle
+}
+
+func (p *Parser) parseLifecycleBlock(supervised bool) ast.LifecycleDecl {
 	start := p.expectText("lifecycle")
-	lifecycle := ast.LifecycleDecl{Span: start.Span}
+	lifecycle := p.parseLifecycleBody(start.Span)
+	lifecycle.Supervised = supervised
+	return lifecycle
+}
+
+func (p *Parser) parseLifecycleBody(span diagnostic.Span) ast.LifecycleDecl {
+	lifecycle := ast.LifecycleDecl{Span: span}
 	p.expect(lexer.LBrace, "{")
 	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
 		p.skipNewlines()
@@ -591,6 +610,9 @@ func (p *Parser) parseLifecycleBlock() ast.LifecycleDecl {
 			break
 		}
 		switch p.peek().Text {
+		case "identity":
+			p.advance()
+			lifecycle.Identity = p.expectIdent("lifecycle identity").Text
 		case "begin":
 			tok := p.advance()
 			p.expectText("step")
@@ -610,11 +632,17 @@ func (p *Parser) parseLifecycleBlock() ast.LifecycleDecl {
 			from := p.expectIdent("from lifecycle step").Text
 			p.expectText("to")
 			to := p.expectIdent("to lifecycle step").Text
+			p.skipNewlines()
 			p.expectText("on")
 			triggerKind := p.expectIdent("trigger kind").Text
 			triggerName := p.expectIdent("trigger name").Text
+			p.skipNewlines()
+			sourceCapability := ""
+			if p.matchText("from") {
+				sourceCapability = p.expectIdent("source capability").Text
+			}
 			lifecycle.Transitions = append(lifecycle.Transitions, ast.TransitionDecl{
-				From: from, To: to, TriggerKind: triggerKind, TriggerName: triggerName, Span: start.Span,
+				From: from, To: to, TriggerKind: triggerKind, TriggerName: triggerName, SourceCapability: sourceCapability, Span: start.Span,
 			})
 		default:
 			tok := p.advance()

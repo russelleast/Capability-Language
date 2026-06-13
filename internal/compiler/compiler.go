@@ -73,6 +73,8 @@ type compiler struct {
 	symbolsByContext  map[string]map[string]map[string]*symbolInfo
 	symbolsByFQN      map[string]map[string]*symbolInfo
 	symbolsByKindName map[string]map[string][]*symbolInfo
+	capabilities      map[string]ast.CapabilityDecl
+	lifecycleOwners   map[string]ast.CapabilityDecl
 	policies          map[string]ast.PolicyDecl
 	policyAttachments map[string][]ir.PolicyAttachmentIR
 	observations      []ir.ObservationIR
@@ -103,6 +105,8 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 		symbolsByContext:  map[string]map[string]map[string]*symbolInfo{},
 		symbolsByFQN:      map[string]map[string]*symbolInfo{},
 		symbolsByKindName: map[string]map[string][]*symbolInfo{},
+		capabilities:      map[string]ast.CapabilityDecl{},
+		lifecycleOwners:   map[string]ast.CapabilityDecl{},
 		policies:          map[string]ast.PolicyDecl{},
 		policyAttachments: map[string][]ir.PolicyAttachmentIR{},
 		referencedDeps:    map[string]map[string]map[string]bool{},
@@ -113,6 +117,12 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 		key := policyKey(policy.Meta.ContextName, policy.Name)
 		if _, exists := c.policies[key]; !exists {
 			c.policies[key] = policy
+		}
+	}
+	for _, cap := range program.Capabilities {
+		key := symbolIdentity(cap.Meta.ContextName, cap.Name)
+		if _, exists := c.capabilities[key]; !exists {
+			c.capabilities[key] = cap
 		}
 	}
 	c.validateDependencies()
@@ -339,8 +349,29 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	if lc.Begin == "" {
 		c.diags.Error("DCL_SEM_LIFECYCLE_BEGIN_REQUIRED", "lifecycle must declare an initial state", lc.Span, cap.Name)
 	}
-	out := &ir.LifecycleIR{ID: id("lifecycle", symbolIdentity(context, cap.Name)), Initial: lc.Begin, States: sortedKeys(states), Terminal: sortedStrings(lc.Ends)}
+	lifecycleName := lifecycleIRName(cap)
+	lifecycleIDName := cap.Name
+	if lc.Supervised && lc.Name != "" {
+		lifecycleIDName = lc.Name
+		c.validateLifecycleOwnership(cap)
+	}
+	if lc.Supervised && lc.Identity == "" {
+		c.diags.Error("DCL_SEM_UNCORRELATED_TRANSITION_SOURCE", "supervised lifecycle requires identity binding", lc.Span, lifecycleName)
+	}
+	out := &ir.LifecycleIR{
+		ID:              id("lifecycle", symbolIdentity(context, lifecycleIDName)),
+		Name:            lifecycleName,
+		OwnerCapability: cap.Name,
+		IdentityBinding: lc.Identity,
+		Steps:           sortedKeys(states),
+		Policies:        lifecyclePoliciesIR(cap),
+		Initial:         lc.Begin,
+		States:          sortedKeys(states),
+		Terminal:        sortedStrings(lc.Ends),
+	}
 	graph := map[string][]string{}
+	participants := map[string]bool{cap.Name: true}
+	transitionTargets := map[string]map[string]diagnostic.Span{}
 	for _, tr := range lc.Transitions {
 		if !states[tr.From] {
 			c.diags.Error("DCL_SEM_LIFECYCLE_UNKNOWN_STATE", "transition references unknown source state", tr.Span, tr.From)
@@ -348,19 +379,71 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 		if !states[tr.To] {
 			c.diags.Error("DCL_SEM_LIFECYCLE_UNKNOWN_STATE", "transition references unknown target state", tr.Span, tr.To)
 		}
+		sourceCapability := ""
+		sourceSymbol := tr.TriggerName
+		correlation := ""
 		switch tr.TriggerKind {
 		case "outcome":
-			if _, ok := outcomes[tr.TriggerName]; !ok {
-				c.diags.Error("DCL_SEM_LIFECYCLE_UNKNOWN_TRIGGER", "lifecycle transition references unknown outcome", tr.Span, tr.TriggerName)
+			if tr.SourceCapability != "" {
+				sourceCap, ok := c.resolveTransitionSourceCapability(tr.SourceCapability, context, tr.Span)
+				if ok {
+					sourceCapability = sourceCap.Name
+					participants[sourceCap.Name] = true
+					if !capabilityDeclaresOutcome(sourceCap, tr.TriggerName) {
+						c.diags.Error("DCL_SEM_UNDEFINED_TRANSITION_SOURCE_SYMBOL", "transition source capability does not declare outcome", tr.Span, tr.TriggerName)
+					}
+				}
+				correlation = lc.Identity
+			} else {
+				sourceCapability = cap.Name
+				if _, ok := outcomes[tr.TriggerName]; !ok {
+					c.diags.Error("DCL_SEM_LIFECYCLE_UNKNOWN_TRIGGER", "lifecycle transition references unknown outcome", tr.Span, tr.TriggerName)
+				}
 			}
 		case "event":
-			c.requireInContext("event", tr.TriggerName, context, tr.Span)
+			if tr.SourceCapability != "" {
+				c.diags.Error("DCL_SEM_LIFECYCLE_TRIGGER_KIND", "cross-capability lifecycle transition sources only support outcome", tr.Span, tr.TriggerKind)
+			} else {
+				c.requireInContext("event", tr.TriggerName, context, tr.Span)
+			}
 		default:
 			c.diags.Error("DCL_SEM_LIFECYCLE_TRIGGER_KIND", "lifecycle trigger must be event or outcome", tr.Span, tr.TriggerKind)
 		}
+		ambiguityKey := lifecycleTransitionAmbiguityKey(tr.From, tr.TriggerKind, sourceCapability, sourceSymbol)
+		if transitionTargets[ambiguityKey] == nil {
+			transitionTargets[ambiguityKey] = map[string]diagnostic.Span{}
+		}
+		transitionTargets[ambiguityKey][tr.To] = tr.Span
 		graph[tr.From] = append(graph[tr.From], tr.To)
-		out.Transitions = append(out.Transitions, ir.TransitionIR{From: tr.From, To: tr.To, TriggerKind: tr.TriggerKind, TriggerName: tr.TriggerName})
+		out.Transitions = append(out.Transitions, ir.TransitionIR{
+			From:               tr.From,
+			To:                 tr.To,
+			TriggerKind:        tr.TriggerKind,
+			TriggerName:        tr.TriggerName,
+			SourceStep:         tr.From,
+			TargetStep:         tr.To,
+			SourceKind:         tr.TriggerKind,
+			SourceCapability:   sourceCapability,
+			SourceSymbol:       sourceSymbol,
+			CorrelationBinding: correlation,
+		})
 	}
+	for _, targets := range transitionTargets {
+		if len(targets) <= 1 {
+			continue
+		}
+		var span diagnostic.Span
+		var targetNames []string
+		for target, targetSpan := range targets {
+			if span.Line == 0 {
+				span = targetSpan
+			}
+			targetNames = append(targetNames, target)
+		}
+		sort.Strings(targetNames)
+		c.diags.Error("DCL_SEM_AMBIGUOUS_LIFECYCLE_TRANSITION", "same lifecycle source step and transition trigger lead to multiple target steps", span, strings.Join(targetNames, ", "))
+	}
+	out.ParticipatingCapabilities = sortedKeys(participants)
 	reachable := reachableStates(lc.Begin, graph)
 	for state := range states {
 		if !reachable[state] {
@@ -372,9 +455,67 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	}
 	sort.Slice(out.Transitions, func(i, j int) bool {
 		a, b := out.Transitions[i], out.Transitions[j]
-		return a.From+a.To+a.TriggerKind+a.TriggerName < b.From+b.To+b.TriggerKind+b.TriggerName
+		return a.From+a.To+a.TriggerKind+a.TriggerName+a.SourceCapability < b.From+b.To+b.TriggerKind+b.TriggerName+b.SourceCapability
 	})
 	return out
+}
+
+func lifecycleIRName(cap ast.CapabilityDecl) string {
+	if cap.Lifecycle == nil || cap.Lifecycle.Name == "" {
+		return cap.Name
+	}
+	return cap.Lifecycle.Name
+}
+
+func (c *compiler) validateLifecycleOwnership(cap ast.CapabilityDecl) {
+	if cap.Lifecycle == nil || cap.Lifecycle.Name == "" {
+		return
+	}
+	key := symbolIdentity(cap.Meta.ContextName, cap.Lifecycle.Name)
+	if owner, exists := c.lifecycleOwners[key]; exists {
+		c.diags.Error("DCL_SEM_LIFECYCLE_MULTIPLE_OWNERS", "supervised lifecycle has multiple owning capabilities", cap.Lifecycle.Span, cap.Lifecycle.Name)
+		c.diags.Error("DCL_SEM_LIFECYCLE_MULTIPLE_OWNERS", "supervised lifecycle has multiple owning capabilities", owner.Lifecycle.Span, cap.Lifecycle.Name)
+		return
+	}
+	c.lifecycleOwners[key] = cap
+}
+
+func lifecyclePoliciesIR(cap ast.CapabilityDecl) []ir.PolicyUseIR {
+	var out []ir.PolicyUseIR
+	for _, policy := range cap.Policies {
+		if policy.TargetKind == "lifecycle" {
+			out = append(out, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policyTargetName(cap, policy)})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Policy < out[j].Policy })
+	return out
+}
+
+func (c *compiler) resolveTransitionSourceCapability(name, context string, span diagnostic.Span) (ast.CapabilityDecl, bool) {
+	info, ok := c.resolve("capability", name, context, span, false)
+	if !ok {
+		c.diags.Error("DCL_SEM_UNDEFINED_TRANSITION_SOURCE_CAPABILITY", "transition references undefined source capability", span, name)
+		return ast.CapabilityDecl{}, false
+	}
+	cap, ok := c.capabilities[symbolIdentity(info.Context, info.Name)]
+	if !ok {
+		c.diags.Error("DCL_SEM_UNDEFINED_TRANSITION_SOURCE_CAPABILITY", "transition references undefined source capability", span, name)
+		return ast.CapabilityDecl{}, false
+	}
+	return cap, true
+}
+
+func capabilityDeclaresOutcome(cap ast.CapabilityDecl, name string) bool {
+	for _, outcome := range cap.Outcomes {
+		if outcome.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func lifecycleTransitionAmbiguityKey(sourceStep, sourceKind, sourceCapability, sourceSymbol string) string {
+	return sourceStep + "\x00" + sourceKind + "\x00" + sourceCapability + "\x00" + sourceSymbol
 }
 
 func (c *compiler) validatePolicyTarget(cap ast.CapabilityDecl, policy ast.PolicyUse, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) {

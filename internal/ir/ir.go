@@ -270,18 +270,31 @@ type ObservationIR struct {
 }
 
 type LifecycleIR struct {
-	ID          string         `json:"id"`
-	Initial     string         `json:"initial_state"`
-	States      []string       `json:"states"`
-	Terminal    []string       `json:"terminal_states,omitempty"`
-	Transitions []TransitionIR `json:"transitions,omitempty"`
+	ID                        string         `json:"id"`
+	Name                      string         `json:"name,omitempty"`
+	OwnerCapability           string         `json:"owner_capability,omitempty"`
+	IdentityBinding           string         `json:"identity_binding,omitempty"`
+	ParticipatingCapabilities []string       `json:"participating_capabilities,omitempty"`
+	Steps                     []string       `json:"steps,omitempty"`
+	Policies                  []PolicyUseIR  `json:"policies,omitempty"`
+	Initial                   string         `json:"initial_state"`
+	States                    []string       `json:"states"`
+	Terminal                  []string       `json:"terminal_states,omitempty"`
+	Transitions               []TransitionIR `json:"transitions,omitempty"`
 }
 
 type TransitionIR struct {
-	From        string `json:"from"`
-	To          string `json:"to"`
-	TriggerKind string `json:"trigger_kind"`
-	TriggerName string `json:"trigger_name"`
+	From               string        `json:"from"`
+	To                 string        `json:"to"`
+	TriggerKind        string        `json:"trigger_kind"`
+	TriggerName        string        `json:"trigger_name"`
+	SourceStep         string        `json:"source_step,omitempty"`
+	TargetStep         string        `json:"target_step,omitempty"`
+	SourceKind         string        `json:"source_kind,omitempty"`
+	SourceCapability   string        `json:"source_capability,omitempty"`
+	SourceSymbol       string        `json:"source_symbol,omitempty"`
+	CorrelationBinding string        `json:"correlation_binding,omitempty"`
+	Policies           []PolicyUseIR `json:"policies,omitempty"`
 }
 
 type RelationIR struct {
