@@ -390,15 +390,6 @@ capability Old {
   policies { SafeRetry applies to effect SendEmail }
   when { otherwise then Accepted }
 }`,
-		"old-lifecycle": `
-actor User is human
-shape Input {}
-capability Old {
-  intent Input from User
-  outcome Accepted
-  when { otherwise then Accepted }
-  lifecycle { begin Pending step Pending }
-}`,
 		"emits": `
 actor User is human
 shape Input {}
@@ -1181,6 +1172,12 @@ func TestV07ValidSupervisedLifecycle(t *testing.T) {
 	src := v07OrderFulfilmentSource(`
   supervises lifecycle FulfilmentLifecycle {
     identity orderId
+    contributors {
+      AcceptOrder
+      AuthorisePayment
+      PickOrder
+      DispatchOrder
+    }
 
     begin step Received
     step PaymentPending
@@ -1318,6 +1315,267 @@ capability CompleteOrder {
 	}
 }
 
+func TestV08LifecycleCompletionSemantics(t *testing.T) {
+	src := `
+actor Customer is human
+shape OrderInput { orderId: Text required }
+event PaymentReceived is OrderInput
+
+capability CheckInventory {
+  intent OrderInput from Customer
+  outcome InventoryReserved
+  when { otherwise then InventoryReserved }
+}
+
+capability CapturePayment {
+  intent OrderInput from Customer
+  outcome PaymentCaptured
+  when { otherwise then PaymentCaptured }
+}
+
+capability ShipOrder {
+  intent OrderInput from Customer
+  outcomes { OrderShipped ShippingFailed }
+  rule ShippingPossible: input.orderId is present
+  when {
+    ShippingPossible violated then ShippingFailed
+    otherwise then OrderShipped
+  }
+}
+
+capability RefundPayment {
+  intent OrderInput from Customer
+  outcome RecoveryFailed
+  when { otherwise then RecoveryFailed }
+}
+
+capability OrderFulfilment {
+  intent OrderInput from Customer
+  outcomes { FulfilmentSupervised PaymentExpired }
+  when { otherwise then FulfilmentSupervised }
+
+  supervises lifecycle OrderLifecycle {
+    identity orderId
+
+    contributors {
+      CheckInventory
+      CapturePayment
+      ShipOrder
+      RefundPayment
+    }
+
+    begin Pending
+
+    step Pending {
+      kind active
+    }
+
+    step AwaitingPayment {
+      kind waiting
+      waits for event PaymentReceived from CapturePayment
+      deadline 15 minutes causing outcome PaymentExpired
+    }
+
+    step PaymentCaptured {
+      kind active
+      recovery RefundPayment
+    }
+
+    step RecoveringPayment {
+      kind recovery
+    }
+
+    end Completed
+    end Expired
+    end Failed
+
+    move Pending to AwaitingPayment on outcome InventoryReserved from CheckInventory
+    move AwaitingPayment to PaymentCaptured on event PaymentReceived
+    move AwaitingPayment to Expired on outcome PaymentExpired
+    move PaymentCaptured to Completed on outcome OrderShipped from ShipOrder
+    move PaymentCaptured to RecoveringPayment on outcome ShippingFailed from ShipOrder
+    move RecoveringPayment to Failed on outcome RecoveryFailed from RefundPayment
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_WAIT_EVENT_SOURCE_UNVERIFIED")
+	cap := findCapability(t, result.IR.Capabilities, "OrderFulfilment")
+	lifecycle := cap.Lifecycle
+	if lifecycle == nil {
+		t.Fatalf("expected lifecycle IR")
+	}
+	if len(lifecycle.Contributors) != 4 {
+		t.Fatalf("expected contributors in IR: %#v", lifecycle.Contributors)
+	}
+	awaiting := findLifecycleStep(t, lifecycle.Steps, "AwaitingPayment")
+	if awaiting.Kind != "waiting" || len(awaiting.WaitingTriggers) != 1 || len(awaiting.Deadlines) != 1 {
+		t.Fatalf("unexpected waiting step IR: %#v", awaiting)
+	}
+	if awaiting.Deadlines[0].ConsequenceSymbol != "PaymentExpired" {
+		t.Fatalf("expected deadline consequence in IR: %#v", awaiting.Deadlines[0])
+	}
+	paymentCaptured := findLifecycleStep(t, lifecycle.Steps, "PaymentCaptured")
+	if len(paymentCaptured.RecoveryActions) != 1 || paymentCaptured.RecoveryActions[0].Target != "RefundPayment" {
+		t.Fatalf("expected recovery action in IR: %#v", paymentCaptured)
+	}
+	if len(paymentCaptured.RecoveryActions[0].ResultOutcomes) != 1 || paymentCaptured.RecoveryActions[0].ResultOutcomes[0] != "RecoveryFailed" {
+		t.Fatalf("expected recovery result outcome from explicit transition: %#v", paymentCaptured.RecoveryActions[0])
+	}
+	refund := findContributor(t, lifecycle.Contributors, "RefundPayment")
+	if len(refund.UsedByRecovery) != 1 || refund.UsedByRecovery[0] != "PaymentCaptured" {
+		t.Fatalf("expected recovery contributor usage: %#v", refund)
+	}
+}
+
+func TestV08MultipleWaitsAndLegacyStepSyntax(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input { value: Text required }
+
+capability VerifyCustomer {
+  intent Input from Customer
+  outcomes { CustomerVerified VerificationCancelled }
+  rule CanVerify: input.value is present
+  when {
+    CanVerify violated then VerificationCancelled
+    otherwise then CustomerVerified
+  }
+}
+
+capability RegisterCustomer {
+  intent Input from Customer
+  outcome Registered
+  when { otherwise then Registered }
+  supervises lifecycle CustomerLifecycle {
+    identity value
+    contributors { VerifyCustomer }
+    begin step Pending
+    step Pending {
+      kind waiting
+      waits for outcome CustomerVerified from VerifyCustomer
+      waits for outcome VerificationCancelled from VerifyCustomer
+    }
+    end step Done
+    end step Cancelled
+    move Pending to Done on outcome CustomerVerified from VerifyCustomer
+    move Pending to Cancelled on outcome VerificationCancelled from VerifyCustomer
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	step := findLifecycleStep(t, findCapability(t, result.IR.Capabilities, "RegisterCustomer").Lifecycle.Steps, "Pending")
+	if len(step.WaitingTriggers) != 2 {
+		t.Fatalf("expected multiple wait triggers: %#v", step)
+	}
+}
+
+func TestV08LifecycleCompletionFailures(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input { value: Text required }
+event ExistingEvent is Input
+
+capability CapturePayment {
+  intent Input from Customer
+  outcome Captured
+  when { otherwise then Captured }
+}
+
+capability RefundPayment {
+  intent Input from Customer
+  outcome Recovered
+  when { otherwise then Recovered }
+}
+
+capability BrokenLifecycle {
+  intent Input from Customer
+  outcomes { Accepted Expired }
+  when { otherwise then Accepted }
+  supervises lifecycle Broken {
+    identity value
+    contributors {
+      MissingContributor
+      RefundPayment
+      CapturePayment
+    }
+    begin Start
+    step Start {
+      kind strange
+      deadline 0 minutes causing outcome MissingOutcome
+      deadline 1 minute causing outcome Expired
+      recovery MissingRecovery
+    }
+    step Waiting {
+      kind waiting
+    }
+    step EventWaiting {
+      kind waiting
+      waits for event MissingEvent from CapturePayment
+      waits for outcome Captured from NonContributor
+    }
+    step Recovering {
+      kind recovery
+      recovery RefundPayment
+    }
+    move Start to Waiting on outcome Accepted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_CAPABILITY")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_STEP_KIND_INVALID")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_DEADLINE_DURATION_INVALID")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_DEADLINE_CONSEQUENCE_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_DEADLINE_CONFLICT")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_RECOVERY_TARGET_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_WAIT_MISSING")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_WAIT_NO_EXIT")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_UNKNOWN_EVENT")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_NON_CONTRIBUTOR")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_RECOVERY_RESULT_TRANSITION_MISSING")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_CONTRIBUTOR_UNUSED")
+}
+
+func TestV08InvalidRecoveryLoop(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input { value: Text required }
+
+capability RefundPayment {
+  intent Input from Customer
+  outcomes { Recovered TryAgain }
+  rule CanRecover: input.value is present
+  when {
+    CanRecover violated then TryAgain
+    otherwise then Recovered
+  }
+}
+
+capability BrokenRecoveryLoop {
+  intent Input from Customer
+  outcome Accepted
+  when { otherwise then Accepted }
+  supervises lifecycle RecoveryLoop {
+    identity value
+    contributors { RefundPayment }
+    begin Recovering
+    step Recovering {
+      kind recovery
+      recovery RefundPayment
+    }
+    step Retrying
+    move Recovering to Retrying on outcome Recovered from RefundPayment
+    move Retrying to Recovering on outcome TryAgain from RefundPayment
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_RECOVERY_LOOP_INVALID")
+}
+
 func assertDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) {
 	t.Helper()
 	for _, diag := range diags {
@@ -1384,6 +1642,28 @@ func findCapability(t *testing.T, capabilities []ir.CapabilityIR, name string) i
 	}
 	t.Fatalf("expected capability %s in %#v", name, capabilities)
 	return ir.CapabilityIR{}
+}
+
+func findLifecycleStep(t *testing.T, steps []ir.LifecycleStepIR, name string) ir.LifecycleStepIR {
+	t.Helper()
+	for _, step := range steps {
+		if step.Name == name {
+			return step
+		}
+	}
+	t.Fatalf("expected lifecycle step %s in %#v", name, steps)
+	return ir.LifecycleStepIR{}
+}
+
+func findContributor(t *testing.T, contributors []ir.ContributorIR, capability string) ir.ContributorIR {
+	t.Helper()
+	for _, contributor := range contributors {
+		if contributor.Capability == capability {
+			return contributor
+		}
+	}
+	t.Fatalf("expected contributor %s in %#v", capability, contributors)
+	return ir.ContributorIR{}
 }
 
 func assertDiagnosticMessage(t *testing.T, diags []diagnostic.Diagnostic, message string) {

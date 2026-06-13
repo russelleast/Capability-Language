@@ -613,20 +613,23 @@ func (p *Parser) parseLifecycleBody(span diagnostic.Span) ast.LifecycleDecl {
 		case "identity":
 			p.advance()
 			lifecycle.Identity = p.expectIdent("lifecycle identity").Text
+		case "contributors":
+			lifecycle.Contributors = append(lifecycle.Contributors, p.parseContributorsBlock()...)
 		case "begin":
 			tok := p.advance()
-			p.expectText("step")
+			p.matchText("step")
 			lifecycle.Begin = p.expectIdent("initial lifecycle step").Text
 			if lifecycle.Span.Line == 0 {
 				lifecycle.Span = tok.Span
 			}
 		case "end":
 			p.advance()
-			p.expectText("step")
-			lifecycle.Ends = append(lifecycle.Ends, p.expectIdent("terminal lifecycle step").Text)
+			p.matchText("step")
+			name := p.expectIdent("terminal lifecycle step")
+			lifecycle.Ends = append(lifecycle.Ends, name.Text)
+			lifecycle.Steps = append(lifecycle.Steps, ast.LifecycleStepDecl{Name: name.Text, IsTerminal: true, Span: name.Span})
 		case "step":
-			p.advance()
-			lifecycle.Steps = append(lifecycle.Steps, p.expectIdent("lifecycle step").Text)
+			lifecycle.Steps = append(lifecycle.Steps, p.parseLifecycleStep())
 		case "move":
 			start := p.advance()
 			from := p.expectIdent("from lifecycle step").Text
@@ -651,6 +654,77 @@ func (p *Parser) parseLifecycleBody(span diagnostic.Span) ast.LifecycleDecl {
 	}
 	p.expect(lexer.RBrace, "}")
 	return lifecycle
+}
+
+func (p *Parser) parseContributorsBlock() []ast.ContributorDecl {
+	p.expectText("contributors")
+	p.expect(lexer.LBrace, "{")
+	var contributors []ast.ContributorDecl
+	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+		p.skipNewlines()
+		if p.at(lexer.RBrace) {
+			break
+		}
+		name := p.expectIdent("contributor capability")
+		contributors = append(contributors, ast.ContributorDecl{Capability: name.Text, Span: name.Span})
+	}
+	p.expect(lexer.RBrace, "}")
+	return contributors
+}
+
+func (p *Parser) parseLifecycleStep() ast.LifecycleStepDecl {
+	start := p.expectText("step")
+	name := p.expectIdent("lifecycle step")
+	step := ast.LifecycleStepDecl{Name: name.Text, Span: start.Span}
+	if !p.match(lexer.LBrace) {
+		return step
+	}
+	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+		p.skipNewlines()
+		if p.at(lexer.RBrace) {
+			break
+		}
+		switch p.peek().Text {
+		case "kind":
+			p.advance()
+			step.Kind = p.expectIdent("step kind").Text
+		case "waits":
+			step.Waits = append(step.Waits, p.parseWaitTrigger())
+		case "deadline":
+			step.Deadlines = append(step.Deadlines, p.parseDeadline())
+		case "recovery":
+			start := p.advance()
+			target := p.expectIdent("recovery target")
+			step.RecoveryActions = append(step.RecoveryActions, ast.RecoveryDecl{Target: target.Text, Span: start.Span})
+		default:
+			tok := p.advance()
+			p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected lifecycle step statement", tok.Span, tok.Text)
+		}
+	}
+	p.expect(lexer.RBrace, "}")
+	return step
+}
+
+func (p *Parser) parseWaitTrigger() ast.WaitTriggerDecl {
+	start := p.expectText("waits")
+	p.expectText("for")
+	signalKind := p.expectIdent("wait signal kind").Text
+	signalName := p.expectIdent("wait signal name").Text
+	p.expectText("from")
+	sourceCapability := p.expectIdent("wait source capability").Text
+	return ast.WaitTriggerDecl{SignalKind: signalKind, SignalName: signalName, SourceCapability: sourceCapability, Span: start.Span}
+}
+
+func (p *Parser) parseDeadline() ast.DeadlineDecl {
+	start := p.expectText("deadline")
+	var duration []string
+	for !p.at(lexer.EOF) && !p.at(lexer.Newline) && !p.at(lexer.RBrace) && !(p.peek().Kind == lexer.Ident && p.peek().Text == "causing") {
+		duration = append(duration, p.advance().Text)
+	}
+	p.expectText("causing")
+	consequenceKind := p.expectIdent("deadline consequence kind").Text
+	consequenceSymbol := p.expectIdent("deadline consequence symbol").Text
+	return ast.DeadlineDecl{Duration: duration, ConsequenceKind: consequenceKind, ConsequenceSymbol: consequenceSymbol, Span: start.Span}
 }
 
 func (p *Parser) skipNewlines() {

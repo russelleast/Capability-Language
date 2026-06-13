@@ -163,14 +163,49 @@ type WhenBranch struct {
 }
 
 type LifecycleDecl struct {
-	Name        string
-	Supervised  bool
-	Identity    string
-	Begin       string
-	Steps       []string
-	Ends        []string
-	Transitions []TransitionDecl
-	Span        diagnostic.Span
+	Name         string
+	Supervised   bool
+	Identity     string
+	Contributors []ContributorDecl
+	Begin        string
+	Steps        []LifecycleStepDecl
+	Ends         []string
+	Transitions  []TransitionDecl
+	Span         diagnostic.Span
+}
+
+type ContributorDecl struct {
+	Capability string
+	Span       diagnostic.Span
+}
+
+type LifecycleStepDecl struct {
+	Name            string
+	Kind            string
+	Waits           []WaitTriggerDecl
+	Deadlines       []DeadlineDecl
+	RecoveryActions []RecoveryDecl
+	IsTerminal      bool
+	Span            diagnostic.Span
+}
+
+type WaitTriggerDecl struct {
+	SignalKind       string
+	SignalName       string
+	SourceCapability string
+	Span             diagnostic.Span
+}
+
+type DeadlineDecl struct {
+	Duration          []string
+	ConsequenceKind   string
+	ConsequenceSymbol string
+	Span              diagnostic.Span
+}
+
+type RecoveryDecl struct {
+	Target string
+	Span   diagnostic.Span
 }
 
 type TransitionDecl struct {

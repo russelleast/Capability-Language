@@ -270,17 +270,54 @@ type ObservationIR struct {
 }
 
 type LifecycleIR struct {
-	ID                        string         `json:"id"`
-	Name                      string         `json:"name,omitempty"`
-	OwnerCapability           string         `json:"owner_capability,omitempty"`
-	IdentityBinding           string         `json:"identity_binding,omitempty"`
-	ParticipatingCapabilities []string       `json:"participating_capabilities,omitempty"`
-	Steps                     []string       `json:"steps,omitempty"`
-	Policies                  []PolicyUseIR  `json:"policies,omitempty"`
-	Initial                   string         `json:"initial_state"`
-	States                    []string       `json:"states"`
-	Terminal                  []string       `json:"terminal_states,omitempty"`
-	Transitions               []TransitionIR `json:"transitions,omitempty"`
+	ID                        string            `json:"id"`
+	Name                      string            `json:"name,omitempty"`
+	OwnerCapability           string            `json:"owner_capability,omitempty"`
+	IdentityBinding           string            `json:"identity_binding,omitempty"`
+	ParticipatingCapabilities []string          `json:"participating_capabilities,omitempty"`
+	Contributors              []ContributorIR   `json:"contributors,omitempty"`
+	Steps                     []LifecycleStepIR `json:"steps,omitempty"`
+	Policies                  []PolicyUseIR     `json:"policies,omitempty"`
+	Initial                   string            `json:"initial_state"`
+	States                    []string          `json:"states"`
+	Terminal                  []string          `json:"terminal_states,omitempty"`
+	Transitions               []TransitionIR    `json:"transitions,omitempty"`
+}
+
+type LifecycleStepIR struct {
+	Name            string          `json:"name"`
+	Kind            string          `json:"kind,omitempty"`
+	WaitingTriggers []WaitTriggerIR `json:"waiting_triggers,omitempty"`
+	Deadlines       []DeadlineIR    `json:"deadlines,omitempty"`
+	RecoveryActions []RecoveryIR    `json:"recovery_actions,omitempty"`
+	IsTerminal      bool            `json:"is_terminal,omitempty"`
+}
+
+type WaitTriggerIR struct {
+	SignalKind       string `json:"signal_kind"`
+	SignalName       string `json:"signal_name"`
+	SourceCapability string `json:"source_capability,omitempty"`
+}
+
+type DeadlineIR struct {
+	Step              string `json:"step"`
+	Duration          string `json:"duration"`
+	ConsequenceKind   string `json:"consequence_kind"`
+	ConsequenceSymbol string `json:"consequence_symbol"`
+}
+
+type RecoveryIR struct {
+	DeclaringStep  string   `json:"declaring_step"`
+	Target         string   `json:"target"`
+	TargetKind     string   `json:"target_kind"`
+	ResultOutcomes []string `json:"result_outcomes,omitempty"`
+}
+
+type ContributorIR struct {
+	Capability         string   `json:"capability"`
+	UsedByTransitions  []string `json:"used_by_transitions,omitempty"`
+	UsedByWaitingSteps []string `json:"used_by_waiting_steps,omitempty"`
+	UsedByRecovery     []string `json:"used_by_recovery,omitempty"`
 }
 
 type TransitionIR struct {

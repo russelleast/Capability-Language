@@ -254,7 +254,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		capIR.Policies = append(capIR.Policies, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policyTargetName(cap, policy)})
 	}
 
-	c.validateWhen(cap, localOutcomes, localRules, localEffects, localPolicies, &capIR)
+	c.validateWhen(cap, localOutcomes, localRules, localEffects, localPolicies, lifecycleCausedOutcomes(cap.Lifecycle), &capIR)
 	if cap.Lifecycle != nil {
 		capIR.Lifecycle = c.lifecycleIR(cap, localOutcomes)
 	}
@@ -266,9 +266,15 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	return capIR
 }
 
-func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl, rules map[string]ast.RuleDecl, effects map[string]ast.EffectUse, policies map[string]ast.PolicyUse, capIR *ir.CapabilityIR) {
+func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl, rules map[string]ast.RuleDecl, effects map[string]ast.EffectUse, policies map[string]ast.PolicyUse, lifecycleCaused map[string]bool, capIR *ir.CapabilityIR) {
 	context := declContext(cap.Meta.ContextName)
 	caused := map[string]bool{}
+	for outcome := range lifecycleCaused {
+		caused[outcome] = true
+		capIR.Analysis.OutcomeCauses = append(capIR.Analysis.OutcomeCauses, ir.OutcomeCause{Outcome: outcome, Source: "lifecycle:deadline", Condition: "deadline", Precedence: len(cap.When)})
+		capIR.Analysis.ReachableOutcomes = append(capIR.Analysis.ReachableOutcomes, outcome)
+		capIR.Relations = append(capIR.Relations, ir.RelationIR{Kind: "causes", From: "lifecycle:deadline", To: outcome, Condition: "deadline"})
+	}
 	otherwiseSeen := false
 	for i, branch := range cap.When {
 		sourceKind := branch.SourceKind
@@ -339,7 +345,8 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl) *ir.LifecycleIR {
 	lc := cap.Lifecycle
 	context := declContext(cap.Meta.ContextName)
-	states := setFrom(lc.Steps)
+	stepDecls := lifecycleStepDecls(lc)
+	states := lifecycleStateSet(stepDecls)
 	if lc.Begin != "" {
 		states[lc.Begin] = true
 	}
@@ -363,7 +370,6 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 		Name:            lifecycleName,
 		OwnerCapability: cap.Name,
 		IdentityBinding: lc.Identity,
-		Steps:           sortedKeys(states),
 		Policies:        lifecyclePoliciesIR(cap),
 		Initial:         lc.Begin,
 		States:          sortedKeys(states),
@@ -371,6 +377,8 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	}
 	graph := map[string][]string{}
 	participants := map[string]bool{cap.Name: true}
+	contributors := c.validateLifecycleContributors(lc, context)
+	contributorUsage := map[string]*contributorUsage{}
 	transitionTargets := map[string]map[string]diagnostic.Span{}
 	for _, tr := range lc.Transitions {
 		if !states[tr.From] {
@@ -385,10 +393,12 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 		switch tr.TriggerKind {
 		case "outcome":
 			if tr.SourceCapability != "" {
+				c.requireLifecycleContributor(tr.SourceCapability, contributors, tr.Span, "transition source")
 				sourceCap, ok := c.resolveTransitionSourceCapability(tr.SourceCapability, context, tr.Span)
 				if ok {
 					sourceCapability = sourceCap.Name
 					participants[sourceCap.Name] = true
+					recordContributorTransition(contributorUsage, sourceCap.Name, tr.From)
 					if !capabilityDeclaresOutcome(sourceCap, tr.TriggerName) {
 						c.diags.Error("DCL_SEM_UNDEFINED_TRANSITION_SOURCE_SYMBOL", "transition source capability does not declare outcome", tr.Span, tr.TriggerName)
 					}
@@ -402,10 +412,16 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 			}
 		case "event":
 			if tr.SourceCapability != "" {
-				c.diags.Error("DCL_SEM_LIFECYCLE_TRIGGER_KIND", "cross-capability lifecycle transition sources only support outcome", tr.Span, tr.TriggerKind)
-			} else {
-				c.requireInContext("event", tr.TriggerName, context, tr.Span)
+				c.requireLifecycleContributor(tr.SourceCapability, contributors, tr.Span, "transition source")
+				sourceCap, ok := c.resolveTransitionSourceCapability(tr.SourceCapability, context, tr.Span)
+				if ok {
+					sourceCapability = sourceCap.Name
+					participants[sourceCap.Name] = true
+					recordContributorTransition(contributorUsage, sourceCap.Name, tr.From)
+				}
+				correlation = lc.Identity
 			}
+			c.requireInContext("event", tr.TriggerName, context, tr.Span)
 		default:
 			c.diags.Error("DCL_SEM_LIFECYCLE_TRIGGER_KIND", "lifecycle trigger must be event or outcome", tr.Span, tr.TriggerKind)
 		}
@@ -428,6 +444,12 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 			CorrelationBinding: correlation,
 		})
 	}
+	reachable := reachableStates(lc.Begin, graph)
+	exits := lifecycleExitCounts(graph)
+	recoveryTransitions := recoveryTransitionsBySource(lc.Transitions)
+	for _, step := range stepDecls {
+		out.Steps = append(out.Steps, c.lifecycleStepIR(cap, step, contributors, contributorUsage, states, reachable, exits, recoveryTransitions))
+	}
 	for _, targets := range transitionTargets {
 		if len(targets) <= 1 {
 			continue
@@ -444,7 +466,6 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 		c.diags.Error("DCL_SEM_AMBIGUOUS_LIFECYCLE_TRANSITION", "same lifecycle source step and transition trigger lead to multiple target steps", span, strings.Join(targetNames, ", "))
 	}
 	out.ParticipatingCapabilities = sortedKeys(participants)
-	reachable := reachableStates(lc.Begin, graph)
 	for state := range states {
 		if !reachable[state] {
 			c.diags.Warning("DCL_SEM_LIFECYCLE_STATE_UNREACHABLE", "lifecycle state is not reachable from the initial state by declared transitions", lc.Span, state)
@@ -453,11 +474,326 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 			c.diags.Warning("DCL_SEM_LIFECYCLE_DEAD_END", "non-terminal lifecycle state has no outgoing transition", lc.Span, state)
 		}
 	}
+	c.validateRecoveryLoops(lc, states, graph)
+	c.emitUnusedLifecycleContributorWarnings(contributors, contributorUsage)
+	out.Contributors = contributorIR(contributors, contributorUsage)
 	sort.Slice(out.Transitions, func(i, j int) bool {
 		a, b := out.Transitions[i], out.Transitions[j]
 		return a.From+a.To+a.TriggerKind+a.TriggerName+a.SourceCapability < b.From+b.To+b.TriggerKind+b.TriggerName+b.SourceCapability
 	})
+	sort.Slice(out.Steps, func(i, j int) bool { return out.Steps[i].Name < out.Steps[j].Name })
 	return out
+}
+
+type contributorUsage struct {
+	transitions map[string]bool
+	waits       map[string]bool
+	recovery    map[string]bool
+}
+
+func lifecycleStepDecls(lc *ast.LifecycleDecl) []ast.LifecycleStepDecl {
+	byName := map[string]ast.LifecycleStepDecl{}
+	var order []string
+	add := func(step ast.LifecycleStepDecl) {
+		if step.Name == "" {
+			return
+		}
+		existing, exists := byName[step.Name]
+		if !exists {
+			byName[step.Name] = step
+			order = append(order, step.Name)
+			return
+		}
+		if existing.Kind == "" {
+			existing.Kind = step.Kind
+		}
+		existing.Waits = append(existing.Waits, step.Waits...)
+		existing.Deadlines = append(existing.Deadlines, step.Deadlines...)
+		existing.RecoveryActions = append(existing.RecoveryActions, step.RecoveryActions...)
+		existing.IsTerminal = existing.IsTerminal || step.IsTerminal
+		byName[step.Name] = existing
+	}
+	for _, step := range lc.Steps {
+		add(step)
+	}
+	if lc.Begin != "" {
+		add(ast.LifecycleStepDecl{Name: lc.Begin, Span: lc.Span})
+	}
+	for _, end := range lc.Ends {
+		add(ast.LifecycleStepDecl{Name: end, IsTerminal: true, Span: lc.Span})
+	}
+	out := make([]ast.LifecycleStepDecl, 0, len(order))
+	for _, name := range order {
+		out = append(out, byName[name])
+	}
+	return out
+}
+
+func lifecycleCausedOutcomes(lc *ast.LifecycleDecl) map[string]bool {
+	out := map[string]bool{}
+	if lc == nil {
+		return out
+	}
+	for _, step := range lifecycleStepDecls(lc) {
+		for _, deadline := range step.Deadlines {
+			if deadline.ConsequenceKind == "outcome" && deadline.ConsequenceSymbol != "" {
+				out[deadline.ConsequenceSymbol] = true
+			}
+		}
+	}
+	return out
+}
+
+func lifecycleStateSet(steps []ast.LifecycleStepDecl) map[string]bool {
+	out := map[string]bool{}
+	for _, step := range steps {
+		out[step.Name] = true
+	}
+	return out
+}
+
+func (c *compiler) validateLifecycleContributors(lc *ast.LifecycleDecl, context string) map[string]ast.ContributorDecl {
+	out := map[string]ast.ContributorDecl{}
+	for _, contributor := range lc.Contributors {
+		if _, exists := out[contributor.Capability]; exists {
+			c.diags.Error("DCL_SEM_LIFECYCLE_CONTRIBUTOR_DUPLICATE", "duplicate lifecycle contributor", contributor.Span, contributor.Capability)
+			continue
+		}
+		out[contributor.Capability] = contributor
+		c.requireInContext("capability", contributor.Capability, context, contributor.Span)
+	}
+	return out
+}
+
+func (c *compiler) requireLifecycleContributor(name string, contributors map[string]ast.ContributorDecl, span diagnostic.Span, usage string) bool {
+	if name == "" {
+		return false
+	}
+	if _, ok := contributors[name]; ok {
+		return true
+	}
+	c.diags.Error("DCL_SEM_LIFECYCLE_NON_CONTRIBUTOR", usage+" references a capability that is not a declared lifecycle contributor", span, name)
+	return false
+}
+
+func (c *compiler) lifecycleStepIR(cap ast.CapabilityDecl, step ast.LifecycleStepDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, states map[string]bool, reachable map[string]bool, exits map[string]int, recoveryTransitions map[string][]ast.TransitionDecl) ir.LifecycleStepIR {
+	context := declContext(cap.Meta.ContextName)
+	kind := step.Kind
+	if step.IsTerminal {
+		if kind != "" && kind != "terminal" {
+			c.diags.Error("DCL_SEM_LIFECYCLE_TERMINAL_KIND_CONFLICT", "terminal lifecycle step must not declare a non-terminal kind", step.Span, step.Name)
+		}
+		kind = "terminal"
+	}
+	if kind != "" && !validLifecycleStepKind(kind) {
+		c.diags.Error("DCL_SEM_LIFECYCLE_STEP_KIND_INVALID", "invalid lifecycle step kind", step.Span, kind)
+	}
+	if step.Kind == "waiting" && len(step.Waits) == 0 {
+		c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_MISSING", "waiting lifecycle step must declare at least one wait condition", step.Span, step.Name)
+	}
+	if step.Kind == "waiting" && exits[step.Name] == 0 {
+		c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_NO_EXIT", "waiting lifecycle step must have at least one exit transition", step.Span, step.Name)
+	}
+	if step.Kind == "waiting" && !reachable[step.Name] {
+		c.diags.Warning("DCL_SEM_LIFECYCLE_STATE_UNREACHABLE", "waiting lifecycle step is not reachable", step.Span, step.Name)
+	}
+	out := ir.LifecycleStepIR{Name: step.Name, Kind: kind, IsTerminal: step.IsTerminal}
+	for _, wait := range step.Waits {
+		out.WaitingTriggers = append(out.WaitingTriggers, c.waitTriggerIR(step.Name, wait, contributors, usage, context))
+	}
+	for _, deadline := range step.Deadlines {
+		out.Deadlines = append(out.Deadlines, c.deadlineIR(step.Name, deadline, cap))
+	}
+	if len(step.Deadlines) > 1 {
+		c.diags.Error("DCL_SEM_LIFECYCLE_DEADLINE_CONFLICT", "lifecycle step declares conflicting deadlines", step.Span, step.Name)
+	}
+	for _, recovery := range step.RecoveryActions {
+		out.RecoveryActions = append(out.RecoveryActions, c.recoveryIR(step.Name, recovery, contributors, usage, states, recoveryTransitions, context))
+	}
+	return out
+}
+
+func (c *compiler) waitTriggerIR(stepName string, wait ast.WaitTriggerDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, context string) ir.WaitTriggerIR {
+	c.requireLifecycleContributor(wait.SourceCapability, contributors, wait.Span, "wait condition")
+	recordContributorWait(usage, wait.SourceCapability, stepName)
+	switch wait.SignalKind {
+	case "outcome":
+		sourceCap, ok := c.resolveTransitionSourceCapability(wait.SourceCapability, context, wait.Span)
+		if ok && !capabilityDeclaresOutcome(sourceCap, wait.SignalName) {
+			c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_SIGNAL_UNKNOWN", "wait condition references an outcome not declared by the source capability", wait.Span, wait.SignalName)
+		}
+	case "event":
+		if _, ok := c.resolve("event", wait.SignalName, context, wait.Span, true); ok {
+			// TODO(v0.8): capability-level event emission ownership is not represented in the AST yet.
+			c.diags.Warning("DCL_SEM_LIFECYCLE_WAIT_EVENT_SOURCE_UNVERIFIED", "event exists, but capability event emission ownership cannot be fully verified yet", wait.Span, wait.SourceCapability+"."+wait.SignalName)
+		}
+	default:
+		c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_SIGNAL_KIND", "wait condition signal kind must be event or outcome", wait.Span, wait.SignalKind)
+	}
+	return ir.WaitTriggerIR{SignalKind: wait.SignalKind, SignalName: wait.SignalName, SourceCapability: wait.SourceCapability}
+}
+
+func (c *compiler) deadlineIR(step string, deadline ast.DeadlineDecl, cap ast.CapabilityDecl) ir.DeadlineIR {
+	if !positiveDuration(deadline.Duration) {
+		c.diags.Error("DCL_SEM_LIFECYCLE_DEADLINE_DURATION_INVALID", "deadline duration must be positive", deadline.Span, strings.Join(deadline.Duration, " "))
+	}
+	if deadline.ConsequenceKind != "outcome" {
+		c.diags.Error("DCL_SEM_LIFECYCLE_DEADLINE_CONSEQUENCE_KIND", "deadline consequence must be outcome", deadline.Span, deadline.ConsequenceKind)
+	} else if !capabilityDeclaresOutcome(cap, deadline.ConsequenceSymbol) {
+		c.diags.Error("DCL_SEM_LIFECYCLE_DEADLINE_CONSEQUENCE_UNKNOWN", "deadline consequence references unknown outcome", deadline.Span, deadline.ConsequenceSymbol)
+	}
+	return ir.DeadlineIR{
+		Step:              step,
+		Duration:          strings.Join(deadline.Duration, " "),
+		ConsequenceKind:   deadline.ConsequenceKind,
+		ConsequenceSymbol: deadline.ConsequenceSymbol,
+	}
+}
+
+func (c *compiler) recoveryIR(stepName string, recovery ast.RecoveryDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, states map[string]bool, recoveryTransitions map[string][]ast.TransitionDecl, context string) ir.RecoveryIR {
+	targetKind, ok := c.resolveRecoveryTarget(recovery.Target, context, recovery.Span)
+	if ok && targetKind == "capability" {
+		c.requireLifecycleContributor(recovery.Target, contributors, recovery.Span, "recovery target")
+		recordContributorRecovery(usage, recovery.Target, stepName)
+	}
+	resultTransitions := recoveryTransitions[recovery.Target]
+	if len(resultTransitions) == 0 {
+		c.diags.Error("DCL_SEM_LIFECYCLE_RECOVERY_RESULT_TRANSITION_MISSING", "recovery declaration requires an explicit lifecycle transition sourced from the recovery target", recovery.Span, recovery.Target)
+	}
+	var resultOutcomes []string
+	for _, tr := range resultTransitions {
+		if tr.TriggerKind == "outcome" {
+			resultOutcomes = append(resultOutcomes, tr.TriggerName)
+		}
+		if !states[tr.From] || !states[tr.To] {
+			c.diags.Error("DCL_SEM_LIFECYCLE_RECOVERY_TARGET_UNREACHABLE", "recovery target transition references unknown lifecycle state", tr.Span, recovery.Target)
+		}
+	}
+	return ir.RecoveryIR{DeclaringStep: stepName, Target: recovery.Target, TargetKind: targetKind, ResultOutcomes: sortedStrings(resultOutcomes)}
+}
+
+func (c *compiler) resolveRecoveryTarget(name, context string, span diagnostic.Span) (string, bool) {
+	_, capOK := c.resolve("capability", name, context, span, false)
+	_, effectOK := c.resolve("effect", name, context, span, false)
+	if capOK && effectOK {
+		c.diags.Error("DCL_SEM_LIFECYCLE_RECOVERY_TARGET_AMBIGUOUS", "recovery target matches both capability and effect", span, name)
+		return "", false
+	}
+	if capOK {
+		return "capability", true
+	}
+	if effectOK {
+		return "effect", true
+	}
+	c.diags.Error("DCL_SEM_LIFECYCLE_RECOVERY_TARGET_UNKNOWN", "recovery target does not exist", span, name)
+	return "", false
+}
+
+func lifecycleExitCounts(graph map[string][]string) map[string]int {
+	out := map[string]int{}
+	for from, targets := range graph {
+		out[from] = len(targets)
+	}
+	return out
+}
+
+func recoveryTransitionsBySource(transitions []ast.TransitionDecl) map[string][]ast.TransitionDecl {
+	out := map[string][]ast.TransitionDecl{}
+	for _, tr := range transitions {
+		if tr.SourceCapability != "" {
+			out[tr.SourceCapability] = append(out[tr.SourceCapability], tr)
+		}
+	}
+	return out
+}
+
+func validLifecycleStepKind(kind string) bool {
+	switch kind {
+	case "active", "waiting", "decision", "recovery", "terminal":
+		return true
+	default:
+		return false
+	}
+}
+
+func recordContributorTransition(usage map[string]*contributorUsage, capability, step string) {
+	item := ensureContributorUsage(usage, capability)
+	item.transitions[step] = true
+}
+
+func recordContributorWait(usage map[string]*contributorUsage, capability, step string) {
+	item := ensureContributorUsage(usage, capability)
+	item.waits[step] = true
+}
+
+func recordContributorRecovery(usage map[string]*contributorUsage, capability, step string) {
+	item := ensureContributorUsage(usage, capability)
+	item.recovery[step] = true
+}
+
+func ensureContributorUsage(usage map[string]*contributorUsage, capability string) *contributorUsage {
+	if usage[capability] == nil {
+		usage[capability] = &contributorUsage{transitions: map[string]bool{}, waits: map[string]bool{}, recovery: map[string]bool{}}
+	}
+	return usage[capability]
+}
+
+func contributorIR(contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage) []ir.ContributorIR {
+	var out []ir.ContributorIR
+	for capability := range contributors {
+		item := usage[capability]
+		contributor := ir.ContributorIR{Capability: capability}
+		if item != nil {
+			contributor.UsedByTransitions = sortedBoolKeys(item.transitions)
+			contributor.UsedByWaitingSteps = sortedBoolKeys(item.waits)
+			contributor.UsedByRecovery = sortedBoolKeys(item.recovery)
+		}
+		out = append(out, contributor)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Capability < out[j].Capability })
+	return out
+}
+
+func (c *compiler) emitUnusedLifecycleContributorWarnings(contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage) {
+	for capability, decl := range contributors {
+		item := usage[capability]
+		if item == nil || (len(item.transitions) == 0 && len(item.waits) == 0 && len(item.recovery) == 0) {
+			c.diags.Warning("DCL_SEM_LIFECYCLE_CONTRIBUTOR_UNUSED", "lifecycle contributor is not used by transitions, waiting steps, or recovery", decl.Span, capability)
+		}
+	}
+}
+
+func (c *compiler) validateRecoveryLoops(lc *ast.LifecycleDecl, states map[string]bool, graph map[string][]string) {
+	terminal := setFrom(lc.Ends)
+	canReachTerminal := map[string]bool{}
+	var reachesTerminal func(string, map[string]bool) bool
+	reachesTerminal = func(state string, visiting map[string]bool) bool {
+		if terminal[state] {
+			return true
+		}
+		if value, ok := canReachTerminal[state]; ok {
+			return value
+		}
+		if visiting[state] {
+			return false
+		}
+		visiting[state] = true
+		for _, next := range graph[state] {
+			if reachesTerminal(next, visiting) {
+				canReachTerminal[state] = true
+				visiting[state] = false
+				return true
+			}
+		}
+		visiting[state] = false
+		canReachTerminal[state] = false
+		return false
+	}
+	for state := range states {
+		if !terminal[state] && len(graph[state]) > 0 && !reachesTerminal(state, map[string]bool{}) {
+			c.diags.Error("DCL_SEM_LIFECYCLE_RECOVERY_LOOP_INVALID", "lifecycle path cannot reach a terminal state", lc.Span, state)
+		}
+	}
 }
 
 func lifecycleIRName(cap ast.CapabilityDecl) string {
@@ -1391,7 +1727,7 @@ func splitNumberUnit(value string) (string, string) {
 
 func validDurationUnit(unit string) bool {
 	switch unit {
-	case "ms", "millisecond", "milliseconds", "s", "second", "seconds", "m", "minute", "minutes", "h", "hour", "hours":
+	case "ms", "millisecond", "milliseconds", "s", "second", "seconds", "m", "minute", "minutes", "h", "hour", "hours", "d", "day", "days":
 		return true
 	default:
 		return false
