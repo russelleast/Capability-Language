@@ -4,12 +4,31 @@ import "capabilitylanguage/internal/diagnostic"
 
 type Program struct {
 	Files        []string
+	Contexts     []ContextDecl
+	Dependencies []DependencyDecl
 	Shapes       []ShapeDecl
 	Actors       []ActorDecl
 	Events       []EventDecl
 	Effects      []EffectDecl
 	Policies     []PolicyDecl
 	Capabilities []CapabilityDecl
+}
+
+type DeclMeta struct {
+	ContextName string
+	Visibility  string
+}
+
+type ContextDecl struct {
+	Name   string
+	Parent string
+	Span   diagnostic.Span
+}
+
+type DependencyDecl struct {
+	SourceContext string
+	TargetContext string
+	Span          diagnostic.Span
 }
 
 type Field struct {
@@ -28,24 +47,28 @@ type ShapeDecl struct {
 	Name   string
 	Fields []Field
 	Span   diagnostic.Span
+	Meta   DeclMeta
 }
 
 type ActorDecl struct {
 	Name string
 	Kind string
 	Span diagnostic.Span
+	Meta DeclMeta
 }
 
 type EventDecl struct {
 	Name    string
 	Payload Payload
 	Span    diagnostic.Span
+	Meta    DeclMeta
 }
 
 type EffectDecl struct {
 	Name string
 	Kind string
 	Span diagnostic.Span
+	Meta DeclMeta
 }
 
 type PolicyDecl struct {
@@ -54,6 +77,7 @@ type PolicyDecl struct {
 	Concern  string
 	Concerns []ConcernDecl
 	Span     diagnostic.Span
+	Meta     DeclMeta
 }
 
 type ConcernDecl struct {
@@ -80,6 +104,7 @@ type CapabilityDecl struct {
 	When      []WhenBranch
 	Lifecycle *LifecycleDecl
 	Span      diagnostic.Span
+	Meta      DeclMeta
 }
 
 type IntentDecl struct {

@@ -68,26 +68,54 @@ func MarshalIR(program ir.ProgramIR) ([]byte, error) {
 type compiler struct {
 	program           ast.Program
 	diags             *diagnostic.Bag
-	symbols           map[string]map[string]diagnostic.Span
+	contexts          map[string]*contextInfo
+	dependencies      map[string]map[string]diagnostic.Span
+	symbolsByContext  map[string]map[string]map[string]*symbolInfo
+	symbolsByFQN      map[string]map[string]*symbolInfo
+	symbolsByKindName map[string]map[string][]*symbolInfo
 	policies          map[string]ast.PolicyDecl
 	policyAttachments map[string][]ir.PolicyAttachmentIR
 	observations      []ir.ObservationIR
+	referencedDeps    map[string]map[string]map[string]bool
+}
+
+type contextInfo struct {
+	Name   string
+	Parent string
+	Span   diagnostic.Span
+}
+
+type symbolInfo struct {
+	Kind       string
+	Name       string
+	Context    string
+	Visibility string
+	FQN        string
+	Span       diagnostic.Span
 }
 
 func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 	c := &compiler{
 		program:           program,
 		diags:             diags,
-		symbols:           map[string]map[string]diagnostic.Span{},
+		contexts:          map[string]*contextInfo{},
+		dependencies:      map[string]map[string]diagnostic.Span{},
+		symbolsByContext:  map[string]map[string]map[string]*symbolInfo{},
+		symbolsByFQN:      map[string]map[string]*symbolInfo{},
+		symbolsByKindName: map[string]map[string][]*symbolInfo{},
 		policies:          map[string]ast.PolicyDecl{},
 		policyAttachments: map[string][]ir.PolicyAttachmentIR{},
+		referencedDeps:    map[string]map[string]map[string]bool{},
 	}
+	c.indexContexts()
 	c.indexSymbols()
 	for _, policy := range program.Policies {
-		if _, exists := c.policies[policy.Name]; !exists {
-			c.policies[policy.Name] = policy
+		key := policyKey(policy.Meta.ContextName, policy.Name)
+		if _, exists := c.policies[key]; !exists {
+			c.policies[key] = policy
 		}
 	}
+	c.validateDependencies()
 	return c
 }
 
@@ -98,28 +126,28 @@ func (c *compiler) buildIR() ir.ProgramIR {
 	}
 
 	for _, shape := range c.program.Shapes {
-		out.Shapes = append(out.Shapes, ir.ShapeIR{ID: id("shape", shape.Name), Name: shape.Name, Fields: fieldsIR(shape.Fields)})
-		out.Symbols = append(out.Symbols, symbol("shape", shape.Name, shape.Span))
-		c.validateFields(shape.Fields)
+		out.Shapes = append(out.Shapes, ir.ShapeIR{ID: id("shape", symbolIdentity(shape.Meta.ContextName, shape.Name)), Name: shape.Name, Fields: fieldsIR(shape.Fields)})
+		out.Symbols = append(out.Symbols, c.symbolIR("shape", shape.Name, shape.Meta.ContextName, shape.Span))
+		c.validateFields(shape.Fields, shape.Meta.ContextName)
 	}
 	for _, actor := range c.program.Actors {
 		if actor.Kind == "" {
 			c.diags.Error("DCL_SEM_ACTOR_KIND_REQUIRED", "actor must declare kind", actor.Span, actor.Name)
 		}
-		out.Actors = append(out.Actors, ir.ActorIR{ID: id("actor", actor.Name), Name: actor.Name, Classification: actor.Kind})
-		out.Symbols = append(out.Symbols, symbol("actor", actor.Name, actor.Span))
+		out.Actors = append(out.Actors, ir.ActorIR{ID: id("actor", symbolIdentity(actor.Meta.ContextName, actor.Name)), Name: actor.Name, Classification: actor.Kind})
+		out.Symbols = append(out.Symbols, c.symbolIR("actor", actor.Name, actor.Meta.ContextName, actor.Span))
 	}
 	for _, effect := range c.program.Effects {
 		if effect.Kind == "" {
 			c.diags.Error("DCL_SEM_EFFECT_KIND_REQUIRED", "effect must declare kind", effect.Span, effect.Name)
 		}
-		out.Effects = append(out.Effects, ir.EffectIR{ID: id("effect", effect.Name), Name: effect.Name, Type: effect.Kind})
-		out.Symbols = append(out.Symbols, symbol("effect", effect.Name, effect.Span))
+		out.Effects = append(out.Effects, ir.EffectIR{ID: id("effect", symbolIdentity(effect.Meta.ContextName, effect.Name)), Name: effect.Name, Type: effect.Kind})
+		out.Symbols = append(out.Symbols, c.symbolIR("effect", effect.Name, effect.Meta.ContextName, effect.Span))
 	}
 	for _, event := range c.program.Events {
-		c.validatePayload(event.Payload)
-		out.Events = append(out.Events, ir.EventIR{ID: id("event", event.Name), Name: event.Name, Payload: payloadIR(event.Payload)})
-		out.Symbols = append(out.Symbols, symbol("event", event.Name, event.Span))
+		c.validatePayload(event.Payload, event.Meta.ContextName)
+		out.Events = append(out.Events, ir.EventIR{ID: id("event", symbolIdentity(event.Meta.ContextName, event.Name)), Name: event.Name, Payload: payloadIR(event.Payload)})
+		out.Symbols = append(out.Symbols, c.symbolIR("event", event.Name, event.Meta.ContextName, event.Span))
 	}
 	for _, policy := range c.program.Policies {
 		if policy.Family == "" {
@@ -129,23 +157,27 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		}
 		c.validatePolicyConcerns(policy)
 		out.Policies = append(out.Policies, c.policyIR(policy))
-		out.Symbols = append(out.Symbols, symbol("policy", policy.Name, policy.Span))
+		out.Symbols = append(out.Symbols, c.symbolIR("policy", policy.Name, policy.Meta.ContextName, policy.Span))
 	}
 	for _, capability := range c.program.Capabilities {
 		out.Capabilities = append(out.Capabilities, c.capabilityIR(capability))
-		out.Symbols = append(out.Symbols, symbol("capability", capability.Name, capability.Span))
+		out.Symbols = append(out.Symbols, c.symbolIR("capability", capability.Name, capability.Meta.ContextName, capability.Span))
 	}
 	out.Observations = append(out.Observations, c.observations...)
 	c.applyPolicyAttachments(&out)
 	c.deriveEffectivePolicies(&out)
+	c.emitUnusedDependencyWarnings()
+	out.Contexts = c.contextIR()
+	out.Dependencies = c.dependencyIR()
 
 	sortProgramIR(&out)
 	return out
 }
 
 func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
+	context := declContext(cap.Meta.ContextName)
 	capIR := ir.CapabilityIR{
-		ID:       id("capability", cap.Name),
+		ID:       id("capability", symbolIdentity(context, cap.Name)),
 		Name:     cap.Name,
 		Analysis: ir.CapabilityAnalysis{Portability: "portable"},
 	}
@@ -165,35 +197,35 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	metricNames := map[string]diagnostic.Span{}
 
 	for _, intent := range cap.Intents {
-		c.requireGlobal("actor", intent.Actor, intent.Span)
-		c.requireGlobal("shape", intent.InputType, intent.Span)
+		c.requireInContext("actor", intent.Actor, context, intent.Span)
+		c.requireInContext("shape", intent.InputType, context, intent.Span)
 		capIR.Intents = append(capIR.Intents, ir.IntentIR{
-			ID: id("intent", cap.Name+"."+intent.Name), Name: intent.Name, Capability: cap.Name,
+			ID: id("intent", symbolIdentity(context, cap.Name+"."+intent.Name)), Name: intent.Name, Capability: cap.Name,
 			InputShape: intent.InputType, Actor: intent.Actor, Source: "declared",
 		})
 	}
 	for _, role := range cap.Actors {
-		c.requireGlobal("actor", role.Actor, role.Span)
+		c.requireInContext("actor", role.Actor, context, role.Span)
 		localActorRoles[role.Role] = role
 		capIR.Actors = append(capIR.Actors, ir.ActorRoleIR{Role: role.Role, Actor: role.Actor})
 	}
 	for _, outcome := range cap.Outcomes {
 		localOutcomes[outcome.Name] = outcome
-		c.validatePayload(outcome.Payload)
+		c.validatePayload(outcome.Payload, context)
 		capIR.Outcomes = append(capIR.Outcomes, ir.OutcomeIR{
-			ID: id("outcome", cap.Name+"."+outcome.Name), Name: outcome.Name, Capability: cap.Name, Payload: payloadIR(outcome.Payload),
+			ID: id("outcome", symbolIdentity(context, cap.Name+"."+outcome.Name)), Name: outcome.Name, Capability: cap.Name, Payload: payloadIR(outcome.Payload),
 		})
 	}
 	for _, rule := range cap.Rules {
 		localRules[rule.Name] = rule
-		capIR.Invariants = append(capIR.Invariants, ir.InvariantIR{ID: id("rule", cap.Name+"."+rule.Name), Name: rule.Name, Capability: cap.Name, Assertion: rule.Expression})
+		capIR.Invariants = append(capIR.Invariants, ir.InvariantIR{ID: id("rule", symbolIdentity(context, cap.Name+"."+rule.Name)), Name: rule.Name, Capability: cap.Name, Assertion: rule.Expression})
 		c.validateRuleExpression(rule, localActorRoles)
 	}
 	for _, effect := range cap.Effects {
 		localEffects[effect.Name] = effect
 	}
 	for _, effect := range cap.Effects {
-		c.requireGlobal("effect", effect.Name, effect.Span)
+		c.requireInContext("effect", effect.Name, context, effect.Span)
 		if effect.After != "" {
 			if _, ok := localEffects[effect.After]; !ok {
 				c.diags.Error("DCL_SEM_EFFECT_ORDER_UNKNOWN", "effect ordering references an effect not used in this capability", effect.Span, effect.After)
@@ -203,7 +235,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	}
 	for _, policy := range cap.Policies {
 		localPolicies[policy.Name] = policy
-		c.requireGlobal("policy", policy.Name, policy.Span)
+		c.requireInContext("policy", policy.Name, context, policy.Span)
 		if policy.TargetKind != "" {
 			c.validatePolicyTarget(cap, policy, localOutcomes, localEffects)
 		}
@@ -225,6 +257,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 }
 
 func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl, rules map[string]ast.RuleDecl, effects map[string]ast.EffectUse, policies map[string]ast.PolicyUse, capIR *ir.CapabilityIR) {
+	context := declContext(cap.Meta.ContextName)
 	caused := map[string]bool{}
 	otherwiseSeen := false
 	for i, branch := range cap.When {
@@ -240,7 +273,7 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 		} else {
 			if branch.SourceKind == "policy" {
 				sourceKind = "policy"
-				if !c.hasGlobal("policy", branch.SourceName) {
+				if _, ok := c.resolve("policy", branch.SourceName, context, branch.Span, false); !ok {
 					c.diags.Error("DCL_SEM_POLICY_CAUSATION_POLICY_UNKNOWN", "when branch references unknown policy", branch.Span, branch.SourceName)
 				}
 			} else {
@@ -257,8 +290,11 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 					}
 				case "denied", "denies":
 					sourceKind = "policy"
-					if _, ok := policies[branch.SourceName]; !ok && !c.hasGlobal("policy", branch.SourceName) {
-						c.diags.Error("DCL_SEM_UNKNOWN_POLICY", "when branch references unknown policy", branch.Span, branch.SourceName)
+					if _, ok := policies[branch.SourceName]; !ok {
+						_, ok = c.resolve("policy", branch.SourceName, context, branch.Span, false)
+						if !ok {
+							c.diags.Error("DCL_SEM_UNKNOWN_POLICY", "when branch references unknown policy", branch.Span, branch.SourceName)
+						}
 					}
 				default:
 					c.diags.Error("DCL_SEM_CAUSATION_DECISION_UNKNOWN", "unknown v0.2 causation decision", branch.Span, branch.Decision)
@@ -292,6 +328,7 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 
 func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.OutcomeDecl) *ir.LifecycleIR {
 	lc := cap.Lifecycle
+	context := declContext(cap.Meta.ContextName)
 	states := setFrom(lc.Steps)
 	if lc.Begin != "" {
 		states[lc.Begin] = true
@@ -302,7 +339,7 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	if lc.Begin == "" {
 		c.diags.Error("DCL_SEM_LIFECYCLE_BEGIN_REQUIRED", "lifecycle must declare an initial state", lc.Span, cap.Name)
 	}
-	out := &ir.LifecycleIR{ID: id("lifecycle", cap.Name), Initial: lc.Begin, States: sortedKeys(states), Terminal: sortedStrings(lc.Ends)}
+	out := &ir.LifecycleIR{ID: id("lifecycle", symbolIdentity(context, cap.Name)), Initial: lc.Begin, States: sortedKeys(states), Terminal: sortedStrings(lc.Ends)}
 	graph := map[string][]string{}
 	for _, tr := range lc.Transitions {
 		if !states[tr.From] {
@@ -317,7 +354,7 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 				c.diags.Error("DCL_SEM_LIFECYCLE_UNKNOWN_TRIGGER", "lifecycle transition references unknown outcome", tr.Span, tr.TriggerName)
 			}
 		case "event":
-			c.requireGlobal("event", tr.TriggerName, tr.Span)
+			c.requireInContext("event", tr.TriggerName, context, tr.Span)
 		default:
 			c.diags.Error("DCL_SEM_LIFECYCLE_TRIGGER_KIND", "lifecycle trigger must be event or outcome", tr.Span, tr.TriggerKind)
 		}
@@ -341,6 +378,7 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 }
 
 func (c *compiler) validatePolicyTarget(cap ast.CapabilityDecl, policy ast.PolicyUse, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) {
+	context := declContext(cap.Meta.ContextName)
 	switch policy.TargetKind {
 	case "capability":
 		if policy.TargetName == "" {
@@ -358,7 +396,7 @@ func (c *compiler) validatePolicyTarget(cap ast.CapabilityDecl, policy ast.Polic
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target outcome is not declared by this capability", policy.Span, policy.TargetName)
 		}
 	case "event":
-		if !c.hasGlobal("event", policy.TargetName) {
+		if _, ok := c.resolve("event", policy.TargetName, context, policy.Span, false); !ok {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target event is not declared", policy.Span, policy.TargetName)
 		}
 	case "lifecycle":
@@ -393,12 +431,13 @@ func (c *compiler) validateObservation(cap ast.CapabilityDecl, observation ast.O
 }
 
 func (c *compiler) resolveObservationTarget(cap ast.CapabilityDecl, observation ast.ObservationDecl, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) string {
+	context := declContext(cap.Meta.ContextName)
 	switch observation.TargetKind {
 	case "capability":
 		if observation.TargetName != "" && observation.TargetName != cap.Name {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target capability is not the current capability", observation.Span, observation.TargetName)
 		}
-		return id("capability", cap.Name)
+		return id("capability", symbolIdentity(context, cap.Name))
 	case "effect":
 		if _, ok := effects[observation.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target effect is not used by this capability", observation.Span, observation.TargetName)
@@ -408,9 +447,9 @@ func (c *compiler) resolveObservationTarget(cap ast.CapabilityDecl, observation 
 		if _, ok := outcomes[observation.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target outcome is not declared by this capability", observation.Span, observation.TargetName)
 		}
-		return id("outcome", cap.Name+"."+observation.TargetName)
+		return id("outcome", symbolIdentity(context, cap.Name+"."+observation.TargetName))
 	case "event":
-		if !c.hasGlobal("event", observation.TargetName) {
+		if _, ok := c.resolve("event", observation.TargetName, context, observation.Span, false); !ok {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target event is not declared", observation.Span, observation.TargetName)
 		}
 		return id("event", observation.TargetName)
@@ -418,7 +457,7 @@ func (c *compiler) resolveObservationTarget(cap ast.CapabilityDecl, observation 
 		if cap.Lifecycle == nil {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target lifecycle is not declared by this capability", observation.Span, cap.Name)
 		}
-		return id("lifecycle", cap.Name)
+		return id("lifecycle", symbolIdentity(context, cap.Name))
 	default:
 		c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "unsupported observation target kind", observation.Span, observation.TargetKind)
 		return observation.TargetKind + ":" + observation.TargetName
@@ -436,17 +475,17 @@ func (c *compiler) validateRuleExpression(rule ast.RuleDecl, actors map[string]a
 	}
 }
 
-func (c *compiler) validateFields(fields []ast.Field) {
+func (c *compiler) validateFields(fields []ast.Field, context string) {
 	for _, field := range fields {
-		c.validateType(field.Type, field.Span)
+		c.validateType(field.Type, context, field.Span)
 	}
 }
 
-func (c *compiler) validatePayload(payload ast.Payload) {
+func (c *compiler) validatePayload(payload ast.Payload, context string) {
 	if payload.NamedType != "" {
-		c.validateType(payload.NamedType, diagnostic.Span{})
+		c.validateType(payload.NamedType, context, diagnostic.Span{})
 	}
-	c.validateFields(payload.Fields)
+	c.validateFields(payload.Fields, context)
 }
 
 func (c *compiler) validatePolicyConcerns(policy ast.PolicyDecl) {
@@ -610,7 +649,7 @@ func (c *compiler) validateCircuitBreaker(concern ast.ConcernDecl) {
 }
 
 func (c *compiler) validatePolicyAttachmentConcerns(cap ast.CapabilityDecl, use ast.PolicyUse, outcomes map[string]ast.OutcomeDecl) {
-	policy, ok := c.policies[use.Name]
+	policy, ok := c.resolvePolicyUse(cap, use)
 	if !ok {
 		return
 	}
@@ -632,10 +671,11 @@ func (c *compiler) validatePolicyAttachmentConcerns(cap ast.CapabilityDecl, use 
 }
 
 func (c *compiler) recordPolicyAttachment(cap ast.CapabilityDecl, use ast.PolicyUse) {
-	if !c.hasGlobal("policy", use.Name) {
+	policy, ok := c.resolvePolicyUse(cap, use)
+	if !ok {
 		return
 	}
-	c.policyAttachments[use.Name] = append(c.policyAttachments[use.Name], ir.PolicyAttachmentIR{
+	c.policyAttachments[policyKey(policy.Meta.ContextName, policy.Name)] = append(c.policyAttachments[policyKey(policy.Meta.ContextName, policy.Name)], ir.PolicyAttachmentIR{
 		Capability: cap.Name,
 		TargetKind: use.TargetKind,
 		TargetName: policyTargetName(cap, use),
@@ -643,7 +683,7 @@ func (c *compiler) recordPolicyAttachment(cap ast.CapabilityDecl, use ast.Policy
 }
 
 func (c *compiler) policyIR(policy ast.PolicyDecl) ir.PolicyIR {
-	out := ir.PolicyIR{ID: id("policy", policy.Name), Name: policy.Name, Family: policy.Family, Concern: policy.Concern}
+	out := ir.PolicyIR{ID: id("policy", symbolIdentity(policy.Meta.ContextName, policy.Name)), Name: policy.Name, Family: policy.Family, Concern: policy.Concern}
 	for _, concern := range policy.Concerns {
 		out.Concerns = append(out.Concerns, concernIR(policy.Family, concern))
 		if objective := objectiveIR(concern); objective.Concern != "" {
@@ -654,9 +694,18 @@ func (c *compiler) policyIR(policy ast.PolicyDecl) ir.PolicyIR {
 	return out
 }
 
+func (c *compiler) resolvePolicyUse(cap ast.CapabilityDecl, use ast.PolicyUse) (ast.PolicyDecl, bool) {
+	info, ok := c.resolve("policy", use.Name, declContext(cap.Meta.ContextName), use.Span, false)
+	if !ok {
+		return ast.PolicyDecl{}, false
+	}
+	policy, ok := c.policies[policyKey(info.Context, info.Name)]
+	return policy, ok
+}
+
 func (c *compiler) applyPolicyAttachments(out *ir.ProgramIR) {
 	for i := range out.Policies {
-		attachments := append([]ir.PolicyAttachmentIR(nil), c.policyAttachments[out.Policies[i].Name]...)
+		attachments := append([]ir.PolicyAttachmentIR(nil), c.policyAttachments[strings.TrimPrefix(out.Policies[i].ID, "policy:")]...)
 		sort.Slice(attachments, func(a, b int) bool {
 			x, y := attachments[a], attachments[b]
 			return x.Capability+x.TargetKind+x.TargetName < y.Capability+y.TargetKind+y.TargetName
@@ -677,64 +726,251 @@ func (c *compiler) applyPolicyAttachments(out *ir.ProgramIR) {
 	}
 }
 
-func (c *compiler) validateType(name string, span diagnostic.Span) {
+func (c *compiler) validateType(name string, context string, span diagnostic.Span) {
 	if name == "" || isBuiltinType(name) || strings.HasPrefix(name, "List<") {
+		if strings.HasPrefix(name, "List<") {
+			inner := strings.TrimSuffix(strings.TrimPrefix(name, "List<"), ">")
+			c.validateType(inner, context, span)
+		}
 		return
 	}
-	if !c.hasGlobal("shape", name) {
-		return
+	if declContext(context) == "default" {
+		if _, ok := c.resolve("shape", name, context, span, false); !ok {
+			return
+		}
+	}
+	c.requireInContext("shape", name, context, span)
+}
+
+func (c *compiler) indexContexts() {
+	c.ensureContext("default", diagnostic.Span{})
+	for _, ctx := range c.program.Contexts {
+		c.ensureContext(ctx.Name, ctx.Span)
+		if ctx.Parent != "" {
+			c.ensureContext(ctx.Parent, ctx.Span)
+		}
+		if info := c.contexts[ctx.Name]; info != nil && info.Parent == "" {
+			info.Parent = ctx.Parent
+		}
+	}
+	for _, dep := range c.program.Dependencies {
+		c.ensureContext(dep.SourceContext, dep.Span)
+		if c.dependencies[dep.SourceContext] == nil {
+			c.dependencies[dep.SourceContext] = map[string]diagnostic.Span{}
+		}
+		c.dependencies[dep.SourceContext][dep.TargetContext] = dep.Span
 	}
 }
 
+func (c *compiler) ensureContext(name string, span diagnostic.Span) {
+	if name == "" {
+		name = "default"
+	}
+	if _, exists := c.contexts[name]; exists {
+		return
+	}
+	c.contexts[name] = &contextInfo{Name: name, Parent: parentName(name), Span: span}
+}
+
 func (c *compiler) indexSymbols() {
-	add := func(kind, name string, span diagnostic.Span) {
-		if c.symbols[kind] == nil {
-			c.symbols[kind] = map[string]diagnostic.Span{}
+	owners := map[string]string{}
+	add := func(kind, name, context, visibility string, span diagnostic.Span) {
+		if context == "" {
+			context = "default"
 		}
-		if old, exists := c.symbols[kind][name]; exists {
-			c.diags.Error("DCL_SEM_DUPLICATE_SYMBOL", fmt.Sprintf("duplicate %s %s; first declared at %s:%d:%d", kind, name, old.File, old.Line, old.Column), span, name)
+		if visibility == "" {
+			visibility = "public"
+		}
+		ownerKey := fmt.Sprintf("%s:%s:%s:%d:%d", kind, name, span.File, span.Line, span.Column)
+		if oldContext, exists := owners[ownerKey]; exists && oldContext != context {
+			c.diags.Error("DCL_SEM_DUPLICATE_CONTEXT_OWNERSHIP", "declaration belongs to multiple contexts", span, name)
 			return
 		}
-		c.symbols[kind][name] = span
+		owners[ownerKey] = context
+		c.ensureContext(context, span)
+		if c.symbolsByContext[context] == nil {
+			c.symbolsByContext[context] = map[string]map[string]*symbolInfo{}
+		}
+		if c.symbolsByContext[context][kind] == nil {
+			c.symbolsByContext[context][kind] = map[string]*symbolInfo{}
+		}
+		if old, exists := c.symbolsByContext[context][kind][name]; exists {
+			c.diags.Error("DCL_SEM_DUPLICATE_SYMBOL", fmt.Sprintf("duplicate %s %s; first declared at %s:%d:%d", kind, name, old.Span.File, old.Span.Line, old.Span.Column), span, name)
+			return
+		}
+		info := &symbolInfo{Kind: kind, Name: name, Context: context, Visibility: visibility, FQN: qualify(context, name), Span: span}
+		c.symbolsByContext[context][kind][name] = info
+		if c.symbolsByFQN[kind] == nil {
+			c.symbolsByFQN[kind] = map[string]*symbolInfo{}
+		}
+		c.symbolsByFQN[kind][info.FQN] = info
+		if c.symbolsByKindName[kind] == nil {
+			c.symbolsByKindName[kind] = map[string][]*symbolInfo{}
+		}
+		c.symbolsByKindName[kind][name] = append(c.symbolsByKindName[kind][name], info)
 	}
 	for _, item := range c.program.Shapes {
-		add("shape", item.Name, item.Span)
+		add("shape", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
 	}
 	for _, item := range c.program.Actors {
-		add("actor", item.Name, item.Span)
+		add("actor", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
 	}
 	for _, item := range c.program.Events {
-		add("event", item.Name, item.Span)
+		add("event", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
 	}
 	for _, item := range c.program.Effects {
-		add("effect", item.Name, item.Span)
+		add("effect", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
 	}
 	for _, item := range c.program.Policies {
-		add("policy", item.Name, item.Span)
+		add("policy", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
 	}
 	for _, item := range c.program.Capabilities {
-		add("capability", item.Name, item.Span)
+		add("capability", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
+	}
+}
+
+func (c *compiler) validateDependencies() {
+	for source, targets := range c.dependencies {
+		for target, span := range targets {
+			if _, ok := c.contexts[target]; !ok {
+				c.diags.Error("DCL_SEM_UNDEFINED_CONTEXT", "undefined context", span, target)
+			}
+			if target == source {
+				c.diags.Error("DCL_SEM_DEPENDENCY_CYCLE", "context dependency cycle", span, source)
+			}
+		}
+	}
+	c.detectDependencyCycles()
+}
+
+func (c *compiler) detectDependencyCycles() {
+	visiting := map[string]bool{}
+	visited := map[string]bool{}
+	var visit func(string, []string)
+	visit = func(ctx string, path []string) {
+		if visiting[ctx] {
+			c.diags.Error("DCL_SEM_DEPENDENCY_CYCLE", "context dependency cycle", c.contexts[ctx].Span, strings.Join(append(path, ctx), " -> "))
+			return
+		}
+		if visited[ctx] {
+			return
+		}
+		visiting[ctx] = true
+		for target := range c.dependencies[ctx] {
+			if _, ok := c.contexts[target]; ok {
+				visit(target, append(path, ctx))
+			}
+		}
+		visiting[ctx] = false
+		visited[ctx] = true
+	}
+	for ctx := range c.contexts {
+		visit(ctx, nil)
 	}
 }
 
 func (c *compiler) hasGlobal(kind, name string) bool {
-	_, ok := c.symbols[kind][name]
+	_, ok := c.resolve(kind, name, "default", diagnostic.Span{}, false)
 	return ok
 }
 
 func (c *compiler) requireGlobal(kind, name string, span diagnostic.Span) {
+	c.requireInContext(kind, name, "default", span)
+}
+
+func (c *compiler) requireInContext(kind, name, context string, span diagnostic.Span) *symbolInfo {
+	info, ok := c.resolve(kind, name, context, span, true)
+	if !ok {
+		return nil
+	}
+	return info
+}
+
+func (c *compiler) resolve(kind, name, context string, span diagnostic.Span, report bool) (*symbolInfo, bool) {
 	if name == "" {
+		return nil, false
+	}
+	if context == "" {
+		context = "default"
+	}
+	if info := c.symbolsByFQN[kind][name]; info != nil {
+		return c.checkResolvedAccess(info, context, span, report)
+	}
+	if info := c.symbolsByContext[context][kind][name]; info != nil {
+		return info, true
+	}
+	var matches []*symbolInfo
+	privateSeen := false
+	for target := range c.dependencies[context] {
+		info := c.symbolsByContext[target][kind][name]
+		if info == nil {
+			continue
+		}
+		if info.Visibility == "private" {
+			privateSeen = true
+			continue
+		}
+		matches = append(matches, info)
+	}
+	if len(matches) == 1 {
+		c.recordDependencyReference(context, matches[0].Context, matches[0].FQN)
+		return matches[0], true
+	}
+	if len(matches) > 1 {
+		if report {
+			c.diags.Error("DCL_SEM_AMBIGUOUS_SYMBOL", "ambiguous symbol", span, name)
+		}
+		return nil, false
+	}
+	if privateSeen && report {
+		c.diags.Error("DCL_SEM_SYMBOL_IS_PRIVATE", "symbol is private", span, name)
+		return nil, false
+	}
+	if report {
+		c.diags.Error(undefinedSymbolCode(kind, context), "undefined "+kind, span, name)
+	}
+	return nil, false
+}
+
+func (c *compiler) checkResolvedAccess(info *symbolInfo, context string, span diagnostic.Span, report bool) (*symbolInfo, bool) {
+	if info.Context == context {
+		return info, true
+	}
+	if _, ok := c.dependencies[context][info.Context]; !ok {
+		if report {
+			c.diags.Error(undefinedSymbolCode(info.Kind, context), "undefined "+info.Kind, span, info.FQN)
+		}
+		return nil, false
+	}
+	if info.Visibility == "private" {
+		if report {
+			c.diags.Error("DCL_SEM_SYMBOL_IS_PRIVATE", "symbol is private", span, info.FQN)
+		}
+		return nil, false
+	}
+	c.recordDependencyReference(context, info.Context, info.FQN)
+	return info, true
+}
+
+func (c *compiler) recordDependencyReference(source, target, symbol string) {
+	if source == "" || target == "" || source == target || symbol == "" {
 		return
 	}
-	if !c.hasGlobal(kind, name) {
-		c.diags.Error("DCL_SEM_UNKNOWN_"+strings.ToUpper(kind), "unknown "+kind, span, name)
+	if c.referencedDeps[source] == nil {
+		c.referencedDeps[source] = map[string]map[string]bool{}
 	}
+	if c.referencedDeps[source][target] == nil {
+		c.referencedDeps[source][target] = map[string]bool{}
+	}
+	c.referencedDeps[source][target][symbol] = true
 }
 
 func mergeProgram(dst *ast.Program, src *ast.Program) {
 	if src == nil {
 		return
 	}
+	dst.Contexts = append(dst.Contexts, src.Contexts...)
+	dst.Dependencies = append(dst.Dependencies, src.Dependencies...)
 	dst.Shapes = append(dst.Shapes, src.Shapes...)
 	dst.Actors = append(dst.Actors, src.Actors...)
 	dst.Events = append(dst.Events, src.Events...)
@@ -756,8 +992,136 @@ func payloadIR(payload ast.Payload) ir.PayloadIR {
 	return ir.PayloadIR{NamedType: payload.NamedType, Fields: fieldsIR(payload.Fields)}
 }
 
-func symbol(kind, name string, span diagnostic.Span) ir.SymbolIR {
-	return ir.SymbolIR{ID: id(kind, name), Name: name, Kind: kind, Declared: fmt.Sprintf("%s:%d:%d", filepath.ToSlash(span.File), span.Line, span.Column)}
+func (c *compiler) symbolIR(kind, name, context string, span diagnostic.Span) ir.SymbolIR {
+	context = declContext(context)
+	info := c.symbolsByContext[context][kind][name]
+	visibility := "public"
+	fqn := symbolIdentity(context, name)
+	if info != nil {
+		visibility = info.Visibility
+		fqn = info.FQN
+	}
+	return ir.SymbolIR{
+		ID:                 id(kind, fqn),
+		Name:               name,
+		FullyQualifiedName: fqn,
+		Kind:               kind,
+		Context:            context,
+		Visibility:         visibility,
+		Declared:           fmt.Sprintf("%s:%d:%d", filepath.ToSlash(span.File), span.Line, span.Column),
+	}
+}
+
+func (c *compiler) contextIR() []ir.ContextIR {
+	declarations := map[string][]string{}
+	publicSymbols := map[string][]string{}
+	for _, byKind := range c.symbolsByContext {
+		for _, byName := range byKind {
+			for _, sym := range byName {
+				declarations[sym.Context] = append(declarations[sym.Context], sym.FQN)
+				if sym.Visibility == "public" {
+					publicSymbols[sym.Context] = append(publicSymbols[sym.Context], sym.FQN)
+				}
+			}
+		}
+	}
+	children := map[string][]string{}
+	for _, ctx := range c.contexts {
+		if ctx.Parent != "" {
+			children[ctx.Parent] = append(children[ctx.Parent], ctx.Name)
+		}
+	}
+	var out []ir.ContextIR
+	for _, ctx := range c.contexts {
+		deps := sortedDependencyTargets(c.dependencies[ctx.Name])
+		out = append(out, ir.ContextIR{
+			ID:            id("context", ctx.Name),
+			Name:          ctx.Name,
+			Parent:        ctx.Parent,
+			Children:      sortedStrings(children[ctx.Name]),
+			Declarations:  sortedStrings(declarations[ctx.Name]),
+			PublicSymbols: sortedStrings(publicSymbols[ctx.Name]),
+			Dependencies:  deps,
+		})
+	}
+	return out
+}
+
+func (c *compiler) dependencyIR() []ir.DependencyIR {
+	var out []ir.DependencyIR
+	for source, targets := range c.dependencies {
+		for target := range targets {
+			refs := sortedBoolKeys(c.referencedDeps[source][target])
+			out = append(out, ir.DependencyIR{SourceContext: source, TargetContext: target, ReferencedSymbols: refs})
+		}
+	}
+	return out
+}
+
+func (c *compiler) emitUnusedDependencyWarnings() {
+	for source, targets := range c.dependencies {
+		for target, span := range targets {
+			if len(c.referencedDeps[source][target]) == 0 {
+				c.diags.Warning("DCL_SEM_UNUSED_DEPENDENCY", "unused dependency", span, target)
+			}
+		}
+	}
+}
+
+func declContext(context string) string {
+	if context == "" {
+		return "default"
+	}
+	return context
+}
+
+func symbolIdentity(context, name string) string {
+	context = declContext(context)
+	if context == "default" {
+		return name
+	}
+	return context + "." + name
+}
+
+func qualify(context, name string) string {
+	return symbolIdentity(context, name)
+}
+
+func policyKey(context, name string) string {
+	return symbolIdentity(context, name)
+}
+
+func undefinedSymbolCode(kind, context string) string {
+	if declContext(context) == "default" {
+		return "DCL_SEM_UNKNOWN_" + strings.ToUpper(kind)
+	}
+	return "DCL_SEM_UNDEFINED_SYMBOL"
+}
+
+func parentName(name string) string {
+	idx := strings.LastIndex(name, ".")
+	if idx <= 0 {
+		return ""
+	}
+	return name[:idx]
+}
+
+func sortedDependencyTargets(items map[string]diagnostic.Span) []string {
+	out := make([]string, 0, len(items))
+	for item := range items {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sortedBoolKeys(items map[string]bool) []string {
+	out := make([]string, 0, len(items))
+	for item := range items {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func id(kind, name string) string {
@@ -1050,6 +1414,11 @@ func contains(items []string, want string) bool {
 }
 
 func sortProgramIR(out *ir.ProgramIR) {
+	sort.Slice(out.Contexts, func(i, j int) bool { return out.Contexts[i].Name < out.Contexts[j].Name })
+	sort.Slice(out.Dependencies, func(i, j int) bool {
+		a, b := out.Dependencies[i], out.Dependencies[j]
+		return a.SourceContext+a.TargetContext < b.SourceContext+b.TargetContext
+	})
 	sort.Slice(out.Symbols, func(i, j int) bool { return out.Symbols[i].ID < out.Symbols[j].ID })
 	sort.Slice(out.Shapes, func(i, j int) bool { return out.Shapes[i].Name < out.Shapes[j].Name })
 	sort.Slice(out.Actors, func(i, j int) bool { return out.Actors[i].Name < out.Actors[j].Name })

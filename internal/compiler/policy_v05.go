@@ -209,7 +209,7 @@ func (c *compiler) applyPolicyCausation(cap ast.CapabilityDecl, envelopes []ir.E
 		if !isPolicy {
 			continue
 		}
-		if !c.hasGlobal("policy", branch.SourceName) {
+		if _, ok := c.resolve("policy", branch.SourceName, declContext(cap.Meta.ContextName), branch.Span, false); !ok {
 			c.diags.Error("DCL_SEM_POLICY_CAUSATION_POLICY_UNKNOWN", "policy causation references unknown policy", branch.Span, branch.SourceName)
 			continue
 		}
@@ -250,7 +250,7 @@ func (c *compiler) attachedPolicyConcerns(cap ast.CapabilityDecl, targetKind, ta
 		if use.TargetKind != targetKind || policyTargetName(cap, use) != targetSymbol {
 			continue
 		}
-		policy, ok := c.policies[use.Name]
+		policy, ok := c.resolvePolicyUse(cap, use)
 		if !ok {
 			continue
 		}

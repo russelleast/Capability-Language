@@ -10,39 +10,117 @@ import (
 )
 
 type Parser struct {
-	tokens []lexer.Token
-	pos    int
-	diags  diagnostic.Bag
+	tokens         []lexer.Token
+	pos            int
+	diags          diagnostic.Bag
+	currentContext string
+	contextDepth   int
 }
 
 func Parse(tokens []lexer.Token) (*ast.Program, []diagnostic.Diagnostic) {
-	p := &Parser{tokens: tokens}
+	p := &Parser{tokens: tokens, currentContext: "default"}
 	prog := &ast.Program{}
 	for !p.at(lexer.EOF) {
-		p.skipNewlines()
-		if p.at(lexer.EOF) {
-			break
-		}
-		switch p.peek().Text {
-		case "shape":
-			prog.Shapes = append(prog.Shapes, p.parseShape())
-		case "actor":
-			prog.Actors = append(prog.Actors, p.parseActor())
-		case "event":
-			prog.Events = append(prog.Events, p.parseEvent())
-		case "effect":
-			prog.Effects = append(prog.Effects, p.parseEffect())
-		case "policy":
-			prog.Policies = append(prog.Policies, p.parsePolicy())
-		case "capability":
-			prog.Capabilities = append(prog.Capabilities, p.parseCapability())
-		default:
-			tok := p.advance()
-			p.diags.Error("DCL_PARSE_EXPECTED_DECLARATION", "expected declaration", tok.Span, tok.Text)
-			p.synchronizeTopLevel()
-		}
+		p.parseTopLevel(prog)
 	}
 	return prog, p.diags.Items()
+}
+
+func (p *Parser) parseTopLevel(prog *ast.Program) {
+	p.skipNewlines()
+	if p.at(lexer.EOF) {
+		return
+	}
+	if p.at(lexer.RBrace) {
+		tok := p.advance()
+		p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "unexpected }", tok.Span, tok.Text)
+		return
+	}
+	visibility := "public"
+	if p.matchText("private") {
+		visibility = "private"
+	}
+	switch p.peek().Text {
+	case "context":
+		if visibility == "private" {
+			tok := p.peek()
+			p.diags.Error("DCL_PARSE_PRIVATE_CONTEXT_UNSUPPORTED", "context declarations cannot be private", tok.Span, tok.Text)
+		}
+		p.parseContext(prog)
+	case "depends":
+		if visibility == "private" {
+			tok := p.peek()
+			p.diags.Error("DCL_PARSE_PRIVATE_DEPENDENCY_UNSUPPORTED", "dependency declarations cannot be private", tok.Span, tok.Text)
+		}
+		prog.Dependencies = append(prog.Dependencies, p.parseDependency())
+	case "shape":
+		decl := p.parseShape()
+		decl.Meta = p.declMeta(visibility)
+		prog.Shapes = append(prog.Shapes, decl)
+	case "actor":
+		decl := p.parseActor()
+		decl.Meta = p.declMeta(visibility)
+		prog.Actors = append(prog.Actors, decl)
+	case "event":
+		decl := p.parseEvent()
+		decl.Meta = p.declMeta(visibility)
+		prog.Events = append(prog.Events, decl)
+	case "effect":
+		decl := p.parseEffect()
+		decl.Meta = p.declMeta(visibility)
+		prog.Effects = append(prog.Effects, decl)
+	case "policy":
+		decl := p.parsePolicy()
+		decl.Meta = p.declMeta(visibility)
+		prog.Policies = append(prog.Policies, decl)
+	case "capability":
+		decl := p.parseCapability()
+		decl.Meta = p.declMeta(visibility)
+		prog.Capabilities = append(prog.Capabilities, decl)
+	default:
+		tok := p.advance()
+		p.diags.Error("DCL_PARSE_EXPECTED_DECLARATION", "expected declaration", tok.Span, tok.Text)
+		p.synchronizeTopLevel()
+	}
+}
+
+func (p *Parser) parseContext(prog *ast.Program) {
+	start := p.expectText("context")
+	nameTok := p.expectIdent("context name")
+	name := nameTok.Text
+	if p.contextDepth > 0 && p.currentContext != "default" && !strings.Contains(name, ".") {
+		name = p.currentContext + "." + name
+	}
+	parent := parentContext(name)
+	prog.Contexts = append(prog.Contexts, ast.ContextDecl{Name: name, Parent: parent, Span: start.Span})
+	if p.match(lexer.LBrace) {
+		previous := p.currentContext
+		p.currentContext = name
+		p.contextDepth++
+		for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+			p.skipNewlines()
+			if p.at(lexer.RBrace) {
+				break
+			}
+			p.parseTopLevel(prog)
+		}
+		p.expect(lexer.RBrace, "}")
+		p.contextDepth--
+		p.currentContext = previous
+		return
+	}
+	p.currentContext = name
+}
+
+func (p *Parser) parseDependency() ast.DependencyDecl {
+	start := p.expectText("depends")
+	p.expectText("on")
+	target := p.expectIdent("context name").Text
+	return ast.DependencyDecl{SourceContext: p.currentContext, TargetContext: target, Span: start.Span}
+}
+
+func (p *Parser) declMeta(visibility string) ast.DeclMeta {
+	return ast.DeclMeta{ContextName: p.currentContext, Visibility: visibility}
 }
 
 func (p *Parser) parseShape() ast.ShapeDecl {
@@ -665,4 +743,12 @@ func isConcernParameterName(text string) bool {
 	default:
 		return false
 	}
+}
+
+func parentContext(name string) string {
+	idx := strings.LastIndex(name, ".")
+	if idx <= 0 {
+		return ""
+	}
+	return name[:idx]
 }

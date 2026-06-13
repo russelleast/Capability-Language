@@ -4,6 +4,8 @@ import "capabilitylanguage/internal/diagnostic"
 
 type ProgramIR struct {
 	Modules           []ModuleIR                  `json:"modules"`
+	Contexts          []ContextIR                 `json:"contexts,omitempty"`
+	Dependencies      []DependencyIR              `json:"dependencies,omitempty"`
 	Symbols           []SymbolIR                  `json:"symbols"`
 	Capabilities      []CapabilityIR              `json:"capabilities"`
 	Actors            []ActorIR                   `json:"actors"`
@@ -23,10 +25,29 @@ type ModuleIR struct {
 }
 
 type SymbolIR struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Kind     string `json:"kind"`
-	Declared string `json:"declared"`
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	FullyQualifiedName string `json:"fully_qualified_name,omitempty"`
+	Kind               string `json:"kind"`
+	Context            string `json:"context,omitempty"`
+	Visibility         string `json:"visibility,omitempty"`
+	Declared           string `json:"declared"`
+}
+
+type ContextIR struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Parent        string   `json:"parent,omitempty"`
+	Children      []string `json:"children,omitempty"`
+	Declarations  []string `json:"declarations,omitempty"`
+	PublicSymbols []string `json:"public_symbols,omitempty"`
+	Dependencies  []string `json:"dependencies,omitempty"`
+}
+
+type DependencyIR struct {
+	SourceContext     string   `json:"source_context"`
+	TargetContext     string   `json:"target_context"`
+	ReferencedSymbols []string `json:"referenced_symbols,omitempty"`
 }
 
 type ShapeIR struct {
