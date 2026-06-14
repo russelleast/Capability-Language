@@ -99,6 +99,7 @@ type CapabilityDecl struct {
 	Outcomes  []OutcomeDecl
 	Rules     []RuleDecl
 	Effects   []EffectUse
+	Events    []EventEmissionDecl
 	Policies  []PolicyUse
 	Observe   []ObservationDecl
 	When      []WhenBranch
@@ -138,6 +139,11 @@ type EffectUse struct {
 	Span  diagnostic.Span
 }
 
+type EventEmissionDecl struct {
+	Name string
+	Span diagnostic.Span
+}
+
 type PolicyUse struct {
 	Name       string
 	TargetKind string
@@ -159,6 +165,7 @@ type WhenBranch struct {
 	Decision   string
 	Outcome    string
 	Otherwise  bool
+	Always     bool
 	Span       diagnostic.Span
 }
 
@@ -180,13 +187,14 @@ type ContributorDecl struct {
 }
 
 type LifecycleStepDecl struct {
-	Name            string
-	Kind            string
-	Waits           []WaitTriggerDecl
-	Deadlines       []DeadlineDecl
-	RecoveryActions []RecoveryDecl
-	IsTerminal      bool
-	Span            diagnostic.Span
+	Name             string
+	Kind             string
+	DecisionProvider string
+	Waits            []WaitTriggerDecl
+	Deadlines        []DeadlineDecl
+	RecoveryActions  []RecoveryDecl
+	IsTerminal       bool
+	Span             diagnostic.Span
 }
 
 type WaitTriggerDecl struct {

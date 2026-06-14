@@ -136,6 +136,9 @@ func (c *compiler) buildIR() ir.ProgramIR {
 	}
 
 	for _, shape := range c.program.Shapes {
+		if isBuiltinType(shape.Name) {
+			c.diags.Error("DCL_SEM_TYPE_BUILTIN_SHADOWED", "shape cannot shadow a built-in type", shape.Span, shape.Name)
+		}
 		out.Shapes = append(out.Shapes, ir.ShapeIR{ID: id("shape", symbolIdentity(shape.Meta.ContextName, shape.Name)), Name: shape.Name, Fields: fieldsIR(shape.Fields)})
 		out.Symbols = append(out.Symbols, c.symbolIR("shape", shape.Name, shape.Meta.ContextName, shape.Span))
 		c.validateFields(shape.Fields, shape.Meta.ContextName)
@@ -151,7 +154,7 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		if effect.Kind == "" {
 			c.diags.Error("DCL_SEM_EFFECT_KIND_REQUIRED", "effect must declare kind", effect.Span, effect.Name)
 		}
-		out.Effects = append(out.Effects, ir.EffectIR{ID: id("effect", symbolIdentity(effect.Meta.ContextName, effect.Name)), Name: effect.Name, Type: effect.Kind})
+		out.Effects = append(out.Effects, ir.EffectIR{ID: id("effect", symbolIdentity(effect.Meta.ContextName, effect.Name)), Name: effect.Name, Type: c.normalizedEffectKind(effect)})
 		out.Symbols = append(out.Symbols, c.symbolIR("effect", effect.Name, effect.Meta.ContextName, effect.Span))
 	}
 	for _, event := range c.program.Events {
@@ -234,6 +237,14 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 	for _, effect := range cap.Effects {
 		localEffects[effect.Name] = effect
 	}
+	for _, event := range cap.Events {
+		if _, ok := c.resolve("event", event.Name, context, event.Span, false); ok {
+			capIR.EmittedEvents = append(capIR.EmittedEvents, ir.CapabilityEventIR{Event: event.Name, Source: cap.Name})
+		} else {
+			c.diags.Error("DCL_SEM_CAPABILITY_EVENT_UNKNOWN", "capability emits an unknown event", event.Span, event.Name)
+		}
+	}
+	validateDuplicateEmittedEvents(c.diags, cap.Events)
 	for _, effect := range cap.Effects {
 		c.requireInContext("effect", effect.Name, context, effect.Span)
 		if effect.After != "" {
@@ -276,9 +287,18 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 		capIR.Relations = append(capIR.Relations, ir.RelationIR{Kind: "causes", From: "lifecycle:deadline", To: outcome, Condition: "deadline"})
 	}
 	otherwiseSeen := false
+	alwaysSeen := false
 	for i, branch := range cap.When {
 		sourceKind := branch.SourceKind
-		if branch.Otherwise {
+		if branch.Always {
+			if alwaysSeen {
+				c.diags.Error("DCL_SEM_ALWAYS_DUPLICATE", "always branch appears more than once", branch.Span, cap.Name)
+			}
+			if len(cap.When) > 1 {
+				c.diags.Error("DCL_SEM_ALWAYS_WITH_OTHER_BRANCHES", "always branch must not be combined with other when branches", branch.Span, cap.Name)
+			}
+			alwaysSeen = true
+		} else if branch.Otherwise {
 			if otherwiseSeen {
 				c.diags.Error("DCL_SEM_OTHERWISE_DUPLICATE", "otherwise branch appears more than once", branch.Span, cap.Name)
 			}
@@ -327,7 +347,10 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 		caused[branch.Outcome] = true
 		source := sourceKind + ":" + branch.SourceName
 		condition := branch.Decision
-		if branch.Otherwise {
+		if branch.Always {
+			source = "capability:" + cap.Name
+			condition = "always"
+		} else if branch.Otherwise {
 			source = "capability:" + cap.Name
 			condition = "otherwise"
 		}
@@ -377,7 +400,7 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	}
 	graph := map[string][]string{}
 	participants := map[string]bool{cap.Name: true}
-	contributors := c.validateLifecycleContributors(lc, context)
+	contributors := c.validateLifecycleContributors(lc, context, cap.Name)
 	contributorUsage := map[string]*contributorUsage{}
 	transitionTargets := map[string]map[string]diagnostic.Span{}
 	for _, tr := range lc.Transitions {
@@ -393,12 +416,16 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 		switch tr.TriggerKind {
 		case "outcome":
 			if tr.SourceCapability != "" {
-				c.requireLifecycleContributor(tr.SourceCapability, contributors, tr.Span, "transition source")
+				if tr.SourceCapability != cap.Name {
+					c.requireLifecycleContributor(tr.SourceCapability, contributors, tr.Span, "transition source")
+				}
 				sourceCap, ok := c.resolveTransitionSourceCapability(tr.SourceCapability, context, tr.Span)
 				if ok {
 					sourceCapability = sourceCap.Name
 					participants[sourceCap.Name] = true
-					recordContributorTransition(contributorUsage, sourceCap.Name, tr.From)
+					if sourceCap.Name != cap.Name {
+						recordContributorTransition(contributorUsage, sourceCap.Name, tr.From)
+					}
 					if !capabilityDeclaresOutcome(sourceCap, tr.TriggerName) {
 						c.diags.Error("DCL_SEM_UNDEFINED_TRANSITION_SOURCE_SYMBOL", "transition source capability does not declare outcome", tr.Span, tr.TriggerName)
 					}
@@ -412,12 +439,17 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 			}
 		case "event":
 			if tr.SourceCapability != "" {
-				c.requireLifecycleContributor(tr.SourceCapability, contributors, tr.Span, "transition source")
+				if tr.SourceCapability != cap.Name {
+					c.requireLifecycleContributor(tr.SourceCapability, contributors, tr.Span, "transition source")
+				}
 				sourceCap, ok := c.resolveTransitionSourceCapability(tr.SourceCapability, context, tr.Span)
 				if ok {
 					sourceCapability = sourceCap.Name
 					participants[sourceCap.Name] = true
-					recordContributorTransition(contributorUsage, sourceCap.Name, tr.From)
+					if sourceCap.Name != cap.Name {
+						recordContributorTransition(contributorUsage, sourceCap.Name, tr.From)
+					}
+					c.validateEventSourceOwnership(sourceCap, tr.TriggerName, tr.Span)
 				}
 				correlation = lc.Identity
 			}
@@ -448,7 +480,7 @@ func (c *compiler) lifecycleIR(cap ast.CapabilityDecl, outcomes map[string]ast.O
 	exits := lifecycleExitCounts(graph)
 	recoveryTransitions := recoveryTransitionsBySource(lc.Transitions)
 	for _, step := range stepDecls {
-		out.Steps = append(out.Steps, c.lifecycleStepIR(cap, step, contributors, contributorUsage, states, reachable, exits, recoveryTransitions))
+		out.Steps = append(out.Steps, c.lifecycleStepIR(cap, step, contributors, contributorUsage, states, reachable, exits, recoveryTransitions, lc.Supervised))
 	}
 	for _, targets := range transitionTargets {
 		if len(targets) <= 1 {
@@ -507,6 +539,9 @@ func lifecycleStepDecls(lc *ast.LifecycleDecl) []ast.LifecycleStepDecl {
 		if existing.Kind == "" {
 			existing.Kind = step.Kind
 		}
+		if existing.DecisionProvider == "" {
+			existing.DecisionProvider = step.DecisionProvider
+		}
 		existing.Waits = append(existing.Waits, step.Waits...)
 		existing.Deadlines = append(existing.Deadlines, step.Deadlines...)
 		existing.RecoveryActions = append(existing.RecoveryActions, step.RecoveryActions...)
@@ -552,9 +587,13 @@ func lifecycleStateSet(steps []ast.LifecycleStepDecl) map[string]bool {
 	return out
 }
 
-func (c *compiler) validateLifecycleContributors(lc *ast.LifecycleDecl, context string) map[string]ast.ContributorDecl {
+func (c *compiler) validateLifecycleContributors(lc *ast.LifecycleDecl, context, owner string) map[string]ast.ContributorDecl {
 	out := map[string]ast.ContributorDecl{}
 	for _, contributor := range lc.Contributors {
+		if !lc.Supervised && contributor.Capability == owner {
+			c.diags.Warning("DCL_SEM_LIFECYCLE_SELF_CONTRIBUTOR_REDUNDANT", "local lifecycle owner is an implicit contributor", contributor.Span, contributor.Capability)
+			continue
+		}
 		if _, exists := out[contributor.Capability]; exists {
 			c.diags.Error("DCL_SEM_LIFECYCLE_CONTRIBUTOR_DUPLICATE", "duplicate lifecycle contributor", contributor.Span, contributor.Capability)
 			continue
@@ -576,9 +615,21 @@ func (c *compiler) requireLifecycleContributor(name string, contributors map[str
 	return false
 }
 
-func (c *compiler) lifecycleStepIR(cap ast.CapabilityDecl, step ast.LifecycleStepDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, states map[string]bool, reachable map[string]bool, exits map[string]int, recoveryTransitions map[string][]ast.TransitionDecl) ir.LifecycleStepIR {
+func (c *compiler) lifecycleStepIR(cap ast.CapabilityDecl, step ast.LifecycleStepDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, states map[string]bool, reachable map[string]bool, exits map[string]int, recoveryTransitions map[string][]ast.TransitionDecl, supervised bool) ir.LifecycleStepIR {
 	context := declContext(cap.Meta.ContextName)
 	kind := step.Kind
+	if step.DecisionProvider != "" {
+		if kind != "" && kind != "decision" {
+			c.diags.Error("DCL_SEM_LIFECYCLE_STEP_ROLE_CONFLICT", "decision requirement conflicts with lifecycle step kind", step.Span, step.Name)
+		}
+		kind = "decision"
+	}
+	if len(step.Waits) > 0 {
+		if kind != "" && kind != "waiting" {
+			c.diags.Error("DCL_SEM_LIFECYCLE_STEP_ROLE_CONFLICT", "wait condition conflicts with lifecycle step kind", step.Span, step.Name)
+		}
+		kind = "waiting"
+	}
 	if step.IsTerminal {
 		if kind != "" && kind != "terminal" {
 			c.diags.Error("DCL_SEM_LIFECYCLE_TERMINAL_KIND_CONFLICT", "terminal lifecycle step must not declare a non-terminal kind", step.Span, step.Name)
@@ -598,8 +649,11 @@ func (c *compiler) lifecycleStepIR(cap ast.CapabilityDecl, step ast.LifecycleSte
 		c.diags.Warning("DCL_SEM_LIFECYCLE_STATE_UNREACHABLE", "waiting lifecycle step is not reachable", step.Span, step.Name)
 	}
 	out := ir.LifecycleStepIR{Name: step.Name, Kind: kind, IsTerminal: step.IsTerminal}
+	if step.DecisionProvider != "" {
+		out.DecisionActor, out.DecisionRole = c.resolveDecisionProvider(cap, step)
+	}
 	for _, wait := range step.Waits {
-		out.WaitingTriggers = append(out.WaitingTriggers, c.waitTriggerIR(step.Name, wait, contributors, usage, context))
+		out.WaitingTriggers = append(out.WaitingTriggers, c.waitTriggerIR(cap, step.Name, wait, contributors, usage, context, supervised))
 	}
 	for _, deadline := range step.Deadlines {
 		out.Deadlines = append(out.Deadlines, c.deadlineIR(step.Name, deadline, cap))
@@ -613,24 +667,40 @@ func (c *compiler) lifecycleStepIR(cap ast.CapabilityDecl, step ast.LifecycleSte
 	return out
 }
 
-func (c *compiler) waitTriggerIR(stepName string, wait ast.WaitTriggerDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, context string) ir.WaitTriggerIR {
-	c.requireLifecycleContributor(wait.SourceCapability, contributors, wait.Span, "wait condition")
-	recordContributorWait(usage, wait.SourceCapability, stepName)
+func (c *compiler) waitTriggerIR(cap ast.CapabilityDecl, stepName string, wait ast.WaitTriggerDecl, contributors map[string]ast.ContributorDecl, usage map[string]*contributorUsage, context string, supervised bool) ir.WaitTriggerIR {
+	sourceCapability := wait.SourceCapability
+	if sourceCapability == "" {
+		if supervised {
+			c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_SOURCE_REQUIRED", "supervised lifecycle wait condition must declare a source capability", wait.Span, wait.SignalName)
+		} else {
+			sourceCapability = cap.Name
+		}
+	}
+	if sourceCapability == "" {
+		return ir.WaitTriggerIR{SignalKind: wait.SignalKind, SignalName: wait.SignalName}
+	}
+	if sourceCapability != cap.Name {
+		c.requireLifecycleContributor(sourceCapability, contributors, wait.Span, "wait condition")
+		recordContributorWait(usage, sourceCapability, stepName)
+	}
 	switch wait.SignalKind {
 	case "outcome":
-		sourceCap, ok := c.resolveTransitionSourceCapability(wait.SourceCapability, context, wait.Span)
+		sourceCap, ok := c.resolveTransitionSourceCapability(sourceCapability, context, wait.Span)
 		if ok && !capabilityDeclaresOutcome(sourceCap, wait.SignalName) {
 			c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_SIGNAL_UNKNOWN", "wait condition references an outcome not declared by the source capability", wait.Span, wait.SignalName)
 		}
 	case "event":
 		if _, ok := c.resolve("event", wait.SignalName, context, wait.Span, true); ok {
-			// TODO(v0.8): capability-level event emission ownership is not represented in the AST yet.
-			c.diags.Warning("DCL_SEM_LIFECYCLE_WAIT_EVENT_SOURCE_UNVERIFIED", "event exists, but capability event emission ownership cannot be fully verified yet", wait.Span, wait.SourceCapability+"."+wait.SignalName)
+			sourceCap, capOK := c.resolveTransitionSourceCapability(sourceCapability, context, wait.Span)
+			if capOK && !capabilityEmitsEvent(sourceCap, wait.SignalName) {
+				c.diags.Warning("DCL_SEM_LIFECYCLE_WAIT_EVENT_SOURCE_UNVERIFIED", "event exists, but capability event emission ownership cannot be fully verified yet", wait.Span, sourceCapability+"."+wait.SignalName)
+				c.diags.Warning("DCL_SEM_LIFECYCLE_EVENT_SOURCE_UNDECLARED", "event source capability does not declare emitted event ownership", wait.Span, sourceCapability+"."+wait.SignalName)
+			}
 		}
 	default:
 		c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_SIGNAL_KIND", "wait condition signal kind must be event or outcome", wait.Span, wait.SignalKind)
 	}
-	return ir.WaitTriggerIR{SignalKind: wait.SignalKind, SignalName: wait.SignalName, SourceCapability: wait.SourceCapability}
+	return ir.WaitTriggerIR{SignalKind: wait.SignalKind, SignalName: wait.SignalName, SourceCapability: sourceCapability}
 }
 
 func (c *compiler) deadlineIR(step string, deadline ast.DeadlineDecl, cap ast.CapabilityDecl) ir.DeadlineIR {
@@ -687,6 +757,33 @@ func (c *compiler) resolveRecoveryTarget(name, context string, span diagnostic.S
 	}
 	c.diags.Error("DCL_SEM_LIFECYCLE_RECOVERY_TARGET_UNKNOWN", "recovery target does not exist", span, name)
 	return "", false
+}
+
+func (c *compiler) resolveDecisionProvider(cap ast.CapabilityDecl, step ast.LifecycleStepDecl) (string, string) {
+	context := declContext(cap.Meta.ContextName)
+	var roleActor string
+	roleFound := false
+	for _, role := range cap.Actors {
+		if role.Role == step.DecisionProvider {
+			roleActor = role.Actor
+			roleFound = true
+			break
+		}
+	}
+	_, actorFound := c.resolve("actor", step.DecisionProvider, context, step.Span, false)
+	if roleFound && actorFound {
+		c.diags.Error("DCL_SEM_LIFECYCLE_DECISION_PROVIDER_AMBIGUOUS", "decision provider matches both a capability actor role and an actor symbol", step.Span, step.DecisionProvider)
+		return "", ""
+	}
+	if roleFound {
+		c.requireInContext("actor", roleActor, context, step.Span)
+		return roleActor, step.DecisionProvider
+	}
+	if actorFound {
+		return step.DecisionProvider, ""
+	}
+	c.diags.Error("DCL_SEM_LIFECYCLE_DECISION_PROVIDER_UNKNOWN", "decision provider must be a capability actor role or actor", step.Span, step.DecisionProvider)
+	return "", ""
 }
 
 func lifecycleExitCounts(graph map[string][]string) map[string]int {
@@ -848,6 +945,32 @@ func capabilityDeclaresOutcome(cap ast.CapabilityDecl, name string) bool {
 		}
 	}
 	return false
+}
+
+func capabilityEmitsEvent(cap ast.CapabilityDecl, name string) bool {
+	for _, event := range cap.Events {
+		if event.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func validateDuplicateEmittedEvents(diags *diagnostic.Bag, events []ast.EventEmissionDecl) {
+	seen := map[string]diagnostic.Span{}
+	for _, event := range events {
+		if old, exists := seen[event.Name]; exists {
+			diags.Error("DCL_SEM_CAPABILITY_EVENT_DUPLICATE", fmt.Sprintf("duplicate emitted event; first declared at %s:%d:%d", old.File, old.Line, old.Column), event.Span, event.Name)
+			continue
+		}
+		seen[event.Name] = event.Span
+	}
+}
+
+func (c *compiler) validateEventSourceOwnership(sourceCap ast.CapabilityDecl, eventName string, span diagnostic.Span) {
+	if !capabilityEmitsEvent(sourceCap, eventName) {
+		c.diags.Warning("DCL_SEM_LIFECYCLE_EVENT_SOURCE_UNDECLARED", "event source capability does not declare emitted event ownership", span, sourceCap.Name+"."+eventName)
+	}
 }
 
 func lifecycleTransitionAmbiguityKey(sourceStep, sourceKind, sourceCapability, sourceSymbol string) string {
@@ -1612,9 +1735,25 @@ func ordering(effect ast.EffectUse) string {
 	return "after"
 }
 
+func (c *compiler) normalizedEffectKind(effect ast.EffectDecl) string {
+	switch effect.Kind {
+	case "notify":
+		c.diags.Warning("DCL_SEM_EFFECT_KIND_LEGACY", "legacy effect kind should use notification", effect.Span, effect.Kind)
+		return "notification"
+	case "persist":
+		c.diags.Warning("DCL_SEM_EFFECT_KIND_LEGACY", "legacy effect kind should use persistence", effect.Span, effect.Kind)
+		return "persistence"
+	case "invoke":
+		c.diags.Warning("DCL_SEM_EFFECT_KIND_LEGACY", "legacy effect kind should use invocation", effect.Span, effect.Kind)
+		return "invocation"
+	default:
+		return effect.Kind
+	}
+}
+
 func isBuiltinType(name string) bool {
 	switch name {
-	case "Text", "Boolean", "Number", "Date", "DateTime":
+	case "Text", "Boolean", "Number", "Date", "DateTime", "Uuid", "Email", "Money":
 		return true
 	}
 	return false
@@ -1918,6 +2057,9 @@ func sortCapabilityIR(out *ir.CapabilityIR) {
 	sort.Slice(out.Effects, func(i, j int) bool { return out.Effects[i].Effect < out.Effects[j].Effect })
 	sort.Slice(out.Events, func(i, j int) bool {
 		return out.Events[i].Outcome+out.Events[i].Event < out.Events[j].Outcome+out.Events[j].Event
+	})
+	sort.Slice(out.EmittedEvents, func(i, j int) bool {
+		return out.EmittedEvents[i].Source+out.EmittedEvents[i].Event < out.EmittedEvents[j].Source+out.EmittedEvents[j].Event
 	})
 	sort.Slice(out.Policies, func(i, j int) bool { return out.Policies[i].Policy < out.Policies[j].Policy })
 	sort.Slice(out.Relations, func(i, j int) bool {

@@ -1576,6 +1576,195 @@ capability BrokenRecoveryLoop {
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_RECOVERY_LOOP_INVALID")
 }
 
+func TestV09SyntaxAndAuthoringImprovementsCompileToIR(t *testing.T) {
+	src := `
+actor Customer is human
+actor Manager is human
+
+effect PublishInvoice is notify
+effect PersistInvoice is persistence
+effect ChargeCard is invocation
+
+shape PaymentInput {
+  paymentId: Uuid required
+  email: Email required
+  amount: Money required
+  contacts: List<Email>
+}
+
+event PaymentReceived is PaymentInput
+
+capability CollectPayment {
+  intent PaymentInput from Customer
+
+  actors {
+    approver: Manager
+  }
+
+  outcomes {
+    VerificationStarted
+  }
+
+  events {
+    emits PaymentReceived
+  }
+
+  when {
+    always then VerificationStarted
+  }
+
+  lifecycle {
+    contributors {
+      CollectPayment
+    }
+
+    begin Submitted
+    step AwaitingPayment waits for event PaymentReceived
+    step AwaitingApproval requires decision from approver
+    end Approved
+
+    move Submitted to AwaitingPayment on outcome VerificationStarted
+    move AwaitingPayment to AwaitingApproval on event PaymentReceived
+    move AwaitingApproval to Approved on outcome VerificationStarted
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_SELF_CONTRIBUTOR_REDUNDANT")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_EFFECT_KIND_LEGACY")
+
+	cap := findCapability(t, result.IR.Capabilities, "CollectPayment")
+	if len(cap.EmittedEvents) != 1 || cap.EmittedEvents[0].Event != "PaymentReceived" || cap.EmittedEvents[0].Source != "CollectPayment" {
+		t.Fatalf("expected emitted event in capability IR: %#v", cap.EmittedEvents)
+	}
+	if len(cap.Analysis.OutcomeCauses) != 1 || cap.Analysis.OutcomeCauses[0].Condition != "always" {
+		t.Fatalf("expected always causation in IR: %#v", cap.Analysis.OutcomeCauses)
+	}
+	awaitingPayment := findLifecycleStep(t, cap.Lifecycle.Steps, "AwaitingPayment")
+	if awaitingPayment.Kind != "waiting" || awaitingPayment.WaitingTriggers[0].SourceCapability != "CollectPayment" {
+		t.Fatalf("expected owner-inferred waiting step: %#v", awaitingPayment)
+	}
+	awaitingApproval := findLifecycleStep(t, cap.Lifecycle.Steps, "AwaitingApproval")
+	if awaitingApproval.Kind != "decision" || awaitingApproval.DecisionActor != "Manager" || awaitingApproval.DecisionRole != "approver" {
+		t.Fatalf("expected role-backed decision step: %#v", awaitingApproval)
+	}
+	if len(cap.Lifecycle.Contributors) != 0 {
+		t.Fatalf("explicit local self contributor should be normalized away: %#v", cap.Lifecycle.Contributors)
+	}
+	assertEffectType(t, result.IR.Effects, "PublishInvoice", "notification")
+	assertEffectType(t, result.IR.Effects, "PersistInvoice", "persistence")
+	assertEffectType(t, result.IR.Effects, "ChargeCard", "invocation")
+}
+
+func TestV09EventOwnershipWarningsAndFailures(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input { value: Text required }
+event KnownEvent is Input
+
+capability Source {
+  intent Input from Customer
+  outcome Done
+  events {
+    emits KnownEvent
+    emits KnownEvent
+    emits MissingEvent
+  }
+  when { always then Done }
+}
+
+capability Watch {
+  intent Input from Customer
+  outcome Started
+  when { always then Started }
+  supervises lifecycle WatchLifecycle {
+    identity value
+    contributors { Source }
+    begin Waiting
+    step Waiting waits for event KnownEvent
+    end Complete
+    move Waiting to Complete on event KnownEvent from Source
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_CAPABILITY_EVENT_DUPLICATE")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_CAPABILITY_EVENT_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_WAIT_SOURCE_REQUIRED")
+}
+
+func TestV09UnprovenEventSourceOwnershipWarns(t *testing.T) {
+	src := `
+actor Customer is human
+shape Input { value: Text required }
+event PaymentReceived is Input
+
+capability CollectPayment {
+  intent Input from Customer
+  outcome Started
+  when { always then Started }
+  lifecycle {
+    begin Pending
+    step Pending waits for event PaymentReceived
+    end Done
+    move Pending to Done on outcome Started
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_WAIT_EVENT_SOURCE_UNVERIFIED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_EVENT_SOURCE_UNDECLARED")
+}
+
+func TestV09DecisionProviderAmbiguityAndUnknownProvider(t *testing.T) {
+	ambiguous := `
+actor Customer is human
+actor Manager is human
+actor approver is human
+shape Input { value: Text required }
+
+capability ApproveRequest {
+  intent Input from Customer
+  actors { approver: Manager }
+  outcome Started
+  when { always then Started }
+  lifecycle {
+    begin Pending
+    step Pending requires decision from approver
+    end Done
+    move Pending to Done on outcome Started
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, ambiguous)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_DECISION_PROVIDER_AMBIGUOUS")
+
+	unknown := strings.Replace(ambiguous, "from approver", "from Reviewer", 1)
+	result = CompileFiles([]string{writeTempDCL(t, unknown)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_LIFECYCLE_DECISION_PROVIDER_UNKNOWN")
+}
+
+func TestV09AlwaysAndBuiltinShadowingFailures(t *testing.T) {
+	src := `
+actor Customer is human
+shape Email { value: Text required }
+shape Input { email: Email required }
+
+capability Broken {
+  intent Input from Customer
+  outcomes { Accepted Rejected }
+  when {
+    always then Accepted
+    otherwise then Rejected
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_TYPE_BUILTIN_SHADOWED")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_ALWAYS_WITH_OTHER_BRANCHES")
+}
+
 func assertDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) {
 	t.Helper()
 	for _, diag := range diags {
@@ -1664,6 +1853,19 @@ func findContributor(t *testing.T, contributors []ir.ContributorIR, capability s
 	}
 	t.Fatalf("expected contributor %s in %#v", capability, contributors)
 	return ir.ContributorIR{}
+}
+
+func assertEffectType(t *testing.T, effects []ir.EffectIR, name, effectType string) {
+	t.Helper()
+	for _, effect := range effects {
+		if effect.Name == name {
+			if effect.Type != effectType {
+				t.Fatalf("expected effect %s type %s, got %#v", name, effectType, effect)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected effect %s in %#v", name, effects)
 }
 
 func assertDiagnosticMessage(t *testing.T, diags []diagnostic.Diagnostic, message string) {

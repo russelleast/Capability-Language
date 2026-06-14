@@ -1,6 +1,6 @@
-# DCL v0.8 Syntax Pressure Test Pack
+# DCL Syntax Pressure Test Pack
 
-This pack exercises the current DCL compiler and the v0.8 lifecycle language surface. The compiler and the versioned design docs in this repository are the source of truth.
+This pack exercises the current DCL compiler and the lifecycle language surface. The compiler and the versioned design docs in this repository are the source of truth.
 
 Compile each scenario independently:
 
@@ -45,6 +45,13 @@ Recorded with:
 ```bash
 go run ./cmd/dcl check <scenario>
 ```
+
+The table records the original pressure-test intent. The v0.9 compiler also
+emits migration warnings where older authoring forms remain valid:
+
+- `DCL_SEM_EFFECT_KIND_LEGACY` for `notify`, `persist`, and `invoke`
+- `DCL_SEM_LIFECYCLE_SELF_CONTRIBUTOR_REDUNDANT` for explicit local owner contributors
+- `DCL_SEM_LIFECYCLE_EVENT_SOURCE_UNDECLARED` when event ownership is not declared with `events { emits ... }`
 
 | File | Result | Diagnostics |
 |---|---:|---|

@@ -69,18 +69,19 @@ type ActorIR struct {
 }
 
 type CapabilityIR struct {
-	ID         string             `json:"id"`
-	Name       string             `json:"name"`
-	Intents    []IntentIR         `json:"intents"`
-	Actors     []ActorRoleIR      `json:"actors,omitempty"`
-	Outcomes   []OutcomeIR        `json:"outcomes"`
-	Invariants []InvariantIR      `json:"invariants,omitempty"`
-	Effects    []EffectUseIR      `json:"effects,omitempty"`
-	Events     []EmitIR           `json:"events,omitempty"`
-	Policies   []PolicyUseIR      `json:"policies,omitempty"`
-	Lifecycle  *LifecycleIR       `json:"lifecycle,omitempty"`
-	Relations  []RelationIR       `json:"relations,omitempty"`
-	Analysis   CapabilityAnalysis `json:"analysis"`
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	Intents       []IntentIR          `json:"intents"`
+	Actors        []ActorRoleIR       `json:"actors,omitempty"`
+	Outcomes      []OutcomeIR         `json:"outcomes"`
+	Invariants    []InvariantIR       `json:"invariants,omitempty"`
+	Effects       []EffectUseIR       `json:"effects,omitempty"`
+	Events        []EmitIR            `json:"events,omitempty"`
+	EmittedEvents []CapabilityEventIR `json:"emitted_events,omitempty"`
+	Policies      []PolicyUseIR       `json:"policies,omitempty"`
+	Lifecycle     *LifecycleIR        `json:"lifecycle,omitempty"`
+	Relations     []RelationIR        `json:"relations,omitempty"`
+	Analysis      CapabilityAnalysis  `json:"analysis"`
 }
 
 type IntentIR struct {
@@ -142,6 +143,11 @@ type EmitIR struct {
 	Outcome string `json:"outcome"`
 	Event   string `json:"event"`
 	Source  string `json:"source"`
+}
+
+type CapabilityEventIR struct {
+	Event  string `json:"event"`
+	Source string `json:"source"`
 }
 
 type PolicyIR struct {
@@ -287,6 +293,8 @@ type LifecycleIR struct {
 type LifecycleStepIR struct {
 	Name            string          `json:"name"`
 	Kind            string          `json:"kind,omitempty"`
+	DecisionActor   string          `json:"decision_actor,omitempty"`
+	DecisionRole    string          `json:"decision_role,omitempty"`
 	WaitingTriggers []WaitTriggerIR `json:"waiting_triggers,omitempty"`
 	Deadlines       []DeadlineIR    `json:"deadlines,omitempty"`
 	RecoveryActions []RecoveryIR    `json:"recovery_actions,omitempty"`

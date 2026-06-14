@@ -291,6 +291,8 @@ func (p *Parser) parseCapability() ast.CapabilityDecl {
 			cap.Effects = append(cap.Effects, p.parseEffectUse())
 		case "effects":
 			cap.Effects = append(cap.Effects, p.parseEffectsBlock()...)
+		case "events":
+			cap.Events = append(cap.Events, p.parseCapabilityEventsBlock()...)
 		case "policies":
 			cap.Policies = append(cap.Policies, p.parsePoliciesBlock()...)
 		case "observe":
@@ -483,6 +485,23 @@ func (p *Parser) parseEffectsBlock() []ast.EffectUse {
 	return effects
 }
 
+func (p *Parser) parseCapabilityEventsBlock() []ast.EventEmissionDecl {
+	p.expectText("events")
+	p.expect(lexer.LBrace, "{")
+	var events []ast.EventEmissionDecl
+	for !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+		p.skipNewlines()
+		if p.at(lexer.RBrace) {
+			break
+		}
+		start := p.expectText("emits")
+		name := p.expectIdent("emitted event")
+		events = append(events, ast.EventEmissionDecl{Name: name.Text, Span: start.Span})
+	}
+	p.expect(lexer.RBrace, "}")
+	return events
+}
+
 func (p *Parser) parsePoliciesBlock() []ast.PolicyUse {
 	p.expectText("policies")
 	p.expect(lexer.LBrace, "{")
@@ -562,6 +581,12 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 			break
 		}
 		start := p.peek()
+		if p.matchText("always") {
+			p.expectText("then")
+			outcome := p.expectIdent("outcome").Text
+			branches = append(branches, ast.WhenBranch{Always: true, Outcome: outcome, Span: start.Span})
+			continue
+		}
 		if p.matchText("otherwise") {
 			p.expectText("then")
 			outcome := p.expectIdent("outcome").Text
@@ -676,6 +701,9 @@ func (p *Parser) parseLifecycleStep() ast.LifecycleStepDecl {
 	start := p.expectText("step")
 	name := p.expectIdent("lifecycle step")
 	step := ast.LifecycleStepDecl{Name: name.Text, Span: start.Span}
+	for !p.at(lexer.LBrace) && !p.at(lexer.Newline) && !p.at(lexer.RBrace) && !p.at(lexer.EOF) {
+		p.parseLifecycleStepMarker(&step)
+	}
 	if !p.match(lexer.LBrace) {
 		return step
 	}
@@ -690,6 +718,8 @@ func (p *Parser) parseLifecycleStep() ast.LifecycleStepDecl {
 			step.Kind = p.expectIdent("step kind").Text
 		case "waits":
 			step.Waits = append(step.Waits, p.parseWaitTrigger())
+		case "requires":
+			p.parseDecisionRequirement(&step)
 		case "deadline":
 			step.Deadlines = append(step.Deadlines, p.parseDeadline())
 		case "recovery":
@@ -705,13 +735,35 @@ func (p *Parser) parseLifecycleStep() ast.LifecycleStepDecl {
 	return step
 }
 
+func (p *Parser) parseLifecycleStepMarker(step *ast.LifecycleStepDecl) {
+	switch p.peek().Text {
+	case "waits":
+		step.Waits = append(step.Waits, p.parseWaitTrigger())
+	case "requires":
+		p.parseDecisionRequirement(step)
+	default:
+		tok := p.advance()
+		p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected lifecycle step marker", tok.Span, tok.Text)
+	}
+}
+
+func (p *Parser) parseDecisionRequirement(step *ast.LifecycleStepDecl) {
+	p.expectText("requires")
+	p.expectText("decision")
+	p.expectText("from")
+	provider := p.expectIdent("decision provider")
+	step.DecisionProvider = provider.Text
+}
+
 func (p *Parser) parseWaitTrigger() ast.WaitTriggerDecl {
 	start := p.expectText("waits")
 	p.expectText("for")
 	signalKind := p.expectIdent("wait signal kind").Text
 	signalName := p.expectIdent("wait signal name").Text
-	p.expectText("from")
-	sourceCapability := p.expectIdent("wait source capability").Text
+	sourceCapability := ""
+	if p.matchText("from") {
+		sourceCapability = p.expectIdent("wait source capability").Text
+	}
 	return ast.WaitTriggerDecl{SignalKind: signalKind, SignalName: signalName, SourceCapability: sourceCapability, Span: start.Span}
 }
 
