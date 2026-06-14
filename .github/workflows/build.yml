@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: compiler
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: compiler/go.mod
+          cache-dependency-path: compiler/go.mod
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build compiler
+        run: go build ./cmd/dcl
+
+      - name: Run tests
+        run: go test ./...

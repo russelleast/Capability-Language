@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"capabilitylanguage/internal/ast"
@@ -135,6 +134,15 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		Analysis: map[string]ir.PortabilityFacts{"default": {Classification: "portable"}},
 	}
 
+	c.emitTopLevelDeclarations(&out)
+	c.emitCapabilities(&out)
+	c.finalizeProgram(&out)
+
+	sortProgramIR(&out)
+	return out
+}
+
+func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 	for _, shape := range c.program.Shapes {
 		if isBuiltinType(shape.Name) {
 			c.diags.Error("DCL_SEM_TYPE_BUILTIN_SHADOWED", "shape cannot shadow a built-in type", shape.Span, shape.Name)
@@ -172,19 +180,22 @@ func (c *compiler) buildIR() ir.ProgramIR {
 		out.Policies = append(out.Policies, c.policyIR(policy))
 		out.Symbols = append(out.Symbols, c.symbolIR("policy", policy.Name, policy.Meta.ContextName, policy.Span))
 	}
+}
+
+func (c *compiler) emitCapabilities(out *ir.ProgramIR) {
 	for _, capability := range c.program.Capabilities {
 		out.Capabilities = append(out.Capabilities, c.capabilityIR(capability))
 		out.Symbols = append(out.Symbols, c.symbolIR("capability", capability.Name, capability.Meta.ContextName, capability.Span))
 	}
+}
+
+func (c *compiler) finalizeProgram(out *ir.ProgramIR) {
 	out.Observations = append(out.Observations, c.observations...)
-	c.applyPolicyAttachments(&out)
-	c.deriveEffectivePolicies(&out)
+	c.applyPolicyAttachments(out)
+	c.deriveEffectivePolicies(out)
 	c.emitUnusedDependencyWarnings()
 	out.Contexts = c.contextIR()
 	out.Dependencies = c.dependencyIR()
-
-	sortProgramIR(&out)
-	return out
 }
 
 func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
@@ -619,33 +630,33 @@ func (c *compiler) lifecycleStepIR(cap ast.CapabilityDecl, step ast.LifecycleSte
 	context := declContext(cap.Meta.ContextName)
 	kind := step.Kind
 	if step.DecisionProvider != "" {
-		if kind != "" && kind != "decision" {
+		if kind != "" && kind != lifecycleKindDecision {
 			c.diags.Error("DCL_SEM_LIFECYCLE_STEP_ROLE_CONFLICT", "decision requirement conflicts with lifecycle step kind", step.Span, step.Name)
 		}
-		kind = "decision"
+		kind = lifecycleKindDecision
 	}
 	if len(step.Waits) > 0 {
-		if kind != "" && kind != "waiting" {
+		if kind != "" && kind != lifecycleKindWaiting {
 			c.diags.Error("DCL_SEM_LIFECYCLE_STEP_ROLE_CONFLICT", "wait condition conflicts with lifecycle step kind", step.Span, step.Name)
 		}
-		kind = "waiting"
+		kind = lifecycleKindWaiting
 	}
 	if step.IsTerminal {
-		if kind != "" && kind != "terminal" {
+		if kind != "" && kind != lifecycleKindTerminal {
 			c.diags.Error("DCL_SEM_LIFECYCLE_TERMINAL_KIND_CONFLICT", "terminal lifecycle step must not declare a non-terminal kind", step.Span, step.Name)
 		}
-		kind = "terminal"
+		kind = lifecycleKindTerminal
 	}
 	if kind != "" && !validLifecycleStepKind(kind) {
 		c.diags.Error("DCL_SEM_LIFECYCLE_STEP_KIND_INVALID", "invalid lifecycle step kind", step.Span, kind)
 	}
-	if step.Kind == "waiting" && len(step.Waits) == 0 {
+	if step.Kind == lifecycleKindWaiting && len(step.Waits) == 0 {
 		c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_MISSING", "waiting lifecycle step must declare at least one wait condition", step.Span, step.Name)
 	}
-	if step.Kind == "waiting" && exits[step.Name] == 0 {
+	if step.Kind == lifecycleKindWaiting && exits[step.Name] == 0 {
 		c.diags.Error("DCL_SEM_LIFECYCLE_WAIT_NO_EXIT", "waiting lifecycle step must have at least one exit transition", step.Span, step.Name)
 	}
-	if step.Kind == "waiting" && !reachable[step.Name] {
+	if step.Kind == lifecycleKindWaiting && !reachable[step.Name] {
 		c.diags.Warning("DCL_SEM_LIFECYCLE_STATE_UNREACHABLE", "waiting lifecycle step is not reachable", step.Span, step.Name)
 	}
 	out := ir.LifecycleStepIR{Name: step.Name, Kind: kind, IsTerminal: step.IsTerminal}
@@ -693,6 +704,8 @@ func (c *compiler) waitTriggerIR(cap ast.CapabilityDecl, stepName string, wait a
 		if _, ok := c.resolve("event", wait.SignalName, context, wait.Span, true); ok {
 			sourceCap, capOK := c.resolveTransitionSourceCapability(sourceCapability, context, wait.Span)
 			if capOK && !capabilityEmitsEvent(sourceCap, wait.SignalName) {
+				// Keep this as a warning: event existence is proven, but ownership declarations can be
+				// intentionally incomplete during staged authoring and should not block compilation.
 				c.diags.Warning("DCL_SEM_LIFECYCLE_WAIT_EVENT_SOURCE_UNVERIFIED", "event exists, but capability event emission ownership cannot be fully verified yet", wait.Span, sourceCapability+"."+wait.SignalName)
 				c.diags.Warning("DCL_SEM_LIFECYCLE_EVENT_SOURCE_UNDECLARED", "event source capability does not declare emitted event ownership", wait.Span, sourceCapability+"."+wait.SignalName)
 			}
@@ -806,7 +819,7 @@ func recoveryTransitionsBySource(transitions []ast.TransitionDecl) map[string][]
 
 func validLifecycleStepKind(kind string) bool {
 	switch kind {
-	case "active", "waiting", "decision", "recovery", "terminal":
+	case lifecycleKindActive, lifecycleKindWaiting, lifecycleKindDecision, lifecycleKindRecovery, lifecycleKindTerminal:
 		return true
 	default:
 		return false
@@ -916,7 +929,7 @@ func (c *compiler) validateLifecycleOwnership(cap ast.CapabilityDecl) {
 func lifecyclePoliciesIR(cap ast.CapabilityDecl) []ir.PolicyUseIR {
 	var out []ir.PolicyUseIR
 	for _, policy := range cap.Policies {
-		if policy.TargetKind == "lifecycle" {
+		if policy.TargetKind == targetLifecycle {
 			out = append(out, ir.PolicyUseIR{Policy: policy.Name, TargetKind: policy.TargetKind, TargetName: policyTargetName(cap, policy)})
 		}
 	}
@@ -974,32 +987,33 @@ func (c *compiler) validateEventSourceOwnership(sourceCap ast.CapabilityDecl, ev
 }
 
 func lifecycleTransitionAmbiguityKey(sourceStep, sourceKind, sourceCapability, sourceSymbol string) string {
+	// Ambiguity is defined by "same source state + same trigger identity" regardless of target state.
 	return sourceStep + "\x00" + sourceKind + "\x00" + sourceCapability + "\x00" + sourceSymbol
 }
 
 func (c *compiler) validatePolicyTarget(cap ast.CapabilityDecl, policy ast.PolicyUse, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) {
 	context := declContext(cap.Meta.ContextName)
 	switch policy.TargetKind {
-	case "capability":
+	case targetCapability:
 		if policy.TargetName == "" {
 			return
 		}
 		if policy.TargetName != cap.Name {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target capability is not the current capability", policy.Span, policy.TargetName)
 		}
-	case "effect":
+	case targetEffect:
 		if _, ok := effects[policy.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target effect is not used by this capability", policy.Span, policy.TargetName)
 		}
-	case "outcome":
+	case targetOutcome:
 		if _, ok := outcomes[policy.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target outcome is not declared by this capability", policy.Span, policy.TargetName)
 		}
-	case "event":
+	case targetEvent:
 		if _, ok := c.resolve("event", policy.TargetName, context, policy.Span, false); !ok {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target event is not declared", policy.Span, policy.TargetName)
 		}
-	case "lifecycle":
+	case targetLifecycle:
 		if cap.Lifecycle == nil {
 			c.diags.Error("DCL_SEM_POLICY_TARGET_UNKNOWN", "policy target lifecycle is not declared by this capability", policy.Span, cap.Name)
 		}
@@ -1033,31 +1047,31 @@ func (c *compiler) validateObservation(cap ast.CapabilityDecl, observation ast.O
 func (c *compiler) resolveObservationTarget(cap ast.CapabilityDecl, observation ast.ObservationDecl, outcomes map[string]ast.OutcomeDecl, effects map[string]ast.EffectUse) string {
 	context := declContext(cap.Meta.ContextName)
 	switch observation.TargetKind {
-	case "capability":
+	case targetCapability:
 		if observation.TargetName != "" && observation.TargetName != cap.Name {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target capability is not the current capability", observation.Span, observation.TargetName)
 		}
-		return id("capability", symbolIdentity(context, cap.Name))
-	case "effect":
+		return id(targetCapability, symbolIdentity(context, cap.Name))
+	case targetEffect:
 		if _, ok := effects[observation.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target effect is not used by this capability", observation.Span, observation.TargetName)
 		}
-		return id("effect", observation.TargetName)
-	case "outcome":
+		return id(targetEffect, observation.TargetName)
+	case targetOutcome:
 		if _, ok := outcomes[observation.TargetName]; !ok {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target outcome is not declared by this capability", observation.Span, observation.TargetName)
 		}
-		return id("outcome", symbolIdentity(context, cap.Name+"."+observation.TargetName))
-	case "event":
+		return id(targetOutcome, symbolIdentity(context, cap.Name+"."+observation.TargetName))
+	case targetEvent:
 		if _, ok := c.resolve("event", observation.TargetName, context, observation.Span, false); !ok {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target event is not declared", observation.Span, observation.TargetName)
 		}
-		return id("event", observation.TargetName)
-	case "lifecycle":
+		return id(targetEvent, observation.TargetName)
+	case targetLifecycle:
 		if cap.Lifecycle == nil {
 			c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "observation target lifecycle is not declared by this capability", observation.Span, cap.Name)
 		}
-		return id("lifecycle", symbolIdentity(context, cap.Name))
+		return id(targetLifecycle, symbolIdentity(context, cap.Name))
 	default:
 		c.diags.Error("DCL_SEM_OBSERVE_TARGET_UNKNOWN", "unsupported observation target kind", observation.Span, observation.TargetKind)
 		return observation.TargetKind + ":" + observation.TargetName
@@ -1263,7 +1277,7 @@ func (c *compiler) validatePolicyAttachmentConcerns(cap ast.CapabilityDecl, use 
 				}
 			}
 		case "circuit_breaker":
-			if use.TargetKind != "effect" {
+			if use.TargetKind != targetEffect {
 				c.diags.Error("DCL_SEM_POLICY_CONCERN_ATTACHMENT_INVALID", "circuit_breaker may only govern effects", use.Span, use.Name)
 			}
 		}
@@ -1494,7 +1508,11 @@ func (c *compiler) resolve(kind, name, context string, span diagnostic.Span, rep
 		context = "default"
 	}
 	if info := c.symbolsByFQN[kind][name]; info != nil {
-		return c.checkResolvedAccess(info, context, span, report)
+		resolved, dependencyTarget, ok := c.checkResolvedAccess(info, context, span, report)
+		if ok {
+			c.recordDependencyReference(context, dependencyTarget, resolved.FQN)
+		}
+		return resolved, ok
 	}
 	if info := c.symbolsByContext[context][kind][name]; info != nil {
 		return info, true
@@ -1532,24 +1550,23 @@ func (c *compiler) resolve(kind, name, context string, span diagnostic.Span, rep
 	return nil, false
 }
 
-func (c *compiler) checkResolvedAccess(info *symbolInfo, context string, span diagnostic.Span, report bool) (*symbolInfo, bool) {
+func (c *compiler) checkResolvedAccess(info *symbolInfo, context string, span diagnostic.Span, report bool) (*symbolInfo, string, bool) {
 	if info.Context == context {
-		return info, true
+		return info, "", true
 	}
 	if _, ok := c.dependencies[context][info.Context]; !ok {
 		if report {
 			c.diags.Error(undefinedSymbolCode(info.Kind, context), "undefined "+info.Kind, span, info.FQN)
 		}
-		return nil, false
+		return nil, "", false
 	}
 	if info.Visibility == "private" {
 		if report {
 			c.diags.Error("DCL_SEM_SYMBOL_IS_PRIVATE", "symbol is private", span, info.FQN)
 		}
-		return nil, false
+		return nil, "", false
 	}
-	c.recordDependencyReference(context, info.Context, info.FQN)
-	return info, true
+	return info, info.Context, true
 }
 
 func (c *compiler) recordDependencyReference(source, target, symbol string) {
@@ -1751,210 +1768,6 @@ func (c *compiler) normalizedEffectKind(effect ast.EffectDecl) string {
 	}
 }
 
-func isBuiltinType(name string) bool {
-	switch name {
-	case "Text", "Boolean", "Number", "Date", "DateTime", "Uuid", "Email", "Money":
-		return true
-	}
-	return false
-}
-
-func validPolicyFamily(family string) bool {
-	switch family {
-	case "reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection":
-		return true
-	default:
-		return false
-	}
-}
-
-func validObservationType(observationType string) bool {
-	switch observationType {
-	case "count", "duration", "violations", "failures", "transitions":
-		return true
-	default:
-		return false
-	}
-}
-
-func knownConcern(name string) bool {
-	switch name {
-	case "retry", "backoff", "timeout", "idempotency", "compensation", "circuit_breaker",
-		"degradation", "fallback", "dependency_tolerance",
-		"concurrency", "rate_limit", "queue", "backpressure",
-		"latency", "throughput", "budget",
-		"authentication", "authorization", "classification", "encryption",
-		"audit", "retention", "approval", "evidence",
-		"sensitivity", "masking", "minimization", "deletion":
-		return true
-	default:
-		return false
-	}
-}
-
-func concernAllowedInFamily(name, family string) bool {
-	switch family {
-	case "reliability":
-		return in(name, "retry", "backoff", "timeout", "idempotency", "compensation", "circuit_breaker")
-	case "availability":
-		return in(name, "degradation", "fallback", "dependency_tolerance")
-	case "scalability":
-		return in(name, "concurrency", "rate_limit", "queue", "backpressure")
-	case "performance":
-		return in(name, "latency", "throughput", "budget")
-	case "security":
-		return in(name, "authentication", "authorization", "classification", "encryption")
-	case "compliance", "governance":
-		return in(name, "audit", "retention", "approval", "evidence")
-	case "data_protection":
-		return in(name, "sensitivity", "masking", "minimization", "retention", "deletion")
-	default:
-		return false
-	}
-}
-
-func findConcern(policy ast.PolicyDecl, name string) (ast.ConcernDecl, bool) {
-	for _, concern := range policy.Concerns {
-		if concern.Name == name {
-			return concern, true
-		}
-	}
-	return ast.ConcernDecl{}, false
-}
-
-func parameter(concern ast.ConcernDecl, name string) (ast.ConcernParameter, bool) {
-	for _, param := range concern.Parameters {
-		if param.Name == name {
-			return param, true
-		}
-	}
-	return ast.ConcernParameter{}, false
-}
-
-func scalarValues(concern ast.ConcernDecl) []string {
-	if param, ok := parameter(concern, "value"); ok {
-		return param.Values
-	}
-	return nil
-}
-
-func positiveInteger(value string) bool {
-	n, err := strconv.Atoi(value)
-	return err == nil && n > 0
-}
-
-func positiveDuration(values []string) bool {
-	switch len(values) {
-	case 1:
-		number, unit := splitNumberUnit(values[0])
-		return positiveInteger(number) && validDurationUnit(unit)
-	case 2:
-		return positiveInteger(values[0]) && validDurationUnit(values[1])
-	default:
-		return false
-	}
-}
-
-func splitNumberUnit(value string) (string, string) {
-	for i, r := range value {
-		if r < '0' || r > '9' {
-			return value[:i], value[i:]
-		}
-	}
-	return value, ""
-}
-
-func validDurationUnit(unit string) bool {
-	switch unit {
-	case "ms", "millisecond", "milliseconds", "s", "second", "seconds", "m", "minute", "minutes", "h", "hour", "hours", "d", "day", "days":
-		return true
-	default:
-		return false
-	}
-}
-
-func validPeriodUnit(unit string) bool {
-	switch unit {
-	case "day", "days", "month", "months", "year", "years":
-		return true
-	default:
-		return false
-	}
-}
-
-func concernIR(family string, concern ast.ConcernDecl) ir.ConcernIR {
-	out := ir.ConcernIR{Name: concern.Name, Family: family, SourceLocation: concern.Span}
-	for _, param := range concern.Parameters {
-		out.Parameters = append(out.Parameters, ir.ConcernParameterIR{Name: param.Name, Values: append([]string(nil), param.Values...)})
-	}
-	return out
-}
-
-func objectiveIR(concern ast.ConcernDecl) ir.ObjectiveIR {
-	switch concern.Name {
-	case "latency", "throughput", "budget", "retention":
-		return ir.ObjectiveIR{Concern: concern.Name, Values: scalarOrParameterValues(concern)}
-	default:
-		return ir.ObjectiveIR{}
-	}
-}
-
-func obligationIR(concern ast.ConcernDecl, targetKind, targetName string) ir.DerivedObligationIR {
-	return ir.DerivedObligationIR{
-		Concern:    concern.Name,
-		Obligation: obligationName(concern.Name),
-		TargetKind: targetKind,
-		TargetName: targetName,
-	}
-}
-
-func obligationIRFromConcernIR(concern ir.ConcernIR, targetKind, targetName string) ir.DerivedObligationIR {
-	return ir.DerivedObligationIR{
-		Concern:    concern.Name,
-		Obligation: obligationName(concern.Name),
-		TargetKind: targetKind,
-		TargetName: targetName,
-	}
-}
-
-func obligationName(concern string) string {
-	switch concern {
-	case "retry", "backoff", "timeout", "idempotency", "compensation":
-		return "verify reliability behavior"
-	case "circuit_breaker":
-		return "protect dependency effect"
-	case "latency", "throughput", "budget":
-		return "verify performance objective"
-	case "audit", "evidence":
-		return "preserve governance evidence"
-	case "retention", "deletion", "masking", "minimization":
-		return "verify data protection obligation"
-	default:
-		return "verify policy concern"
-	}
-}
-
-func scalarOrParameterValues(concern ast.ConcernDecl) []string {
-	if values := scalarValues(concern); len(values) > 0 {
-		return append([]string(nil), values...)
-	}
-	var out []string
-	for _, param := range concern.Parameters {
-		out = append(out, param.Name)
-		out = append(out, param.Values...)
-	}
-	return out
-}
-
-func in(value string, choices ...string) bool {
-	for _, choice := range choices {
-		if value == choice {
-			return true
-		}
-	}
-	return false
-}
-
 func derivedMetricName(capability string, observation ast.ObservationDecl, targetReference string) string {
 	target := observation.TargetName
 	if target == "" {
@@ -1972,7 +1785,7 @@ func derivedMetricName(capability string, observation ast.ObservationDecl, targe
 
 func policyTargetName(cap ast.CapabilityDecl, policy ast.PolicyUse) string {
 	switch policy.TargetKind {
-	case "capability", "lifecycle":
+	case targetCapability, targetLifecycle:
 		return cap.Name
 	default:
 		return policy.TargetName

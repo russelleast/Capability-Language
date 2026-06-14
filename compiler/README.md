@@ -1,5 +1,3 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/dcl)](https://goreportcard.com/report/github.com/yourusername/dcl)
-
 ### Build and Run
 
 ```bash

@@ -44,20 +44,20 @@ func (c *compiler) deriveEffectivePolicies(out *ir.ProgramIR) {
 }
 
 func (c *compiler) deriveCapabilityEffectivePolicies(cap ast.CapabilityDecl) []ir.EffectivePolicyIR {
-	capability := c.deriveEnvelope(cap, "capability", cap.Name, nil)
+	capability := c.deriveEnvelope(cap, targetCapability, cap.Name, nil)
 	envelopes := []ir.EffectivePolicyIR{capability}
 
 	for _, effect := range cap.Effects {
-		envelopes = append(envelopes, c.deriveEnvelope(cap, "effect", effect.Name, &capability))
+		envelopes = append(envelopes, c.deriveEnvelope(cap, targetEffect, effect.Name, &capability))
 	}
 	for _, outcome := range cap.Outcomes {
-		envelopes = append(envelopes, c.deriveEnvelope(cap, "outcome", outcome.Name, &capability))
+		envelopes = append(envelopes, c.deriveEnvelope(cap, targetOutcome, outcome.Name, &capability))
 	}
 	for _, event := range c.policyEventTargets(cap) {
-		envelopes = append(envelopes, c.deriveEnvelope(cap, "event", event, &capability))
+		envelopes = append(envelopes, c.deriveEnvelope(cap, targetEvent, event, &capability))
 	}
 	if cap.Lifecycle != nil {
-		envelopes = append(envelopes, c.deriveEnvelope(cap, "lifecycle", cap.Name, &capability))
+		envelopes = append(envelopes, c.deriveEnvelope(cap, targetLifecycle, cap.Name, &capability))
 	}
 
 	c.applyPolicyCausation(cap, envelopes)
@@ -146,6 +146,8 @@ func (c *compiler) composeEffectiveConcern(current, next ir.EffectiveConcernIR, 
 		return result, "", ""
 	}
 
+	// Conflicts are only legal to narrow against an inherited parent concern.
+	// Two directly attached incompatible concerns at the same boundary are always an error.
 	if !hasParent || current.InheritedFrom == "" {
 		result.Mode = string(modeConflict)
 		result.Result = "conflict"
@@ -269,7 +271,7 @@ func (c *compiler) attachedPolicyConcerns(cap ast.CapabilityDecl, targetKind, ta
 func (c *compiler) policyEventTargets(cap ast.CapabilityDecl) []string {
 	seen := map[string]bool{}
 	for _, use := range cap.Policies {
-		if use.TargetKind == "event" && use.TargetName != "" {
+		if use.TargetKind == targetEvent && use.TargetName != "" {
 			seen[use.TargetName] = true
 		}
 	}
@@ -318,20 +320,6 @@ func compositionResult(concern, targetKind, targetSymbol, mode string, policies 
 		Mode:           mode,
 		SourcePolicies: policies,
 		Result:         result,
-	}
-}
-
-func concernCompositionMode(concern string) compositionMode {
-	switch concern {
-	case "authorization", "audit", "approval", "evidence", "dependency_tolerance":
-		return modeAugment
-	case "timeout", "idempotency", "degradation", "concurrency", "rate_limit", "queue", "latency", "budget",
-		"authentication", "classification", "encryption", "retention", "sensitivity", "masking", "minimization", "deletion":
-		return modeNarrow
-	case "retry", "backoff", "circuit_breaker", "fallback", "backpressure", "throughput", "compensation":
-		return modeTargetLocal
-	default:
-		return modeConflict
 	}
 }
 
@@ -614,17 +602,17 @@ func policyStateConcern(state, policy string, envelopes []ir.EffectivePolicyIR) 
 
 func policyConcernCanProduceState(concern, state string) bool {
 	switch state {
-	case "denies":
+	case policyStateDenies:
 		return concern == "authorization"
-	case "exhausted":
+	case policyStateExhausted:
 		return concern == "retry"
-	case "times_out":
+	case policyStateTimesOut:
 		return concern == "timeout"
-	case "open":
+	case policyStateOpen:
 		return concern == "circuit_breaker"
-	case "degraded":
+	case policyStateDegraded:
 		return concern == "degradation"
-	case "fallback_used":
+	case policyStateFallbackUsed:
 		return concern == "fallback"
 	default:
 		return false
@@ -633,7 +621,7 @@ func policyConcernCanProduceState(concern, state string) bool {
 
 func knownPolicyState(state string) bool {
 	switch state {
-	case "denies", "exhausted", "times_out", "open", "degraded", "fallback_used":
+	case policyStateDenies, policyStateExhausted, policyStateTimesOut, policyStateOpen, policyStateDegraded, policyStateFallbackUsed:
 		return true
 	default:
 		return false

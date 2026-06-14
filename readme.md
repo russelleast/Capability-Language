@@ -1,7 +1,7 @@
 # DCL - Declarative Capability  Language
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/dcl)](https://goreportcard.com/report/github.com/yourusername/dcl)
+[![Build](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml/badge.svg)](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml)
 
 **DCL** (Declarative Capability  Language) is a modern language and compiler for modeling complex business processes using capability-driven design principles.
 
