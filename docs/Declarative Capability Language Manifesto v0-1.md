@@ -21,7 +21,7 @@ Rather than:
 - controllers
 - infrastructure wiring
 
-The goal is to make systems **explicit, analyzable, portable, and implementable by both humans and AI**.
+The goal is to make systems **explicit, analysable, portable, and implementable by both humans and AI**.
 
 ---
 
