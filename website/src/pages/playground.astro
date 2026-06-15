@@ -32,32 +32,53 @@ const initialExample = playgroundExamples[0];
 
     <div class="playground-shell" data-playground>
       <div class="playground-toolbar">
-        <label class="field-label" for="example-select">Example</label>
-        <select id="example-select" class="example-select" data-example-select>
-          {
-            playgroundExamples.map((example) => (
-              <option value={example.id}>{example.title}</option>
-            ))
-          }
-        </select>
-        <button class="button secondary control-button" type="button" data-reset-button>
-          Reset example
-        </button>
-        <button class="button primary control-button" type="button" data-compile-button>
-          Compile
-        </button>
+        <div class="playground-toolbar-main">
+          <label class="field-label" for="example-select">
+            <span>Example</span>
+            <select id="example-select" class="example-select" data-example-select>
+              {
+                playgroundExamples.map((example) => (
+                  <option value={example.id}>{example.title}</option>
+                ))
+              }
+            </select>
+          </label>
+          <div class="playground-badges">
+            <span class="validated-badge">Validated example</span>
+            <span class="version-pill">Compiler {compilerVersion}</span>
+          </div>
+        </div>
+        <div class="playground-actions">
+          <button class="button secondary control-button" type="button" data-copy-source-button>
+            Copy source
+          </button>
+          <button class="button secondary control-button" type="button" data-copy-diagnostics-button>
+            Copy diagnostics
+          </button>
+          <button class="button secondary control-button" type="button" data-reset-button>
+            Reset
+          </button>
+          <button class="button primary control-button" type="button" data-compile-button>
+            Compile
+          </button>
+        </div>
       </div>
 
-      <p class="example-summary" data-example-summary>
-        {initialExample.description}
-      </p>
-      <p class="example-path" data-example-path>
-        Source: <code>{initialExample.path}</code>
-      </p>
+      <div class="example-meta">
+        <p class="example-summary" data-example-summary>
+          {initialExample.description}
+        </p>
+        <p class="example-path" data-example-path>
+          Source: <code>{initialExample.path}</code>
+        </p>
+      </div>
 
       <div class="playground-grid">
         <div class="editor-panel">
-          <label for="source-editor">DCL source</label>
+          <div class="pane-heading">
+            <label for="source-editor">DCL source</label>
+            <span>Editable</span>
+          </div>
           <div class="monaco-editor-host" data-monaco-editor hidden></div>
           <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
           <p class="editor-fallback-message" data-editor-fallback-message hidden>
@@ -66,6 +87,10 @@ const initialExample = playgroundExamples[0];
         </div>
 
         <aside class="diagnostics-panel" aria-live="polite">
+          <div class="pane-heading">
+            <h2>Compiler results</h2>
+            <span>Browser WASM</span>
+          </div>
           <div class="status-card" data-result-status>
             Ready. Select an example or edit the source.
           </div>
@@ -101,9 +126,14 @@ const initialExample = playgroundExamples[0];
               <pre><code data-compiler-output>{}</code></pre>
             </section>
           </section>
-          <h2>Diagnostics</h2>
-          <div class="diagnostics-output" data-diagnostics-output>
-            <p>No compile run yet.</p>
+          <div class="diagnostics-section">
+            <div class="pane-heading">
+              <h2>Diagnostics</h2>
+              <span data-diagnostics-count>No run</span>
+            </div>
+            <div class="diagnostics-output" data-diagnostics-output>
+              <p class="empty-state">No compile run yet.</p>
+            </div>
           </div>
         </aside>
       </div>
@@ -147,10 +177,13 @@ const initialExample = playgroundExamples[0];
     const editorFallbackMessage = document.querySelector("[data-editor-fallback-message]");
     const resetButton = document.querySelector("[data-reset-button]") as HTMLButtonElement | null;
     const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
+    const copySourceButton = document.querySelector("[data-copy-source-button]") as HTMLButtonElement | null;
+    const copyDiagnosticsButton = document.querySelector("[data-copy-diagnostics-button]") as HTMLButtonElement | null;
     const summary = document.querySelector("[data-example-summary]");
     const sourcePath = document.querySelector("[data-example-path]");
     const status = document.querySelector("[data-result-status]");
     const diagnostics = document.querySelector("[data-diagnostics-output]");
+    const diagnosticsCount = document.querySelector("[data-diagnostics-count]");
     const compilerResults = document.querySelector("[data-compiler-results]");
     const summaryOutput = document.querySelector("[data-summary-output]");
     const mapOutput = document.querySelector("[data-result-panel='map']");
@@ -192,8 +225,24 @@ const initialExample = playgroundExamples[0];
       if (!diagnostics) return;
 
       if (result.diagnostics.length === 0) {
+        if (diagnosticsCount) diagnosticsCount.textContent = "Clean";
         diagnostics.innerHTML = '<p class="diagnostic-success">No diagnostics. The compiler accepted this source.</p>';
         return;
+      }
+
+      const severityCounts = result.diagnostics.reduce(
+        (counts, diagnostic) => {
+          counts[diagnostic.severity] += 1;
+          return counts;
+        },
+        { error: 0, warning: 0, info: 0 },
+      );
+      if (diagnosticsCount) {
+        diagnosticsCount.textContent = [
+          severityCounts.error ? `${severityCounts.error} error${severityCounts.error === 1 ? "" : "s"}` : "",
+          severityCounts.warning ? `${severityCounts.warning} warning${severityCounts.warning === 1 ? "" : "s"}` : "",
+          severityCounts.info ? `${severityCounts.info} info` : "",
+        ].filter(Boolean).join(", ");
       }
 
       const list = document.createElement("ul");
@@ -203,15 +252,17 @@ const initialExample = playgroundExamples[0];
         const item = document.createElement("li");
         item.className = `diagnostic diagnostic-${diagnostic.severity}`;
 
+        const severity = document.createElement("span");
+        severity.className = "diagnostic-severity";
+        severity.textContent = diagnostic.severity;
+
         const heading = document.createElement("strong");
-        heading.textContent = diagnostic.code
-          ? `${diagnostic.severity.toUpperCase()} ${diagnostic.code}`
-          : diagnostic.severity.toUpperCase();
+        heading.textContent = diagnostic.code ?? "Compiler diagnostic";
 
         const message = document.createElement("p");
         message.textContent = diagnostic.message;
 
-        item.append(heading, message);
+        item.append(severity, heading, message);
 
         if (diagnostic.line || diagnostic.column) {
           const location = document.createElement("span");
@@ -292,7 +343,9 @@ const initialExample = playgroundExamples[0];
       heading.textContent = `Capability: ${capability.name}`;
       section.append(heading);
 
-      section.append(
+      const groups = document.createElement("div");
+      groups.className = "summary-card-grid";
+      groups.append(
         renderSummaryGroup("Intents", capability.intents),
         renderSummaryGroup("Actors", capability.actors),
         renderSummaryGroup("Outcomes", capability.outcomes),
@@ -301,6 +354,7 @@ const initialExample = playgroundExamples[0];
         renderSummaryGroup("Events", capability.events),
         renderSummaryGroup("Policies", capability.policies),
       );
+      section.append(groups);
 
       if (capability.lifecycle?.steps?.length || capability.lifecycle?.transitions?.length) {
         const lifecycle = document.createElement("div");
@@ -358,11 +412,10 @@ const initialExample = playgroundExamples[0];
       heading.textContent = capability.name;
       card.append(heading);
 
-      appendMapSection(card, "Actors express intents", [...(capability.actors ?? []), ...(capability.intents ?? [])]);
-      appendMapSection(card, "Capability produces outcomes", capability.outcomes);
+      appendMapPath(card, "Actors express intents", [...(capability.actors ?? []), ...(capability.intents ?? [])], capability.name, capability.outcomes);
+      if (capability.effects?.length) appendMapPath(card, "Capability causes effects", [capability.name], undefined, capability.effects);
+      if (capability.events?.length) appendMapPath(card, "Capability emits events", [capability.name], undefined, capability.events);
       appendMapSection(card, "Rules guide decisions", capability.rules);
-      appendMapSection(card, "Capability causes effects", capability.effects);
-      appendMapSection(card, "Capability emits events", capability.events);
       appendMapSection(card, "Policies shape operation", capability.policies);
 
       const lifecycleItems = [
@@ -372,6 +425,38 @@ const initialExample = playgroundExamples[0];
       appendMapSection(card, "Lifecycle progresses through steps", lifecycleItems);
 
       return card;
+    }
+
+    function appendMapPath(parent: HTMLElement, title: string, sources?: string[], center?: string, targets?: string[]) {
+      if (!sources?.length && !center && !targets?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "capability-map-path";
+
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      section.append(heading);
+
+      const path = document.createElement("div");
+      path.className = "map-path";
+      appendMapNodes(path, sources);
+      if (center) appendMapNode(path, center, "capability");
+      appendMapNodes(path, targets);
+      section.append(path);
+      parent.append(section);
+    }
+
+    function appendMapNodes(parent: HTMLElement, items?: string[]) {
+      for (const item of items ?? []) {
+        appendMapNode(parent, item);
+      }
+    }
+
+    function appendMapNode(parent: HTMLElement, label: string, kind = "default") {
+      const node = document.createElement("span");
+      node.className = `map-node map-node-${kind}`;
+      node.textContent = label;
+      parent.append(node);
     }
 
     function renderFlow(summary: SemanticSummary) {
@@ -431,12 +516,32 @@ const initialExample = playgroundExamples[0];
       if (capability.lifecycle?.begin) {
         appendFlowSection(card, "Begin step", [capability.lifecycle.begin]);
       }
+      appendFlowTimeline(card, capability);
       appendFlowSection(card, "Lifecycle steps", capability.lifecycle?.steps);
       appendFlowSection(card, "End steps", capability.lifecycle?.ends);
-      appendFlowSection(card, "Transitions", capability.lifecycle?.transitions);
       appendFlowSection(card, "Emitted events", capability.events);
 
       return card;
+    }
+
+    function appendFlowTimeline(parent: HTMLElement, capability: CapabilitySummary) {
+      if (!capability.lifecycle?.transitions?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "flow-section";
+      const heading = document.createElement("strong");
+      heading.textContent = "Timeline";
+      const timeline = document.createElement("ol");
+      timeline.className = "flow-timeline";
+
+      for (const transition of capability.lifecycle.transitions) {
+        const item = document.createElement("li");
+        item.textContent = transition;
+        timeline.append(item);
+      }
+
+      section.append(heading, timeline);
+      parent.append(section);
     }
 
     function appendFlowSection(parent: HTMLElement, title: string, items?: string[]) {
@@ -506,6 +611,30 @@ const initialExample = playgroundExamples[0];
       compilerOutput.textContent = JSON.stringify(result.ir, null, 2);
     }
 
+    async function copyText(text: string, button: HTMLButtonElement | null, successLabel: string) {
+      if (!button) return;
+      const original = button.textContent ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = successLabel;
+      } catch {
+        const fallback = document.createElement("textarea");
+        fallback.value = text;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.append(fallback);
+        fallback.select();
+        document.execCommand("copy");
+        fallback.remove();
+        button.textContent = successLabel;
+      } finally {
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1400);
+      }
+    }
+
     function activateResultPanel(view: string) {
       for (const tab of resultTabs) {
         const selected = tab.dataset.resultTab === view;
@@ -528,6 +657,7 @@ const initialExample = playgroundExamples[0];
       if (summary) summary.textContent = example.description;
       if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
       if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
+      if (diagnosticsCount) diagnosticsCount.textContent = "No run";
       if (compilerResults) compilerResults.setAttribute("hidden", "");
       if (summaryOutput) summaryOutput.replaceChildren();
       if (mapOutput) mapOutput.replaceChildren();
@@ -540,6 +670,10 @@ const initialExample = playgroundExamples[0];
 
     select?.addEventListener("change", loadExample);
     resetButton?.addEventListener("click", loadExample);
+    copySourceButton?.addEventListener("click", () => copyText(sourceEditor.getValue(), copySourceButton, "Copied"));
+    copyDiagnosticsButton?.addEventListener("click", () =>
+      copyText(diagnostics?.textContent?.trim() || "No diagnostics.", copyDiagnosticsButton, "Copied"),
+    );
     resultTabs.forEach((tab) => {
       tab.addEventListener("click", () => activateResultPanel(tab.dataset.resultTab ?? "summary"));
     });
@@ -553,7 +687,8 @@ const initialExample = playgroundExamples[0];
       renderAdvancedOutput(result);
 
       if (result.ok) {
-        setStatus("Compile succeeded.", "success");
+        const hasWarnings = result.diagnostics.some((diagnostic) => diagnostic.severity === "warning");
+        setStatus(hasWarnings ? "Compiled with warnings." : "Compile succeeded.", hasWarnings ? "warning" : "success");
         return;
       }
 
