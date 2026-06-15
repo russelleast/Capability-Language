@@ -1,9 +1,11 @@
+language dcl 0.9
+
 actor Customer is human
 actor WarehouseOperator is human
 
-effect ReserveStockRecord is persist
-effect CapturePaymentRecord is persist
-effect DispatchParcel is notify
+effect ReserveStockRecord is persistence
+effect CapturePaymentRecord is persistence
+effect DispatchParcel is notification
 
 policy FulfilmentReliability {
   family reliability
@@ -16,17 +18,17 @@ policy FulfilmentReliability {
 }
 
 shape OrderInput {
-  orderId: Text required
+  orderId: Uuid required
   sku: Text required
   quantity: Number required
 }
 
 shape PickInput {
-  orderId: Text required
+  orderId: Uuid required
 }
 
 event ParcelDispatched is {
-  orderId: Text required
+  orderId: Uuid required
 }
 
 capability ReserveInventory {
@@ -61,6 +63,9 @@ capability ShipOrder {
     ShipmentStarted
     ShipmentBlocked
   }
+  events {
+    emits ParcelDispatched
+  }
   effect DispatchParcel
   when {
     DispatchParcel unresolved then ShipmentBlocked
@@ -81,7 +86,7 @@ capability FulfilOrder {
   }
 
   when {
-    otherwise then FulfilmentOpened
+    always then FulfilmentOpened
   }
 
   supervises lifecycle OrderFulfilment {
@@ -95,24 +100,16 @@ capability FulfilOrder {
 
     begin Created
 
-    step Created {
-      kind active
-    }
+    step Created
 
     step AwaitingPayment {
-      kind waiting
       waits for outcome PaymentCaptured from CapturePayment
       waits for outcome PaymentDeclined from CapturePayment
     }
 
-    step ReadyToShip {
-      kind decision
-    }
+    step ReadyToShip requires decision from WarehouseOperator
 
-    step Dispatching {
-      kind waiting
-      waits for event ParcelDispatched from ShipOrder
-    }
+    step Dispatching waits for event ParcelDispatched from ShipOrder
 
     end Completed
     end Failed

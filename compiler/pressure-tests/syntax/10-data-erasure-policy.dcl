@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor DataSubject is human
 actor PrivacyOfficer is human
 
-effect DeleteCustomerData is persist
-effect RecordErasureEvidence is persist
+effect DeleteCustomerData is persistence
+effect RecordErasureEvidence is persistence
 
 policy ErasureProtection {
   family data_protection
@@ -19,8 +21,8 @@ policy ErasureGovernance {
 }
 
 shape ErasureInput {
-  requestId: Text required
-  customerId: Text required
+  requestId: Uuid required
+  customerId: Uuid required
 }
 
 capability EraseCustomerData {

@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Applicant is human
 actor Underwriter is human
 
-effect StoreApplication is persist
-effect NotifyUnderwriter is notify
+effect StoreApplication is persistence
+effect NotifyUnderwriter is notification
 
 policy LoanPerformance {
   family performance
@@ -18,12 +20,12 @@ policy LoanGovernance {
 }
 
 shape LoanApplicationInput {
-  applicationId: Text required
+  applicationId: Uuid required
   requestedAmount: Number required
 }
 
 event UnderwritingDecisionReceived is {
-  applicationId: Text required
+  applicationId: Uuid required
 }
 
 capability SubmitLoanApplication {
@@ -52,6 +54,10 @@ capability SubmitLoanApplication {
     LoanGovernance governs lifecycle
   }
 
+  events {
+    emits UnderwritingDecisionReceived
+  }
+
   observe {
     lifecycle transitions
     outcome UnderwritingTimedOut count as underwriting_timeouts
@@ -63,19 +69,11 @@ capability SubmitLoanApplication {
   }
 
   lifecycle {
-    contributors {
-      SubmitLoanApplication
-    }
-
     begin Submitted
 
-    step Submitted {
-      kind active
-    }
+    step Submitted
 
-    step Underwriting {
-      kind waiting
-      waits for event UnderwritingDecisionReceived from SubmitLoanApplication
+    step Underwriting waits for event UnderwritingDecisionReceived {
       deadline 5 days causing outcome UnderwritingTimedOut
     }
 

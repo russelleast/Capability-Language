@@ -1,9 +1,11 @@
+language dcl 0.9
+
 actor Customer is human
 
-effect SendAccountInvite is notify
+effect SendAccountInvite is notification
 
 shape InviteInput {
-  email: Text required
+  email: Email required
 }
 
 capability InviteCustomer {
@@ -37,7 +39,6 @@ capability InviteCustomer {
     begin InviteSending
 
     step InviteSending {
-      kind active
       deadline 1 minute causing outcome InviteSending
     }
 

@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Claimant is human
 actor Adjuster is human
 
-effect StoreClaim is persist
-effect RecordPayout is persist
+effect StoreClaim is persistence
+effect RecordPayout is persistence
 
 policy ClaimCompliance {
   family compliance
@@ -12,7 +14,7 @@ policy ClaimCompliance {
 }
 
 shape ClaimInput {
-  claimId: Text required
+  claimId: Uuid required
   policyNumber: Text required
   amount: Number required
 }
@@ -69,7 +71,7 @@ capability AssessClaim {
   }
 
   when {
-    otherwise then ClaimAssessmentOpened
+    always then ClaimAssessmentOpened
   }
 
   supervises lifecycle ClaimAssessment {
@@ -83,17 +85,11 @@ capability AssessClaim {
 
     begin Received
 
-    step Received {
-      kind active
-    }
+    step Received
 
-    step AwaitingApproval {
-      kind decision
-    }
+    step AwaitingApproval requires decision from Adjuster
 
-    step Paying {
-      kind active
-    }
+    step Paying
 
     end Paid
     end Rejected

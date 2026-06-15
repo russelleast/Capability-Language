@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Customer is human
 actor SupportAgent is human
 
-effect CapturePaymentRecord is persist
-effect RefundPaymentRecord is persist
+effect CapturePaymentRecord is persistence
+effect RefundPaymentRecord is persistence
 
 policy PaymentRecoveryPolicy {
   family reliability
@@ -15,7 +17,7 @@ policy PaymentRecoveryPolicy {
 }
 
 shape PaymentInput {
-  paymentId: Text required
+  paymentId: Uuid required
   amount: Number required
 }
 
@@ -54,7 +56,7 @@ capability SettlePayment {
   }
 
   when {
-    otherwise then SettlementOpened
+    always then SettlementOpened
   }
 
   supervises lifecycle PaymentSettlement {
@@ -67,12 +69,9 @@ capability SettlePayment {
 
     begin Capturing
 
-    step Capturing {
-      kind active
-    }
+    step Capturing
 
     step Recovering {
-      kind recovery
       recovery RefundPayment
     }
 
