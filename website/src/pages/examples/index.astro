@@ -1,0 +1,117 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import helloWorld from "../../examples/hello-world.dcl?raw";
+import registerCustomer from "../../examples/register-customer.dcl?raw";
+import leaveRequest from "../../examples/leave-request.dcl?raw";
+import policyExample from "../../examples/policy-example.dcl?raw";
+import contextShared from "../../examples/context-shared.dcl?raw";
+import contextSales from "../../examples/context-sales.dcl?raw";
+import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
+import paymentProcessing from "../../examples/payment-processing.dcl?raw";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = (href) => `${base}${href}`;
+
+const frontmatter = {
+  title: "Examples",
+  description: "Validated DCL examples for language-first capability modeling.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Examples</h1>
+  <p>
+    These examples are executable language assets. The source shown here is kept
+    in <code>website/src/examples</code> and checked with the current DCL
+    compiler before publication.
+  </p>
+
+  <h2>Flagship example: E-Commerce Platform</h2>
+  <p>
+    A multi-context example showing customer ordering, warehouse fulfilment,
+    delivery, events, policies, and lifecycle progression.
+  </p>
+  <p>
+    <a href={path("/examples/ecommerce-platform/")}>Open the E-Commerce Platform example</a>.
+  </p>
+
+  <h2>Hello World</h2>
+  <p>
+    The smallest useful model names an actor, an input shape, a capability, an
+    outcome, and unconditional outcome causation.
+  </p>
+  <CodeBlock title="hello-world.dcl" code={helloWorld} />
+  <p><strong>Expected outcome:</strong> <code>GreetingPrepared</code>.</p>
+  <p><strong>Key concepts:</strong> actor, shape, intent, outcome, <code>always then</code>.</p>
+
+  <h2>Register Customer</h2>
+  <p>
+    Registration demonstrates a rule, ordered effects, an emitted event, and
+    outcome selection for rejection, deferral, and acceptance.
+  </p>
+  <CodeBlock title="register-customer.dcl" code={registerCustomer} />
+  <p>
+    <strong>Expected outcomes:</strong> <code>RegistrationAccepted</code>,
+    <code>TermsRejected</code>, or <code>VerificationDeferred</code>.
+  </p>
+  <p><strong>Key concepts:</strong> rule violation, effect ordering, event emission, fallback outcome.</p>
+
+  <h2>Leave Request</h2>
+  <p>
+    Leave approval shows actor roles inside a capability and rules that refer to
+    those roles and the input shape.
+  </p>
+  <CodeBlock title="leave-request.dcl" code={leaveRequest} />
+  <p>
+    <strong>Expected outcomes:</strong> <code>LeaveRequested</code>,
+    <code>SelfApprovalRejected</code>, or <code>DurationRejected</code>.
+  </p>
+  <p><strong>Key concepts:</strong> actor roles, rule blocks, semantic rejection outcomes.</p>
+
+  <h2>Policy Example</h2>
+  <p>
+    Policies attach operational concerns to a capability, effect, or event
+    without naming a runtime implementation.
+  </p>
+  <CodeBlock title="policy-example.dcl" code={policyExample} />
+  <p>
+    <strong>Expected outcomes:</strong> <code>InvoiceAccepted</code> or
+    <code>InvoicePublishDeferred</code>.
+  </p>
+  <p><strong>Key concepts:</strong> policy family, governance targets, observation metrics.</p>
+
+  <h2>Context / Multi-file Example</h2>
+  <p>
+    Contexts let one area of the model depend on shared declarations owned by
+    another context. Compile both files together.
+  </p>
+  <CodeBlock title="context-shared.dcl" code={contextShared} />
+  <CodeBlock title="context-sales.dcl" code={contextSales} />
+  <p>
+    <strong>Expected outcomes:</strong> <code>SalesOrderAccepted</code> or
+    <code>SalesOrderDeferred</code>.
+  </p>
+  <p><strong>Key concepts:</strong> contexts, dependencies, visibility, shared ownership.</p>
+
+  <h2>Supervising Lifecycle</h2>
+  <p>
+    A supervising capability coordinates contributors and moves a lifecycle
+    forward based on contributor outcomes and emitted events.
+  </p>
+  <CodeBlock title="supervising-lifecycle.dcl" code={supervisingLifecycle} />
+  <p><strong>Expected terminal states:</strong> <code>Completed</code> or <code>Failed</code>.</p>
+  <p><strong>Key concepts:</strong> contributors, sourced outcomes, sourced events, lifecycle completion.</p>
+
+  <h2>Payment Processing</h2>
+  <p>
+    Payment collection demonstrates a local lifecycle that waits for an event and
+    uses a deadline to cause an expiry outcome.
+  </p>
+  <CodeBlock title="payment-processing.dcl" code={paymentProcessing} />
+  <p>
+    <strong>Expected outcomes:</strong> <code>PaymentRequested</code> or
+    <code>PaymentExpired</code>.
+  </p>
+  <p><strong>Key concepts:</strong> local lifecycle ownership, event waits, deadlines, terminal states.</p>
+</DocsLayout>

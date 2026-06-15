@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-WORKDIR /app
+WORKDIR /app/website
 
 COPY package*.json ./
 RUN npm ci

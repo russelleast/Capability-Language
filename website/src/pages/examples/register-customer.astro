@@ -1,0 +1,44 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/register-customer.dcl?raw";
+
+const frontmatter = {
+  title: "Register Customer Example",
+  description: "A validated DCL example that models customer registration as a capability.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Register Customer</h1>
+  <p>
+    This example models customer registration as a capability. It names the
+    initiating actor, input shape, possible outcomes, a rule, ordered effects,
+    and an emitted event.
+  </p>
+
+  <CodeBlock title="register-customer.dcl" code={source} />
+
+  <h2>What It Says</h2>
+  <p>
+    A customer provides registration intent. The capability may accept the
+    registration, reject it because terms were not accepted, or defer
+    verification if the verification message effect cannot be resolved.
+  </p>
+
+  <h2>Expected Outcomes</h2>
+  <ul>
+    <li><code>RegistrationAccepted</code> when the rule holds and effects resolve.</li>
+    <li><code>TermsRejected</code> when accepted terms are not present.</li>
+    <li><code>VerificationDeferred</code> when the message effect is unresolved.</li>
+  </ul>
+
+  <h2>Concepts Demonstrated</h2>
+  <ul>
+    <li>Capability-first modeling.</li>
+    <li>Intent sourced from an actor and validated by a shape.</li>
+    <li>Explicit outcomes for success, rejection, and deferral.</li>
+    <li>Effect ordering with <code>after</code>.</li>
+    <li>Event emission as a declared capability responsibility.</li>
+  </ul>
+</DocsLayout>

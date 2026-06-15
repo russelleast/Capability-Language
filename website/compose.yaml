@@ -1,10 +1,10 @@
 services:
   website:
     build: .
-    working_dir: /app
+    working_dir: /app/website
     volumes:
-      - .:/app
-      - /app/node_modules
+      - ..:/app
+      - /app/website/node_modules
     ports:
       - "4321:4321"
     command: npm run dev -- --host 0.0.0.0

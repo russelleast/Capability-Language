@@ -1,12 +1,16 @@
 ---
+import { languageLabel, languageStatus } from "../config/version";
+
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const path = (href) => `${base}${href}`;
 
 const navItems = [
+  { href: "/", label: "Home" },
   { href: "/learn/", label: "Learn" },
-  { href: "/docs/", label: "Docs" },
   { href: "/guides/", label: "Guides" },
   { href: "/examples/", label: "Examples" },
+  { href: "/docs/", label: "Reference" },
+  { href: "/roadmap/", label: "Roadmap" },
   { href: "/playground/", label: "Playground" },
 ];
 ---
@@ -16,10 +20,15 @@ const navItems = [
     <a class="brand" href={path("/")}>
       <span class="brand-mark">DCL</span>
       <span class="brand-name">Declarative Capability Language</span>
+      <span class="version-pill">{languageLabel}</span>
     </a>
     <div class="nav-links">
       {navItems.map((item) => <a href={path(item.href)}>{item.label}</a>)}
       <a href="https://github.com/russelleast/Capability-Language">GitHub</a>
     </div>
   </nav>
+  <div class="status-bar">
+    <span>{languageLabel}</span>
+    <span>Status: {languageStatus}</span>
+  </div>
 </header>

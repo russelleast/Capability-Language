@@ -1,0 +1,27 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/reliability-policy.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Define Reliability Policies?",
+  description: "Attach reliability policy to the semantic boundary it governs.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Define Reliability Policies?</h1>
+  <p>
+    Reliability policy expresses operational intent in the language. Attach it to
+    the boundary that needs the guarantee: a capability, effect, outcome, event,
+    or lifecycle.
+  </p>
+
+  <h2>Attach Retry To An Idempotent Boundary</h2>
+  <p>
+    The compiler requires retry semantics to be paired with idempotency for the
+    governed effect. That keeps the model honest about whether retrying is safe.
+  </p>
+
+  <CodeBlock title="reliability-policy.dcl" code={source} />
+</DocsLayout>

@@ -1,0 +1,33 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/authorisation.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Model Authorisation?",
+  description: "Use actors, actor roles, rules, and security policies to model authorisation.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Model Authorisation?</h1>
+  <p>
+    Model authorisation with actors, role relationships, security policy, and
+    explicit outcomes. The source should show who participates and what boundary
+    is governed.
+  </p>
+
+  <h2>Name The Actors And Roles</h2>
+  <p>
+    Actor roles let a capability distinguish the requester from the approving
+    authority. Rules can then describe relationships between those roles.
+  </p>
+
+  <h2>Attach Security Policy</h2>
+  <p>
+    A security policy makes authorisation a compiler-visible requirement of the
+    capability boundary, rather than an implementation note.
+  </p>
+
+  <CodeBlock title="authorisation.dcl" code={source} />
+</DocsLayout>

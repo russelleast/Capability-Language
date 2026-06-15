@@ -1,0 +1,73 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import shared from "../../examples/context-shared.dcl?raw";
+import sales from "../../examples/context-sales.dcl?raw";
+
+const frontmatter = {
+  title: "Multi-file Composition",
+  description: "Guide to DCL contexts, ownership, visibility, dependencies, hierarchy, and cycle prevention.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Multi-file Composition</h1>
+  <p>
+    DCL uses contexts to compose larger models. A context owns declarations such
+    as actors, shapes, events, policies, effects, and capabilities. Another
+    context may use those declarations only when it declares a dependency.
+  </p>
+
+  <h2>Directory Shape</h2>
+  <pre><code>project/
+  shared.dcl
+  sales.dcl</code></pre>
+
+  <h2>Shared Context</h2>
+  <p>
+    The shared context owns the common actor, input shape, and event. Ownership
+    matters because readers and tools can see where each language element is
+    declared.
+  </p>
+  <CodeBlock title="shared.dcl" code={shared} />
+
+  <h2>Dependent Context</h2>
+  <p>
+    The sales context declares <code>depends on Shared</code>, making the shared
+    declarations visible to the sales capability.
+  </p>
+  <CodeBlock title="sales.dcl" code={sales} />
+
+  <h2>How To Compile</h2>
+  <pre><code>go run ./cmd/dcl check ../website/src/examples/context-shared.dcl ../website/src/examples/context-sales.dcl</code></pre>
+
+  <h2>Ownership</h2>
+  <p>
+    Declarations inside <code>context Shared</code> belong to <code>Shared</code>.
+    Declarations inside <code>context Sales</code> belong to <code>Sales</code>.
+    This keeps shared vocabulary separate from domain-specific capability
+    ownership.
+  </p>
+
+  <h2>Visibility</h2>
+  <p>
+    <code>Sales</code> can refer to <code>Customer</code>,
+    <code>SharedOrderInput</code>, and <code>SharedOrderSubmitted</code> because
+    it depends on <code>Shared</code>. Without that dependency, those names are
+    not visible in the sales context.
+  </p>
+
+  <h2>Dependencies And Hierarchy</h2>
+  <p>
+    Dependencies should point from a more specific context to the vocabulary it
+    needs. In this example, sales depends on shared declarations; shared does not
+    depend on sales.
+  </p>
+
+  <h2>Cycle Prevention</h2>
+  <p>
+    Keep dependencies directional. If two contexts need to depend on each other,
+    extract the common declarations into a third context and have both contexts
+    depend on that shared owner.
+  </p>
+</DocsLayout>

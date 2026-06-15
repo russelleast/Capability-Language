@@ -1,8 +1,16 @@
 ---
+import { languageLabel, languageStatus } from "../config/version";
+
 const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
   <p>DCL is an open language project for describing software capabilities, intent, outcomes, and lifecycle semantics.</p>
-  <p>&copy; {year} DCL contributors. Licensed under Apache 2.0.</p>
+  <div class="footer-meta">
+    <span>Current Version: {languageLabel}</span>
+    <span>Status: {languageStatus}</span>
+    <a href="https://github.com/russelleast/Capability-Language">GitHub Repository</a>
+    <span>License: Apache 2.0</span>
+  </div>
+  <p>&copy; {year} DCL contributors.</p>
 </footer>

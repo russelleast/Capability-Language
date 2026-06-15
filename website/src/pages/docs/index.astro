@@ -1,0 +1,420 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import helloWorld from "../../examples/hello-world.dcl?raw";
+import registerCustomer from "../../examples/register-customer.dcl?raw";
+import policyExample from "../../examples/policy-example.dcl?raw";
+import contextShared from "../../examples/context-shared.dcl?raw";
+import contextSales from "../../examples/context-sales.dcl?raw";
+import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
+import paymentProcessing from "../../examples/payment-processing.dcl?raw";
+import { languageLabel, languageStatus, compilerVersion } from "../../config/version";
+
+const frontmatter = {
+  title: "Reference",
+  description: "Detailed DCL language reference organised by language construct.",
+};
+
+const constructs = [
+  ["Program", "Language declaration, source files, declaration order, compiler model."],
+  ["Context", "Semantic ownership boundary, dependencies, visibility, hierarchy."],
+  ["Shape", "Reusable structured data with fields and built-in value types."],
+  ["Actor", "Initiating, participating, delegated, or authority context."],
+  ["Event", "Named signal with optional structured payload."],
+  ["Effect", "Externally meaningful action caused by a capability."],
+  ["Policy", "Portable execution quality attached to semantic boundaries."],
+  ["Capability", "Unit of system responsibility and the main authored construct."],
+  ["Intent", "Transport-agnostic request accepted by a capability."],
+  ["Outcome", "Finite named result class produced by capability evaluation."],
+  ["Rule", "Named invariant or business condition used by outcome causation."],
+  ["When", "Explicit outcome causation block."],
+  ["Lifecycle", "Business progression through steps and transitions."],
+  ["Observation", "Metrics and trace declarations derived from language semantics."],
+];
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>DCL Language Reference</h1>
+  <p>
+    This reference describes DCL by language construct. It is based on the
+    repository's primitive contracts, surface syntax direction, compiler duties,
+    context semantics, policy semantics, and lifecycle documents, adjusted to the
+    current compiler-supported language shape.
+  </p>
+  <p>
+    Current language: <strong>{languageLabel}</strong>. Status:
+    <strong>{languageStatus}</strong>. Compiler: <code>{compilerVersion}</code>.
+  </p>
+
+  <h2>Construct Index</h2>
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Construct</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      {constructs.map(([name, purpose]) => (
+        <tr>
+          <td><a href={`#${name.toLowerCase()}`}>{name}</a></td>
+          <td>{purpose}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h2 id="program">Program</h2>
+  <p>
+    A DCL program is a set of source files compiled together into a validated
+    semantic model. Files are authoring units; compiler meaning must not depend
+    on file order or declaration order.
+  </p>
+  <div class="construct-card">
+    <h3>Required</h3>
+    <p>A language declaration, normally <code>language dcl 0.9</code>.</p>
+    <h3>Compiler Duties</h3>
+    <p>
+      Parse source, resolve symbols, validate semantics, analyse ambiguity and
+      soundness, classify portability, and generate IR.
+    </p>
+  </div>
+  <p>
+    The compiler is the source of truth for example validity. It rejects errors
+    such as undefined symbols, missing capability intent, missing outcomes,
+    invalid policy concerns, and invalid lifecycle references.
+  </p>
+
+  <h2 id="context">Context</h2>
+  <p>
+    A context is a semantic ownership boundary. It is not a file, folder,
+    package, deployment unit, or runtime module. A context groups declarations
+    into an area of architectural responsibility.
+  </p>
+  <h3>Ownership</h3>
+  <p>
+    Every declaration belongs to exactly one context: capability, actor, event,
+    effect, policy, and shape declarations are all owned by their containing
+    context.
+  </p>
+  <h3>Dependencies</h3>
+  <p>
+    Dependencies are explicit. A context that uses declarations from another
+    context must declare <code>depends on ContextName</code>. Visibility is not
+    transitive: if <code>A</code> depends on <code>B</code>, and <code>B</code>
+    depends on <code>C</code>, <code>A</code> does not automatically see
+    <code>C</code>.
+  </p>
+  <h3>Cycles</h3>
+  <p>
+    Circular dependencies are invalid. Resolve cycles by extracting common
+    declarations into a shared context, by using events between contexts, or by
+    moving ownership to a higher-level capability.
+  </p>
+  <CodeBlock title="context-shared.dcl" code={contextShared} />
+  <CodeBlock title="context-sales.dcl" code={contextSales} />
+
+  <h2 id="shape">Shape</h2>
+  <p>
+    A shape defines reusable structured data. Shapes are used by intent inputs,
+    event payloads, and outcome payloads.
+  </p>
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Field Part</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>name</code></td>
+        <td>Field name within the shape.</td>
+      </tr>
+      <tr>
+        <td><code>Type</code></td>
+        <td>Built-in type or declared shape name.</td>
+      </tr>
+      <tr>
+        <td><code>required</code></td>
+        <td>Marks a structurally mandatory field.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Built-in value types currently include <code>Text</code>,
+    <code>Boolean</code>, <code>Number</code>, <code>Date</code>,
+    <code>DateTime</code>, <code>Uuid</code>, <code>Email</code>, and
+    <code>Money</code>.
+  </p>
+
+  <h2 id="actor">Actor</h2>
+  <p>
+    An actor represents an initiating or participating party. Actors may be
+    humans, systems, agents, scheduled processes, or authority contexts.
+  </p>
+  <div class="construct-card">
+    <h3>Required</h3>
+    <p>Name and classification, authored in current examples as
+      <code>actor Customer is human</code>.</p>
+    <h3>Legal Relationships</h3>
+    <p>
+      Actors may provide intent, appear as named capability roles, and be
+      referenced by lifecycle decision steps.
+    </p>
+  </div>
+
+  <h2 id="event">Event</h2>
+  <p>
+    An event is a named signal. Events may have structured payloads. Capability
+    event declarations state which events the capability is an emission source
+    for; they do not prescribe broker, topic, transport, or delivery semantics.
+  </p>
+  <p>
+    Lifecycle waits and transitions can reference events. In a local lifecycle,
+    omitted event source means the owning capability when ownership is clear. In
+    a supervising lifecycle, the source capability must be explicit.
+  </p>
+
+  <h2 id="effect">Effect</h2>
+  <p>
+    An effect declares an externally meaningful action caused by a capability.
+    Effects describe semantic change, not infrastructure mechanics.
+  </p>
+  <p>
+    Effects may be used singly or in an ordered <code>effects</code> block.
+    <code>after</code> expresses explicit ordering. Current examples use effect
+    classifications such as <code>persistence</code> and
+    <code>notification</code>.
+  </p>
+
+  <h2 id="policy">Policy</h2>
+  <p>
+    Policies express portable execution qualities. Authors declare policies and
+    attach them to semantic boundaries. The compiler derives effective policy
+    envelopes; authors do not write those envelopes directly.
+  </p>
+  <h3>Families</h3>
+  <p>
+    Supported policy families include <code>reliability</code>,
+    <code>availability</code>, <code>scalability</code>,
+    <code>performance</code>, <code>security</code>, <code>compliance</code>,
+    <code>governance</code>, and <code>data_protection</code>.
+  </p>
+  <h3>Attachment Targets</h3>
+  <p>
+    Policies may govern <code>capability</code>, <code>effect</code>,
+    <code>outcome</code>, <code>event</code>, and <code>lifecycle</code>
+    boundaries when supported by the compiler.
+  </p>
+  <h3>Composition</h3>
+  <p>
+    Multiple policies can apply to the same boundary. The compiler derives the
+    effective policy envelope, checks family/concern compatibility, detects
+    conflicts, and records obligations in IR.
+  </p>
+  <CodeBlock title="policy-example.dcl" code={policyExample} />
+
+  <h2 id="capability">Capability</h2>
+  <p>
+    A capability is the main unit of DCL responsibility. It evaluates intent,
+    enforces rules, applies policies, produces outcomes, and may cause effects,
+    emit events, or own lifecycle state.
+  </p>
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Part</th>
+        <th>Status</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>intent</code></td>
+        <td>Required</td>
+        <td>At least one accepted request shape and actor source.</td>
+      </tr>
+      <tr>
+        <td><code>outcome</code> / <code>outcomes</code></td>
+        <td>Required</td>
+        <td>Finite named result classes.</td>
+      </tr>
+      <tr>
+        <td><code>rules</code></td>
+        <td>Optional</td>
+        <td>Named invariants used by capability semantics.</td>
+      </tr>
+      <tr>
+        <td><code>effects</code></td>
+        <td>Optional</td>
+        <td>Externally meaningful actions and ordering.</td>
+      </tr>
+      <tr>
+        <td><code>events</code></td>
+        <td>Optional</td>
+        <td>Events emitted by the capability.</td>
+      </tr>
+      <tr>
+        <td><code>policies</code></td>
+        <td>Optional</td>
+        <td>Policy attachments to semantic boundaries.</td>
+      </tr>
+      <tr>
+        <td><code>lifecycle</code></td>
+        <td>Optional</td>
+        <td>Local lifecycle owned by the capability.</td>
+      </tr>
+      <tr>
+        <td><code>supervises lifecycle</code></td>
+        <td>Optional</td>
+        <td>Lifecycle owned by this capability and influenced by contributors.</td>
+      </tr>
+    </tbody>
+  </table>
+  <CodeBlock title="hello-world.dcl" code={helloWorld} />
+
+  <h2 id="intent">Intent</h2>
+  <p>
+    Intent is the transport-agnostic expression of a desired business action.
+    It identifies the input shape and actor source for a capability.
+  </p>
+  <p>
+    Intent must belong to a capability. It does not imply HTTP, synchronous
+    completion, queue semantics, or any specific runtime entry point.
+  </p>
+
+  <h2 id="outcome">Outcome</h2>
+  <p>
+    An outcome is a finite named result class. Outcomes represent success,
+    rejection, deferral, expiry, failure, escalation, or other meaningful
+    completions without treating failure as an exception by default.
+  </p>
+  <p>
+    Outcomes may drive lifecycle transitions, observations, policies, and future
+    generated artifacts. The compiler rejects references to undeclared outcomes.
+  </p>
+
+  <h2 id="rule">Rule</h2>
+  <p>
+    A rule is a named invariant or business condition. Rules may refer to
+    <code>input</code> fields and named actor roles. Rule expressions prefer
+    human-readable operators such as <code>is true</code>,
+    <code>is present</code>, <code>is less than</code>, and
+    <code>is not equal to</code>.
+  </p>
+  <p>
+    Rules become meaningful when they participate in outcome causation, usually
+    through a <code>when</code> branch such as a rule being violated.
+  </p>
+
+  <h2 id="when">When</h2>
+  <p>
+    The <code>when</code> block declares explicit outcome causation. It connects
+    rule violations, unresolved effects, unconditional causation, and fallback
+    causation to declared outcomes.
+  </p>
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Branch Type</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>always then Outcome</code></td>
+        <td>Unconditional outcome causation.</td>
+      </tr>
+      <tr>
+        <td><code>RuleName violated then Outcome</code></td>
+        <td>Outcome caused by a failed rule.</td>
+      </tr>
+      <tr>
+        <td><code>EffectName unresolved then Outcome</code></td>
+        <td>Outcome caused by an unresolved effect.</td>
+      </tr>
+      <tr>
+        <td><code>otherwise then Outcome</code></td>
+        <td>Fallback when earlier branches do not match; must be last.</td>
+      </tr>
+    </tbody>
+  </table>
+  <CodeBlock title="register-customer.dcl" code={registerCustomer} />
+
+  <h2 id="lifecycle">Lifecycle</h2>
+  <p>
+    A lifecycle describes business progression over time. It has an owner,
+    steps, transitions, optional waits, optional deadlines, optional recovery,
+    and terminal states.
+  </p>
+  <h3>Local Lifecycle</h3>
+  <p>
+    A lifecycle declared inside a capability is owned by that capability. Current
+    syntax prefers semantic phrases such as <code>waits for event</code> and
+    <code>requires decision from</code> over authored <code>kind</code> metadata.
+  </p>
+  <CodeBlock title="payment-processing.dcl" code={paymentProcessing} />
+
+  <h3>Supervising Lifecycle</h3>
+  <p>
+    A supervising lifecycle is owned by one capability and coordinated through
+    contributor capabilities. Contributors may produce outcomes or events that
+    cause movement, but they do not mutate lifecycle state directly.
+  </p>
+  <p>
+    Supervising lifecycle transitions must declare explicit sources. The compiler
+    validates contributor existence, source outcomes/events, reachability, and
+    unambiguous transition causes where possible.
+  </p>
+  <CodeBlock title="supervising-lifecycle.dcl" code={supervisingLifecycle} />
+
+  <h2 id="observation">Observation</h2>
+  <p>
+    Observations declare metrics and trace points derived from language
+    semantics. They can count outcomes, effects, events, failures, violations,
+    durations, and lifecycle transitions.
+  </p>
+  <p>
+    Observation declarations are not runtime vendor configuration. They are
+    semantic instrumentation requirements that generated artifacts or runtime
+    projections can use later.
+  </p>
+
+  <h2 id="compiler-diagnostics">Compiler Diagnostics</h2>
+  <p>
+    The compiler is responsible for semantic correctness, not just syntax. It
+    emits errors for invalid programs and warnings for valid but risky or
+    suspicious programs.
+  </p>
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Diagnostic Class</th>
+        <th>Examples</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Errors</td>
+        <td>Undefined symbols, unsupported language version, duplicate symbols, missing intent, missing outcomes, invalid lifecycle references.</td>
+      </tr>
+      <tr>
+        <td>Warnings</td>
+        <td>Unused dependencies, unverified event ownership, redundant policy concerns, risky or incomplete semantics.</td>
+      </tr>
+      <tr>
+        <td>Derived Model</td>
+        <td>Validated IR containing contexts, symbols, capabilities, policy attachments, effective policies, observations, and lifecycle structure.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Reference Sources</h2>
+  <p>
+    This page is distilled from the repository design documents for primitive
+    contracts, surface syntax, compiler duties, context visibility/dependencies,
+    policy composition, supervising lifecycles, lifecycle completion semantics,
+    and the accepted v0.9 syntax decision record.
+  </p>
+</DocsLayout>
