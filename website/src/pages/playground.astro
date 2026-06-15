@@ -65,10 +65,18 @@ const initialExample = playgroundExamples[0];
           <div class="status-card" data-result-status>
             Ready. Select an example or edit the source.
           </div>
+          <section class="summary-output" data-summary-output hidden>
+            <h2>Semantic Summary</h2>
+            <p>The compiler summary will appear here after a successful compile.</p>
+          </section>
           <h2>Diagnostics</h2>
           <div class="diagnostics-output" data-diagnostics-output>
             <p>No compile run yet.</p>
           </div>
+          <details class="advanced-output" data-advanced-output hidden>
+            <summary>Advanced: View compiler output</summary>
+            <pre><code data-compiler-output>{}</code></pre>
+          </details>
         </aside>
       </div>
     </div>
@@ -103,6 +111,7 @@ const initialExample = playgroundExamples[0];
   <script>
     import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
     import { playgroundExamples } from "../lib/playground/examples";
+    import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
 
     const select = document.querySelector("[data-example-select]") as HTMLSelectElement | null;
     const editor = document.querySelector("[data-source-editor]") as HTMLTextAreaElement | null;
@@ -112,6 +121,9 @@ const initialExample = playgroundExamples[0];
     const sourcePath = document.querySelector("[data-example-path]");
     const status = document.querySelector("[data-result-status]");
     const diagnostics = document.querySelector("[data-diagnostics-output]");
+    const summaryOutput = document.querySelector("[data-summary-output]");
+    const advancedOutput = document.querySelector("[data-advanced-output]") as HTMLDetailsElement | null;
+    const compilerOutput = document.querySelector("[data-compiler-output]");
 
     function selectedExample() {
       return playgroundExamples.find((example) => example.id === select?.value) ?? playgroundExamples[0];
@@ -127,7 +139,7 @@ const initialExample = playgroundExamples[0];
       if (!diagnostics) return;
 
       if (result.diagnostics.length === 0) {
-        diagnostics.innerHTML = "<p>No diagnostics.</p>";
+        diagnostics.innerHTML = '<p class="diagnostic-success">No diagnostics. The compiler accepted this source.</p>';
         return;
       }
 
@@ -161,6 +173,140 @@ const initialExample = playgroundExamples[0];
       diagnostics.replaceChildren(list);
     }
 
+    function renderSummary(result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!summaryOutput) return;
+
+      if (!result.ok || !result.ir) {
+        summaryOutput.setAttribute("hidden", "");
+        summaryOutput.replaceChildren();
+        return;
+      }
+
+      const summary = summarizeCompilerOutput(result.ir);
+      summaryOutput.removeAttribute("hidden");
+      summaryOutput.replaceChildren(summaryHeading(), summaryIntro(), renderSemanticSummary(summary));
+    }
+
+    function summaryHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Semantic Summary";
+      return heading;
+    }
+
+    function summaryIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "This is the meaning the compiler derived from your DCL source.";
+      return intro;
+    }
+
+    function renderSemanticSummary(summary: SemanticSummary) {
+      const container = document.createElement("div");
+      container.className = "summary-list";
+
+      if (summary.capabilities.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "No capabilities were found in the compiler output.";
+        container.append(empty);
+      }
+
+      for (const capability of summary.capabilities) {
+        container.append(renderCapabilitySummary(capability));
+      }
+
+      if (summary.contexts?.length) {
+        container.append(renderSummaryGroup("Contexts", summary.contexts.map((context) => {
+          const deps = context.dependencies?.length ? ` depends on ${context.dependencies.join(", ")}` : "";
+          return `${context.name}${deps}`;
+        })));
+      }
+
+      if (summary.dependencies?.length) {
+        container.append(renderSummaryGroup("Dependencies", summary.dependencies));
+      }
+
+      return container;
+    }
+
+    function renderCapabilitySummary(capability: CapabilitySummary) {
+      const section = document.createElement("section");
+      section.className = "summary-capability";
+
+      const heading = document.createElement("h3");
+      heading.textContent = `Capability: ${capability.name}`;
+      section.append(heading);
+
+      section.append(
+        renderSummaryGroup("Intents", capability.intents),
+        renderSummaryGroup("Actors", capability.actors),
+        renderSummaryGroup("Outcomes", capability.outcomes),
+        renderSummaryGroup("Rules", capability.rules),
+        renderSummaryGroup("Effects", capability.effects),
+        renderSummaryGroup("Events", capability.events),
+        renderSummaryGroup("Policies", capability.policies),
+      );
+
+      if (capability.lifecycle?.steps?.length || capability.lifecycle?.transitions?.length) {
+        const lifecycle = document.createElement("div");
+        lifecycle.className = "summary-group";
+        const label = document.createElement("strong");
+        label.textContent = "Lifecycle";
+        lifecycle.append(label);
+        if (capability.lifecycle.steps?.length) lifecycle.append(renderInlineList("Steps", capability.lifecycle.steps));
+        if (capability.lifecycle.transitions?.length) lifecycle.append(renderInlineList("Transitions", capability.lifecycle.transitions));
+        section.append(lifecycle);
+      }
+
+      return section;
+    }
+
+    function renderSummaryGroup(labelText: string, items?: string[]) {
+      const group = document.createElement("div");
+      group.className = "summary-group";
+      if (!items?.length) {
+        group.setAttribute("hidden", "");
+        return group;
+      }
+
+      const label = document.createElement("strong");
+      label.textContent = labelText;
+      group.append(label, renderValueList(items));
+      return group;
+    }
+
+    function renderInlineList(label: string, items: string[]) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "summary-inline-list";
+      const strong = document.createElement("span");
+      strong.textContent = `${label}:`;
+      wrapper.append(strong, renderValueList(items));
+      return wrapper;
+    }
+
+    function renderValueList(items: string[]) {
+      const list = document.createElement("ul");
+      for (const item of items) {
+        const element = document.createElement("li");
+        element.textContent = item;
+        list.append(element);
+      }
+      return list;
+    }
+
+    function renderAdvancedOutput(result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!advancedOutput || !compilerOutput) return;
+
+      if (!result.ir) {
+        advancedOutput.setAttribute("hidden", "");
+        advancedOutput.open = false;
+        compilerOutput.textContent = "{}";
+        return;
+      }
+
+      advancedOutput.removeAttribute("hidden");
+      compilerOutput.textContent = JSON.stringify(result.ir, null, 2);
+    }
+
     function loadExample() {
       const example = selectedExample();
 
@@ -168,6 +314,12 @@ const initialExample = playgroundExamples[0];
       if (summary) summary.textContent = example.description;
       if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
       if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
+      if (summaryOutput) summaryOutput.setAttribute("hidden", "");
+      if (advancedOutput) {
+        advancedOutput.setAttribute("hidden", "");
+        advancedOutput.open = false;
+      }
+      if (compilerOutput) compilerOutput.textContent = "{}";
 
       setStatus("Ready. Example loaded from validated website source.");
     }
@@ -180,6 +332,8 @@ const initialExample = playgroundExamples[0];
 
       const result = await compileDcl(editor?.value ?? "");
       renderDiagnostics(result);
+      renderSummary(result);
+      renderAdvancedOutput(result);
 
       if (result.ok) {
         setStatus("Compile succeeded.", "success");
