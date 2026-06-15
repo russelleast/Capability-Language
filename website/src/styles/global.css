@@ -535,7 +535,7 @@ main {
   margin-top: 0.35rem;
 }
 
-.summary-output {
+.compiler-results {
   border-bottom: 1px solid var(--line);
   display: grid;
   gap: 0.7rem;
@@ -543,10 +543,49 @@ main {
   padding-bottom: 0.9rem;
 }
 
-.summary-output[hidden],
+.compiler-results[hidden],
+.result-panel[hidden],
 .advanced-output[hidden],
 .summary-group[hidden] {
   display: none;
+}
+
+.result-tabs {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.result-tab {
+  background: #f7faf7;
+  border: 0;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 750;
+  min-height: 2.5rem;
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+}
+
+.result-tab:last-child {
+  border-right: 0;
+}
+
+.result-tab[aria-selected="true"] {
+  background: #edf3ee;
+  color: var(--accent-strong);
+}
+
+.result-panel {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
 }
 
 .summary-intro {
@@ -604,19 +643,53 @@ main {
   margin-top: 0.4rem;
 }
 
-.advanced-output {
-  border-top: 1px solid var(--line);
-  max-width: 100%;
+.capability-map {
+  display: grid;
+  gap: 0.9rem;
   min-width: 0;
-  padding-top: 0.8rem;
 }
 
-.advanced-output summary {
-  color: var(--accent-strong);
-  cursor: pointer;
-  font-weight: 750;
-  max-width: 100%;
+.capability-map-card {
+  background: #f7faf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
   overflow-wrap: anywhere;
+  padding: 0.85rem;
+}
+
+.capability-map-card h3 {
+  font-size: 1.05rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.capability-map-section {
+  border-left: 3px solid #cfe0d4;
+  display: grid;
+  gap: 0.25rem;
+  padding-left: 0.65rem;
+}
+
+.capability-map-section strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.capability-map-section ul {
+  color: var(--muted);
+  display: grid;
+  gap: 0.2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.advanced-output {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .advanced-output pre {
@@ -682,6 +755,19 @@ main {
   .playground-toolbar,
   .playground-grid {
     grid-template-columns: 1fr;
+  }
+
+  .result-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .result-tab {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .result-tab:last-child {
+    border-bottom: 0;
   }
 
   .diagnostics-panel {

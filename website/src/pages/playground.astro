@@ -65,18 +65,35 @@ const initialExample = playgroundExamples[0];
           <div class="status-card" data-result-status>
             Ready. Select an example or edit the source.
           </div>
-          <section class="summary-output" data-summary-output hidden>
-            <h2>Semantic Summary</h2>
-            <p>The compiler summary will appear here after a successful compile.</p>
+          <section class="compiler-results" data-compiler-results hidden>
+            <div class="result-tabs" role="tablist" aria-label="Compiler result views">
+              <button class="result-tab" type="button" role="tab" aria-selected="true" data-result-tab="summary">
+                Semantic Summary
+              </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="map">
+                Capability Map
+              </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="advanced">
+                Advanced
+              </button>
+            </div>
+            <section class="summary-output result-panel" data-summary-output data-result-panel="summary">
+              <h2>Semantic Summary</h2>
+              <p>The compiler summary will appear here after a successful compile.</p>
+            </section>
+            <section class="capability-map-output result-panel" data-result-panel="map" hidden>
+              <h2>Capability Map</h2>
+              <p>The capability map will appear here after a successful compile.</p>
+            </section>
+            <section class="advanced-output result-panel" data-result-panel="advanced" hidden>
+              <h2>Advanced: View compiler output</h2>
+              <pre><code data-compiler-output>{}</code></pre>
+            </section>
           </section>
           <h2>Diagnostics</h2>
           <div class="diagnostics-output" data-diagnostics-output>
             <p>No compile run yet.</p>
           </div>
-          <details class="advanced-output" data-advanced-output hidden>
-            <summary>Advanced: View compiler output</summary>
-            <pre><code data-compiler-output>{}</code></pre>
-          </details>
         </aside>
       </div>
     </div>
@@ -121,9 +138,13 @@ const initialExample = playgroundExamples[0];
     const sourcePath = document.querySelector("[data-example-path]");
     const status = document.querySelector("[data-result-status]");
     const diagnostics = document.querySelector("[data-diagnostics-output]");
+    const compilerResults = document.querySelector("[data-compiler-results]");
     const summaryOutput = document.querySelector("[data-summary-output]");
-    const advancedOutput = document.querySelector("[data-advanced-output]") as HTMLDetailsElement | null;
+    const mapOutput = document.querySelector("[data-result-panel='map']");
+    const advancedOutput = document.querySelector("[data-result-panel='advanced']");
     const compilerOutput = document.querySelector("[data-compiler-output]");
+    const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
+    const resultPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-result-panel]"));
 
     function selectedExample() {
       return playgroundExamples.find((example) => example.id === select?.value) ?? playgroundExamples[0];
@@ -177,14 +198,16 @@ const initialExample = playgroundExamples[0];
       if (!summaryOutput) return;
 
       if (!result.ok || !result.ir) {
-        summaryOutput.setAttribute("hidden", "");
+        compilerResults?.setAttribute("hidden", "");
         summaryOutput.replaceChildren();
         return;
       }
 
       const summary = summarizeCompilerOutput(result.ir);
-      summaryOutput.removeAttribute("hidden");
+      compilerResults?.removeAttribute("hidden");
       summaryOutput.replaceChildren(summaryHeading(), summaryIntro(), renderSemanticSummary(summary));
+      renderCapabilityMap(summary);
+      activateResultPanel("summary");
     }
 
     function summaryHeading() {
@@ -260,6 +283,76 @@ const initialExample = playgroundExamples[0];
       return section;
     }
 
+    function renderCapabilityMap(summary: SemanticSummary) {
+      if (!mapOutput) return;
+
+      mapOutput.replaceChildren(mapHeading(), mapIntro());
+
+      const map = document.createElement("div");
+      map.className = "capability-map";
+
+      if (summary.capabilities.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "No capabilities were found in the compiler output.";
+        map.append(empty);
+      }
+
+      for (const capability of summary.capabilities) {
+        map.append(renderCapabilityMapCard(capability));
+      }
+
+      mapOutput.append(map);
+    }
+
+    function mapHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Capability Map";
+      return heading;
+    }
+
+    function mapIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "A plain-language view of how actors, capabilities, outcomes, effects, events, policies, and lifecycles relate.";
+      return intro;
+    }
+
+    function renderCapabilityMapCard(capability: CapabilitySummary) {
+      const card = document.createElement("article");
+      card.className = "capability-map-card";
+
+      const heading = document.createElement("h3");
+      heading.textContent = capability.name;
+      card.append(heading);
+
+      appendMapSection(card, "Actors express intents", [...(capability.actors ?? []), ...(capability.intents ?? [])]);
+      appendMapSection(card, "Capability produces outcomes", capability.outcomes);
+      appendMapSection(card, "Rules guide decisions", capability.rules);
+      appendMapSection(card, "Capability causes effects", capability.effects);
+      appendMapSection(card, "Capability emits events", capability.events);
+      appendMapSection(card, "Policies shape operation", capability.policies);
+
+      const lifecycleItems = [
+        ...(capability.lifecycle?.steps?.map((step) => `Step: ${step}`) ?? []),
+        ...(capability.lifecycle?.transitions?.map((transition) => `Transition: ${transition}`) ?? []),
+      ];
+      appendMapSection(card, "Lifecycle progresses through steps", lifecycleItems);
+
+      return card;
+    }
+
+    function appendMapSection(parent: HTMLElement, title: string, items?: string[]) {
+      if (!items?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "capability-map-section";
+
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      section.append(heading, renderValueList(items));
+      parent.append(section);
+    }
+
     function renderSummaryGroup(labelText: string, items?: string[]) {
       const group = document.createElement("div");
       group.className = "summary-group";
@@ -297,14 +390,26 @@ const initialExample = playgroundExamples[0];
       if (!advancedOutput || !compilerOutput) return;
 
       if (!result.ir) {
-        advancedOutput.setAttribute("hidden", "");
-        advancedOutput.open = false;
         compilerOutput.textContent = "{}";
         return;
       }
 
-      advancedOutput.removeAttribute("hidden");
       compilerOutput.textContent = JSON.stringify(result.ir, null, 2);
+    }
+
+    function activateResultPanel(view: string) {
+      for (const tab of resultTabs) {
+        const selected = tab.dataset.resultTab === view;
+        tab.setAttribute("aria-selected", String(selected));
+      }
+
+      for (const panel of resultPanels) {
+        if (panel.dataset.resultPanel === view) {
+          panel.removeAttribute("hidden");
+        } else {
+          panel.setAttribute("hidden", "");
+        }
+      }
     }
 
     function loadExample() {
@@ -314,18 +419,20 @@ const initialExample = playgroundExamples[0];
       if (summary) summary.textContent = example.description;
       if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
       if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
-      if (summaryOutput) summaryOutput.setAttribute("hidden", "");
-      if (advancedOutput) {
-        advancedOutput.setAttribute("hidden", "");
-        advancedOutput.open = false;
-      }
+      if (compilerResults) compilerResults.setAttribute("hidden", "");
+      if (summaryOutput) summaryOutput.replaceChildren();
+      if (mapOutput) mapOutput.replaceChildren();
       if (compilerOutput) compilerOutput.textContent = "{}";
+      activateResultPanel("summary");
 
       setStatus("Ready. Example loaded from validated website source.");
     }
 
     select?.addEventListener("change", loadExample);
     resetButton?.addEventListener("click", loadExample);
+    resultTabs.forEach((tab) => {
+      tab.addEventListener("click", () => activateResultPanel(tab.dataset.resultTab ?? "summary"));
+    });
 
     compileButton?.addEventListener("click", async () => {
       setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
