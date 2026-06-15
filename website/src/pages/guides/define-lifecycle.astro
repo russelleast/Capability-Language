@@ -1,0 +1,27 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/payment-processing.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Define a Lifecycle?",
+  description: "Model business progression with lifecycle steps, waits, deadlines, and transitions.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Define a Lifecycle?</h1>
+  <p>
+    Use a lifecycle when a capability has meaningful progression over time. A
+    lifecycle names where work begins, which steps it can occupy, what it waits
+    for, and what causes movement.
+  </p>
+
+  <h2>Make Movement Explicit</h2>
+  <p>
+    A transition should always say what caused it. Deadlines should cause an
+    explicit outcome, and that outcome can then move the lifecycle.
+  </p>
+
+  <CodeBlock title="payment-processing.dcl" code={source} />
+</DocsLayout>

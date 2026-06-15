@@ -1,0 +1,27 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/effects-and-integrations.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Model Effects and Integrations?",
+  description: "Represent persistence, external invocation, notification, and emitted events in DCL.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Model Effects And Integrations?</h1>
+  <p>
+    Use effects for externally meaningful work. An integration is modelled as an
+    effect such as an invocation, not as a transport-specific endpoint.
+  </p>
+
+  <h2>Order Effects Explicitly</h2>
+  <p>
+    The <code>after</code> phrase expresses dependency between effects without
+    relying on source order alone. Outcome causation can then refer to unresolved
+    integration effects.
+  </p>
+
+  <CodeBlock title="effects-and-integrations.dcl" code={source} />
+</DocsLayout>

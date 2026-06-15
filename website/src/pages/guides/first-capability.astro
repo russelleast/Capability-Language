@@ -1,0 +1,58 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/register-customer.dcl?raw";
+
+const frontmatter = {
+  title: "Write a First Capability",
+  description: "A short guide to modeling a first DCL capability.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Write a First Capability</h1>
+  <p>
+    Start with one system responsibility. Avoid beginning with service names,
+    database tables, or HTTP routes.
+  </p>
+
+  <h2>1. Name The Capability</h2>
+  <p>
+    Choose a verb phrase that describes the responsibility. In this guide, the
+    responsibility is <code>RegisterCustomer</code>.
+  </p>
+
+  <h2>2. Define Intent</h2>
+  <p>
+    Intent says what initiates the capability. Here, a <code>Customer</code>
+    provides <code>RegistrationInput</code>.
+  </p>
+
+  <h2>3. Name Outcomes</h2>
+  <p>
+    Outcomes should make meaningful paths explicit:
+    <code>RegistrationAccepted</code>, <code>TermsRejected</code>, and
+    <code>VerificationDeferred</code>.
+  </p>
+
+  <h2>4. Add Rules And Effects</h2>
+  <p>
+    The <code>TermsAccepted</code> rule guards acceptance. The effects describe
+    registration persistence and a verification message, including the order
+    between them.
+  </p>
+
+  <h2>5. Select Outcomes</h2>
+  <p>
+    The <code>when</code> block connects semantic conditions to outcomes. Rule
+    violations and unresolved effects lead to different explicit outcomes.
+  </p>
+
+  <CodeBlock title="register-customer.dcl" code={source} />
+
+  <h2>Next Step</h2>
+  <p>
+    Read the <a href="/Capability-Language/examples/register-customer/">register
+    customer example</a> for expected outcomes and concept notes.
+  </p>
+</DocsLayout>

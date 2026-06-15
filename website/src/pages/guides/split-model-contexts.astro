@@ -1,0 +1,31 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import shared from "../../examples/context-shared.dcl?raw";
+import sales from "../../examples/context-sales.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Split a Model Into Contexts?",
+  description: "Use contexts to express ownership, visibility, and dependencies across DCL files.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Split a Model Into Contexts?</h1>
+  <p>
+    Split a model into contexts when ownership and dependency boundaries matter.
+    Contexts are semantic boundaries, not folders or deployment units.
+  </p>
+
+  <h2>Put Shared Vocabulary In Its Own Context</h2>
+  <p>
+    Shared actors, shapes, and events can be owned by a shared context. Domain
+    contexts then declare an explicit dependency when they need that vocabulary.
+  </p>
+
+  <CodeBlock title="context-shared.dcl" code={shared} />
+  <CodeBlock title="context-sales.dcl" code={sales} />
+
+  <h2>Compile The Files Together</h2>
+  <pre><code>go run ./cmd/dcl check ../website/src/examples/context-shared.dcl ../website/src/examples/context-sales.dcl</code></pre>
+</DocsLayout>

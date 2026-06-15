@@ -1,0 +1,34 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/leave-request.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Model Validation?",
+  description: "Use DCL rules and outcomes to model validation decisions.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Model Validation?</h1>
+  <p>
+    Model validation as named rules and explicit outcomes. Avoid hiding business
+    validation in prose or implying that invalid input simply becomes a generic
+    error.
+  </p>
+
+  <h2>Use Rules For Conditions</h2>
+  <p>
+    A rule names a condition that matters to the capability. In this example,
+    one rule prevents self-approval and another limits the requested duration.
+  </p>
+
+  <h2>Use Outcomes For Meaningful Rejections</h2>
+  <p>
+    Each failed validation path maps to a distinct outcome in the
+    <code>when</code> block. That makes validation behaviour visible to readers,
+    tests, diagrams, and future tooling.
+  </p>
+
+  <CodeBlock title="leave-request.dcl" code={source} />
+</DocsLayout>

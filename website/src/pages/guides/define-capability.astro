@@ -1,0 +1,34 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/register-customer.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Define a Capability?",
+  description: "Model a DCL capability with intent, outcomes, rules, effects, events, and causation.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Define a Capability?</h1>
+  <p>
+    Start with the responsibility the system exposes. A capability should read as
+    a business or architectural responsibility, not as an endpoint, class, queue,
+    or handler.
+  </p>
+
+  <h2>Model The Responsibility</h2>
+  <p>
+    Name the capability, then define the actor and input shape that express the
+    intent. Add outcomes for every meaningful result path.
+  </p>
+
+  <h2>Add Semantics</h2>
+  <p>
+    Rules express constraints, effects express externally meaningful work, events
+    express signals, and the <code>when</code> block explains why each outcome
+    can happen.
+  </p>
+
+  <CodeBlock title="register-customer.dcl" code={source} />
+</DocsLayout>

@@ -1,0 +1,27 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import source from "../../examples/observed-capability.dcl?raw";
+
+const frontmatter = {
+  title: "How Do I Observe a Capability?",
+  description: "Declare semantic observations for capability duration, outcomes, effects, and events.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>How Do I Observe a Capability?</h1>
+  <p>
+    Observation in DCL starts from language semantics. Declare what should be
+    counted or timed at the capability, outcome, effect, event, or lifecycle
+    boundary.
+  </p>
+
+  <h2>Observe Meaning, Not Vendor Configuration</h2>
+  <p>
+    Metrics such as outcome counts and effect failures remain tied to the model.
+    A later runtime projection can map them to concrete telemetry systems.
+  </p>
+
+  <CodeBlock title="observed-capability.dcl" code={source} />
+</DocsLayout>
