@@ -1,0 +1,213 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import { compilerVersion, languageLabel } from "../../config/version";
+import storefrontActors from "../../examples/ecommerce/storefront/actors.dcl?raw";
+import storefrontShapes from "../../examples/ecommerce/storefront/shapes.dcl?raw";
+import storefrontPolicies from "../../examples/ecommerce/storefront/policies.dcl?raw";
+import browseProducts from "../../examples/ecommerce/storefront/browse-products.dcl?raw";
+import basket from "../../examples/ecommerce/storefront/basket.dcl?raw";
+import checkout from "../../examples/ecommerce/storefront/checkout.dcl?raw";
+import order from "../../examples/ecommerce/storefront/order.dcl?raw";
+import warehouseActors from "../../examples/ecommerce/warehouse/actors.dcl?raw";
+import fulfilment from "../../examples/ecommerce/warehouse/fulfilment.dcl?raw";
+import deliveryActors from "../../examples/ecommerce/delivery/actors.dcl?raw";
+import delivery from "../../examples/ecommerce/delivery/delivery.dcl?raw";
+import lifecycle from "../../examples/ecommerce/order-lifecycle.dcl?raw";
+
+const frontmatter = {
+  title: "E-Commerce Platform Example",
+  description: "A validated multi-context DCL example for customer ordering, warehouse fulfilment, delivery, events, policies, and lifecycle progression.",
+};
+
+const sourceFiles = [
+  "storefront/actors.dcl",
+  "storefront/shapes.dcl",
+  "storefront/policies.dcl",
+  "storefront/browse-products.dcl",
+  "storefront/basket.dcl",
+  "storefront/checkout.dcl",
+  "storefront/order.dcl",
+  "warehouse/actors.dcl",
+  "warehouse/fulfilment.dcl",
+  "delivery/actors.dcl",
+  "delivery/delivery.dcl",
+  "order-lifecycle.dcl",
+];
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>E-Commerce Platform</h1>
+  <p>
+    This flagship example models a practical e-commerce fulfilment journey as a
+    set of DCL language assets. It is intentionally architectural: the model
+    separates customer ordering, warehouse work, delivery, locally owned events,
+    operational policies, and order lifecycle coordination.
+  </p>
+  <p>
+    The source files shown on this page are validated with the current compiler:
+    <strong>{languageLabel}</strong>, compiler <code>{compilerVersion}</code>.
+  </p>
+
+  <h2>Overview</h2>
+  <p>
+    The platform is split by business responsibility. Storefront owns the
+    customer-facing order submission language, including basket and checkout
+    inputs, <code>OrderCreated</code>, and checkout policies. Warehouse owns
+    fulfilment inputs and warehouse events. Delivery owns courier confirmation
+    and delivery events. A small Coordination context depends on the operating
+    contexts only to supervise the end-to-end lifecycle.
+  </p>
+  <pre><code>Customer
+  -> Ecommerce.Storefront emits OrderCreated
+  -> Ecommerce.Warehouse emits OrderPickedEvent
+  -> Ecommerce.Warehouse emits PackageReadyForDelivery
+  -> Ecommerce.Delivery emits PackageDelivered
+  -> Ecommerce.Coordination reaches Delivered</code></pre>
+
+  <h2>Context Map</h2>
+  <pre><code>Ecommerce.Storefront
+  owns: customer shopping, checkout, and order submission
+  actors: Customer, InventorySystem, PaymentProvider
+  shapes: ProductSearch, BasketItemInput, SubmitOrderInput
+  events: OrderCreated
+  policies: CheckoutReliability, OrderAudit
+  capabilities: BrowseProducts, AddToBasket, Checkout,
+                SelectPaymentMethod, CaptureShippingAddress,
+                CaptureBillingAddress, SubmitOrder
+
+Ecommerce.Warehouse
+  owns: picking, packaging, and warehouse readiness events
+  actor: WarehouseOperator
+  shape: FulfilmentOrderInput
+  events: OrderPickedEvent, PackageReadyForDelivery
+  capabilities: PickOrder, PackageOrder
+
+Ecommerce.Delivery
+  owns: courier confirmation and delivery completion events
+  actor: Courier
+  shape: DeliveryConfirmationInput
+  event: PackageDelivered
+  capability: DeliverPackage
+
+Ecommerce.Coordination
+  owns: cross-context lifecycle supervision
+  depends on Storefront, Warehouse, Delivery
+  supervising capability: ManageOrderFulfilment</code></pre>
+
+  <h2>Actors</h2>
+  <p>
+    The model includes the customer-facing actor, operational actors, and two
+    system actors. The system actors let the language distinguish responsibilities
+    around stock ownership and payment processing without binding to a runtime.
+  </p>
+  <section id="source-storefront-actors">
+    <CodeBlock title="ecommerce/storefront/actors.dcl" code={storefrontActors} />
+  </section>
+  <section id="source-warehouse-actors">
+    <CodeBlock title="ecommerce/warehouse/actors.dcl" code={warehouseActors} />
+  </section>
+  <section id="source-delivery-actors">
+    <CodeBlock title="ecommerce/delivery/actors.dcl" code={deliveryActors} />
+  </section>
+
+  <h2>Storefront Context</h2>
+  <p>
+    Storefront captures the customer path from product discovery through order
+    submission. It demonstrates intents from <code>Customer</code>, validation
+    rules, persistence and integration effects, event emission, and policy
+    attachment.
+  </p>
+  <section id="source-storefront-shapes">
+    <CodeBlock title="ecommerce/storefront/shapes.dcl" code={storefrontShapes} />
+  </section>
+  <section id="source-storefront-policies">
+    <CodeBlock title="ecommerce/storefront/policies.dcl" code={storefrontPolicies} />
+  </section>
+  <section id="source-storefront-browse">
+    <CodeBlock title="ecommerce/storefront/browse-products.dcl" code={browseProducts} />
+  </section>
+  <section id="source-storefront-basket">
+    <CodeBlock title="ecommerce/storefront/basket.dcl" code={basket} />
+  </section>
+  <section id="source-storefront-checkout">
+    <CodeBlock title="ecommerce/storefront/checkout.dcl" code={checkout} />
+  </section>
+  <section id="source-storefront-order">
+    <CodeBlock title="ecommerce/storefront/order.dcl" code={order} />
+  </section>
+
+  <h2>Warehouse Context</h2>
+  <p>
+    Warehouse owns fulfilment work after the storefront creates an order. The
+    context defines the fulfilment input and emits warehouse-owned events that
+    the supervising lifecycle can observe.
+  </p>
+  <section id="source-warehouse-fulfilment">
+    <CodeBlock title="ecommerce/warehouse/fulfilment.dcl" code={fulfilment} />
+  </section>
+
+  <h2>Delivery Context</h2>
+  <p>
+    Delivery records the courier confirmation and emits the final package event.
+    A failed delivery remains explicit as a capability outcome instead of being
+    hidden inside infrastructure behavior.
+  </p>
+  <section id="source-delivery-delivery">
+    <CodeBlock title="ecommerce/delivery/delivery.dcl" code={delivery} />
+  </section>
+
+  <h2>Event Flow</h2>
+  <p>
+    Cross-context coordination happens through declared events. The flow is:
+    customer submits an order, Storefront emits its
+    <code>OrderCreated</code> event, Warehouse emits
+    <code>OrderPickedEvent</code> and <code>PackageReadyForDelivery</code>,
+    Delivery emits <code>PackageDelivered</code>, and the lifecycle reaches
+    <code>Delivered</code>.
+  </p>
+  <pre><code>Storefront.SubmitOrder
+  emits OrderCreated
+
+Warehouse.PickOrder
+  emits OrderPickedEvent
+
+Warehouse.PackageOrder
+  emits PackageReadyForDelivery
+
+Delivery.DeliverPackage
+  emits PackageDelivered</code></pre>
+
+  <h2>Order Lifecycle</h2>
+  <p>
+    Supervising lifecycle syntax is supported by the current compiler, so this
+    lifecycle is compiled as current DCL. <code>ManageOrderFulfilment</code>
+    names Storefront, Warehouse, and Delivery capabilities as contributors and
+    advances through <code>Submitted</code>, <code>Picking</code>,
+    <code>Packaging</code>, <code>OutForDelivery</code>, and
+    <code>Delivered</code>.
+  </p>
+  <section id="source-order-lifecycle">
+    <CodeBlock title="ecommerce/order-lifecycle.dcl" code={lifecycle} />
+  </section>
+
+  <h2>What This Demonstrates</h2>
+  <ul>
+    <li>Actors for customers, warehouse operators, couriers, and external systems.</li>
+    <li>Contexts with explicit dependencies and business-owned declarations.</li>
+    <li>Capabilities with intents, outcomes, rules, effects, events, and policies.</li>
+    <li>Cross-context event flow without a generic shared declarations context.</li>
+    <li>A compiled supervising lifecycle that coordinates multiple contributors.</li>
+    <li>Multi-file composition using source files under <code>website/src/examples/ecommerce</code>.</li>
+  </ul>
+
+  <h2>Complete Source</h2>
+  <p>
+    Compile all files together from the repository root with:
+  </p>
+  <pre><code>cd compiler
+go run ./cmd/dcl check ../website/src/examples/ecommerce/storefront/actors.dcl ../website/src/examples/ecommerce/storefront/shapes.dcl ../website/src/examples/ecommerce/storefront/policies.dcl ../website/src/examples/ecommerce/storefront/browse-products.dcl ../website/src/examples/ecommerce/storefront/basket.dcl ../website/src/examples/ecommerce/storefront/checkout.dcl ../website/src/examples/ecommerce/storefront/order.dcl ../website/src/examples/ecommerce/warehouse/actors.dcl ../website/src/examples/ecommerce/warehouse/fulfilment.dcl ../website/src/examples/ecommerce/delivery/actors.dcl ../website/src/examples/ecommerce/delivery/delivery.dcl ../website/src/examples/ecommerce/order-lifecycle.dcl</code></pre>
+  <ul>
+    {sourceFiles.map((file) => <li><code>website/src/examples/ecommerce/{file}</code></li>)}
+  </ul>
+</DocsLayout>

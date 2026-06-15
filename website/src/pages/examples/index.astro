@@ -10,6 +10,9 @@ import contextSales from "../../examples/context-sales.dcl?raw";
 import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
 import paymentProcessing from "../../examples/payment-processing.dcl?raw";
 
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = (href) => `${base}${href}`;
+
 const frontmatter = {
   title: "Examples",
   description: "Validated DCL examples for language-first capability modeling.",
@@ -22,6 +25,15 @@ const frontmatter = {
     These examples are executable language assets. The source shown here is kept
     in <code>website/src/examples</code> and checked with the current DCL
     compiler before publication.
+  </p>
+
+  <h2>Flagship example: E-Commerce Platform</h2>
+  <p>
+    A multi-context example showing customer ordering, warehouse fulfilment,
+    delivery, events, policies, and lifecycle progression.
+  </p>
+  <p>
+    <a href={path("/examples/ecommerce-platform/")}>Open the E-Commerce Platform example</a>.
   </p>
 
   <h2>Hello World</h2>
