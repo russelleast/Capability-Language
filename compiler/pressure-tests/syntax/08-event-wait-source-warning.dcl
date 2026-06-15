@@ -1,18 +1,23 @@
+language dcl 0.9
+
 actor Customer is human
 
 shape VerificationInput {
-  customerId: Text required
+  customerId: Uuid required
 }
 
 event CustomerVerified is {
-  customerId: Text required
+  customerId: Uuid required
 }
 
 capability VerifyCustomer {
   intent VerificationInput from Customer
   outcome VerificationStarted
+  events {
+    emits CustomerVerified
+  }
   when {
-    otherwise then VerificationStarted
+    always then VerificationStarted
   }
 }
 
@@ -21,7 +26,7 @@ capability OpenVerifiedProfile {
   outcome ProfileOpeningStarted
 
   when {
-    otherwise then ProfileOpeningStarted
+    always then ProfileOpeningStarted
   }
 
   supervises lifecycle VerifiedProfileOpening {
@@ -33,10 +38,7 @@ capability OpenVerifiedProfile {
 
     begin AwaitingVerification
 
-    step AwaitingVerification {
-      kind waiting
-      waits for event CustomerVerified from VerifyCustomer
-    }
+    step AwaitingVerification waits for event CustomerVerified from VerifyCustomer
 
     end Opened
 

@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Buyer is human
 actor InventorySystem is system
 
-effect LockStock is persist
-effect ReleaseStock is persist
+effect LockStock is persistence
+effect ReleaseStock is persistence
 
 policy InventoryReliability {
   family reliability
@@ -14,7 +16,7 @@ policy InventoryReliability {
 }
 
 shape ReservationInput {
-  reservationId: Text required
+  reservationId: Uuid required
   sku: Text required
   quantity: Number required
 }
@@ -54,19 +56,11 @@ capability ReserveStock {
   }
 
   lifecycle {
-    contributors {
-      ReserveStock
-    }
-
     begin Requested
 
-    step Requested {
-      kind active
-    }
+    step Requested
 
-    step Held {
-      kind waiting
-      waits for outcome StockReserved from ReserveStock
+    step Held waits for outcome StockReserved {
       deadline 30 minutes causing outcome ReservationExpired
     }
 

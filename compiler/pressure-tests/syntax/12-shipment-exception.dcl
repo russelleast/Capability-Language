@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor WarehouseOperator is human
 actor CarrierSystem is system
 
-effect BookCarrierPickup is notify
-effect RecordShipmentException is persist
+effect BookCarrierPickup is notification
+effect RecordShipmentException is persistence
 
 policy CarrierAvailability {
   family availability
@@ -12,12 +14,12 @@ policy CarrierAvailability {
 }
 
 shape ShipmentInput {
-  shipmentId: Text required
-  orderId: Text required
+  shipmentId: Uuid required
+  orderId: Uuid required
 }
 
 event CarrierPickupConfirmed is {
-  shipmentId: Text required
+  shipmentId: Uuid required
 }
 
 capability ArrangeShipment {
@@ -45,6 +47,10 @@ capability ArrangeShipment {
     CarrierAvailability governs lifecycle
   }
 
+  events {
+    emits CarrierPickupConfirmed
+  }
+
   observe {
     effect BookCarrierPickup count failures as carrier_booking_failures
     lifecycle transitions
@@ -57,19 +63,11 @@ capability ArrangeShipment {
   }
 
   lifecycle {
-    contributors {
-      ArrangeShipment
-    }
-
     begin Booking
 
-    step Booking {
-      kind active
-    }
+    step Booking
 
-    step AwaitingCarrier {
-      kind waiting
-      waits for event CarrierPickupConfirmed from ArrangeShipment
+    step AwaitingCarrier waits for event CarrierPickupConfirmed {
       deadline 4 hours causing outcome ShipmentExceptionRaised
     }
 

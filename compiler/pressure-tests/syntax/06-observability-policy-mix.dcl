@@ -1,7 +1,9 @@
+language dcl 0.9
+
 actor Operator is human
 
-effect PublishInvoice is notify
-effect PersistInvoice is persist
+effect PublishInvoice is notification
+effect PersistInvoice is persistence
 
 policy InvoicePerformance {
   family performance
@@ -18,12 +20,12 @@ policy InvoiceSecurity {
 }
 
 shape InvoiceInput {
-  invoiceId: Text required
-  customerId: Text required
+  invoiceId: Uuid required
+  customerId: Uuid required
 }
 
 event InvoicePublished is {
-  invoiceId: Text required
+  invoiceId: Uuid required
 }
 
 capability PublishCustomerInvoice {

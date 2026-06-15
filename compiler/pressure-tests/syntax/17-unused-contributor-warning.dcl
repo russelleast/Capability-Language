@@ -1,14 +1,16 @@
+language dcl 0.9
+
 actor Operator is human
 
 shape BatchInput {
-  batchId: Text required
+  batchId: Uuid required
 }
 
 capability ValidateBatch {
   intent BatchInput from Operator
   outcome BatchValidated
   when {
-    otherwise then BatchValidated
+    always then BatchValidated
   }
 }
 
@@ -16,7 +18,7 @@ capability ArchiveBatch {
   intent BatchInput from Operator
   outcome BatchArchived
   when {
-    otherwise then BatchArchived
+    always then BatchArchived
   }
 }
 
@@ -24,7 +26,7 @@ capability SuperviseBatch {
   intent BatchInput from Operator
   outcome BatchOpened
   when {
-    otherwise then BatchOpened
+    always then BatchOpened
   }
 
   supervises lifecycle BatchLifecycle {
@@ -37,10 +39,7 @@ capability SuperviseBatch {
 
     begin PendingValidation
 
-    step PendingValidation {
-      kind waiting
-      waits for outcome BatchValidated from ValidateBatch
-    }
+    step PendingValidation waits for outcome BatchValidated from ValidateBatch
 
     end Validated
 

@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Subscriber is human
 actor BillingSystem is system
 
-effect ChargeSubscription is persist
-effect SendRenewalNotice is notify
+effect ChargeSubscription is persistence
+effect SendRenewalNotice is notification
 
 policy RenewalReliability {
   family reliability
@@ -15,12 +17,12 @@ policy RenewalReliability {
 }
 
 shape RenewalInput {
-  subscriptionId: Text required
-  accountId: Text required
+  subscriptionId: Uuid required
+  accountId: Uuid required
 }
 
 event RenewalNoticeSent is {
-  subscriptionId: Text required
+  subscriptionId: Uuid required
 }
 
 capability RenewSubscription {
@@ -49,6 +51,10 @@ capability RenewSubscription {
     RenewalReliability governs lifecycle
   }
 
+  events {
+    emits RenewalNoticeSent
+  }
+
   observe {
     outcome RenewalCharged count
     outcome RenewalDeclined count
@@ -62,19 +68,11 @@ capability RenewSubscription {
   }
 
   lifecycle {
-    contributors {
-      RenewSubscription
-    }
-
     begin Due
 
-    step Due {
-      kind active
-    }
+    step Due
 
-    step NoticePending {
-      kind waiting
-      waits for event RenewalNoticeSent from RenewSubscription
+    step NoticePending waits for event RenewalNoticeSent {
       deadline 7 days causing outcome RenewalExpired
     }
 

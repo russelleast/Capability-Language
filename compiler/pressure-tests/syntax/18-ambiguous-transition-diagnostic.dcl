@@ -1,22 +1,22 @@
+language dcl 0.9
+
 actor Operator is human
 
 shape DecisionInput {
-  decisionId: Text required
+  decisionId: Uuid required
 }
 
 capability DecideWork {
   intent DecisionInput from Operator
   outcome Accepted
   when {
-    otherwise then Accepted
+    always then Accepted
   }
 
   lifecycle {
     begin Pending
 
-    step Pending {
-      kind decision
-    }
+    step Pending requires decision from Operator
 
     end Approved
     end AcceptedForManualReview

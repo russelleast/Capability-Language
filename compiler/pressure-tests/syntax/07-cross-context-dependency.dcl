@@ -1,20 +1,22 @@
+language dcl 0.9
+
 context Shared {
   actor Customer is human
 
   shape SharedOrderInput {
-    orderId: Text required
-    customerId: Text required
+    orderId: Uuid required
+    customerId: Uuid required
   }
 
   event SharedOrderSubmitted is {
-    orderId: Text required
+    orderId: Uuid required
   }
 }
 
 context Sales {
   depends on Shared
 
-  effect PersistSalesOrder is persist
+  effect PersistSalesOrder is persistence
 
   policy SalesAuditPolicy {
     family governance

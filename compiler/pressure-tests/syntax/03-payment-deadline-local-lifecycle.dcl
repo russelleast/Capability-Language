@@ -1,12 +1,14 @@
+language dcl 0.9
+
 actor Customer is human
 
 shape PaymentInput {
-  orderId: Text required
+  orderId: Uuid required
   amount: Number required
 }
 
 event PaymentReceived is {
-  orderId: Text required
+  orderId: Uuid required
 }
 
 capability CollectPayment {
@@ -18,19 +20,17 @@ capability CollectPayment {
   }
 
   when {
-    otherwise then PaymentRequested
+    always then PaymentRequested
+  }
+
+  events {
+    emits PaymentReceived
   }
 
   lifecycle {
-    contributors {
-      CollectPayment
-    }
-
     begin AwaitingPayment
 
-    step AwaitingPayment {
-      kind waiting
-      waits for event PaymentReceived from CollectPayment
+    step AwaitingPayment waits for event PaymentReceived {
       deadline 15 minutes causing outcome PaymentExpired
     }
 

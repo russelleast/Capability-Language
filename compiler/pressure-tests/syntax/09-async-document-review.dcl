@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Author is human
 actor Reviewer is human
 
-effect StoreDocument is persist
-effect SendReviewRequest is notify
+effect StoreDocument is persistence
+effect SendReviewRequest is notification
 
 policy ReviewQueuePolicy {
   family scalability
@@ -12,12 +14,12 @@ policy ReviewQueuePolicy {
 }
 
 shape DocumentReviewInput {
-  documentId: Text required
+  documentId: Uuid required
   title: Text required
 }
 
 event ReviewCompleted is {
-  documentId: Text required
+  documentId: Uuid required
 }
 
 capability RequestDocumentReview {
@@ -39,6 +41,10 @@ capability RequestDocumentReview {
     ReviewQueuePolicy governs lifecycle
   }
 
+  events {
+    emits ReviewCompleted
+  }
+
   observe {
     capability duration
     lifecycle transitions
@@ -51,19 +57,11 @@ capability RequestDocumentReview {
   }
 
   lifecycle {
-    contributors {
-      RequestDocumentReview
-    }
-
     begin Submitted
 
-    step Submitted {
-      kind active
-    }
+    step Submitted
 
-    step UnderReview {
-      kind waiting
-      waits for event ReviewCompleted from RequestDocumentReview
+    step UnderReview waits for event ReviewCompleted {
       deadline 3 days causing outcome ReviewTimedOut
     }
 

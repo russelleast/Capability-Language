@@ -1,7 +1,9 @@
+language dcl 0.9
+
 actor Customer is human
 
-effect PersistRegistration is persist
-effect SendVerificationMessage is notify
+effect PersistRegistration is persistence
+effect SendVerificationMessage is notification
 
 policy RegistrationReliability {
   family reliability
@@ -14,7 +16,7 @@ policy RegistrationReliability {
 }
 
 shape RegistrationInput {
-  email: Text required
+  email: Email required
   acceptedTerms: Boolean required
 }
 
@@ -38,6 +40,10 @@ capability RegisterCustomer {
     SendVerificationMessage after PersistRegistration
   }
 
+  events {
+    emits VerificationMessageSent
+  }
+
   policies {
     RegistrationReliability governs capability
     RegistrationReliability governs effect SendVerificationMessage
@@ -58,20 +64,11 @@ capability RegisterCustomer {
   }
 
   lifecycle {
-    contributors {
-      RegisterCustomer
-    }
-
     begin Pending
 
-    step Pending {
-      kind active
-    }
+    step Pending
 
-    step Registered {
-      kind waiting
-      waits for event VerificationMessageSent from RegisterCustomer
-    }
+    step Registered waits for event VerificationMessageSent
 
     end Verified
     end Failed

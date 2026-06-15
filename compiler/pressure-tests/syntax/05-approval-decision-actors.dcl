@@ -1,9 +1,11 @@
+language dcl 0.9
+
 actor Employee is human
 actor Manager is human
 actor FinanceSystem is system
 
 shape ExpenseInput {
-  claimId: Text required
+  claimId: Uuid required
   amount: Number required
 }
 
@@ -43,20 +45,11 @@ capability RequestExpenseApproval {
   }
 
   lifecycle {
-    contributors {
-      RequestExpenseApproval
-    }
-
     begin Drafted
 
-    step Drafted {
-      kind decision
-    }
+    step Drafted requires decision from approver
 
-    step AwaitingManager {
-      kind waiting
-      waits for outcome ApprovalRequested from RequestExpenseApproval
-    }
+    step AwaitingManager waits for outcome ApprovalRequested
 
     end Approved
     end Rejected

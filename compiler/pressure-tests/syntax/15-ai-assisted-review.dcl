@@ -1,8 +1,10 @@
+language dcl 0.9
+
 actor Analyst is human
 actor ModelService is system
 
-effect StoreModelRecommendation is persist
-effect NotifyAnalyst is notify
+effect StoreModelRecommendation is persistence
+effect NotifyAnalyst is notification
 
 policy ModelReviewSecurity {
   family security
@@ -12,8 +14,8 @@ policy ModelReviewSecurity {
 }
 
 shape ReviewInput {
-  reviewId: Text required
-  subjectId: Text required
+  reviewId: Uuid required
+  subjectId: Uuid required
 }
 
 capability GenerateRecommendation {
@@ -56,7 +58,7 @@ capability SuperviseAssistedReview {
   }
 
   when {
-    otherwise then ReviewOpened
+    always then ReviewOpened
   }
 
   supervises lifecycle AssistedReview {
@@ -70,14 +72,11 @@ capability SuperviseAssistedReview {
     begin AwaitingRecommendation
 
     step AwaitingRecommendation {
-      kind waiting
       waits for outcome RecommendationGenerated from GenerateRecommendation
       waits for outcome RecommendationUnavailable from GenerateRecommendation
     }
 
-    step AnalystReview {
-      kind decision
-    }
+    step AnalystReview requires decision from Analyst
 
     end Accepted
     end Escalated
