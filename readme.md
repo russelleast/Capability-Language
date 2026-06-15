@@ -3,148 +3,131 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Build](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml/badge.svg)](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml)
 
-**DCL** (Declarative Capability  Language) is a modern language and compiler for modeling complex business processes using capability-driven design principles.
+# DCL — Declarative Capability Language
 
-## 🎯 Overview
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Build](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml/badge.svg)](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml)
 
-DCL enables organizations to:
-- Define business capabilities and their interactions
-- Model complex workflows and decision trees
-- Enforce compliance and audit requirements
-- Generate analyzable intermediate representations
-- Support multiple output formats and integrations
+**DCL (Declarative Capability Language)** is a language for describing software systems in terms of capabilities, intent, outcomes, effects, policies, and lifecycle progression.
 
-The language focuses on clarity, safety, and semantic verification while maintaining backward compatibility with previous versions.
+Rather than modelling systems as controllers, services, endpoints, queues, or infrastructure, DCL models what a system is responsible for, what it guarantees, and what it causes.
 
-## 📦 Project Structure
+Current versions:
 
-```
-dcl/
-├── Capability-Language/   # Main language package
-│   ├── compiler/          # Go compiler implementation
-│   │   ├── cmd/           # Command-line interface
-│   │   ├── internal/      # Compiler internals (lexer, parser, IR, etc.)
-│   │   ├── pressure-tests/# Stress testing and performance benchmarks
-│   │   └── go.mod         # Go module definition
-│   ├── docs/              # Language documentation
-│   ├── .github/           # GitHub workflows and configuration
-│   └── .git/              # Repository root
-├── site/                  # Web-based tools and documentation (coming soon)
-├── vscode-extension/      # VS Code extension (coming soon)
-└── README.md              # This file
-```
+* Language: v0.9
+* Compiler: v0.1.0
 
-## 🚀 Quick Start
+See [version.json](version.json) for the current project versions.
 
-### Prerequisites
-- Go 1.22 or later
+## Why DCL?
 
-### Build and Run
+Modern systems contain far more than APIs and request handlers.
 
-```bash
-cd Capability-Language/compiler
-go run ./cmd/dcl --help
-```
+They contain:
 
-### Run DCL Files
+* business capabilities
+* long-running processes
+* event-driven interactions
+* reliability requirements
+* security requirements
+* operational policies
+* human workflows
+* AI-assisted decision making
 
-```bash
-cd Capability-Language/compiler
-go run ./cmd/dcl check <file.dcl>
-go run ./cmd/dcl ir <file.dcl> --format json
-```
+These concerns are often scattered across source code, infrastructure, documentation, tickets, and tribal knowledge.
 
-### Run Tests
+DCL brings them together into a single declarative model.
 
-```bash
-cd Capability-Language/compiler
-go test ./...
-go test ./internal/compiler
-```
-
-## 📚 Language Documentation
-
-See the [compiler README](./Capability-Language/compiler/README.md) for detailed syntax and authoring guidelines.
-
-### DCL v0.9 Features
-
-- **Improved Lifecycle Syntax**: Implicit ownership, simplified event handling
-- **Built-in Types**: UUID, Email, Money
-- **Effect Kinds**: Standardized noun-based declarations (notification, persistence, invocation)
-- **Event Verification**: Capability-level event source ownership validation
-- **Decision Trees**: Explicit outcome causation with `when` branches
-
-Example:
+## Example
 
 ```dcl
-capability CollectPayment {
-  events {
-    emits PaymentReceived
+capability RegisterCustomer {
+
+  intent RegisterCustomerIntent
+    from Customer
+
+  outcomes {
+    Registered
+    EmailAlreadyRegistered
   }
 
-  lifecycle {
-    begin Pending
-    step AwaitingPayment waits for event PaymentReceived
-    end Complete
+  rules {
+    EmailAvailable:
+      email is available
+  }
+
+  when {
+    rule EmailAvailable fails then EmailAlreadyRegistered
+    always then Registered
   }
 }
 ```
 
-## 🛠️ Development
+## Core Concepts
 
-### Compiler Architecture
+DCL is built around a small set of first-class concepts:
 
-- **Lexer**: Tokenization and scanning
-- **Parser**: Syntax analysis and AST construction
-- **IR**: Intermediate representation for semantic analysis
-- **Compiler**: Type checking, validation, and diagnostics
+* Capability
+* Intent
+* Outcome
+* Rule
+* Effect
+* Event
+* Lifecycle
+* Policy
+* Context
 
-### Running Tests
+These concepts are analysed by the compiler and transformed into a semantic model that can be used for validation, documentation, diagrams, testing, and future runtime projections.
 
-```bash
-cd Capability-Language/compiler
-go test ./... -v
-```
+## Designed for Humans and AI
 
-### Performance Testing
+DCL is intended to be understandable by:
 
-```bash
-cd Capability-Language/compiler
-go test ./pressure-tests/...
-```
+* architects
+* developers
+* testers
+* operators
+* AI systems
 
-## 🤝 Contributing
+The language aims to reduce ambiguity and make architectural intent explicit.
 
-We welcome contributions! Please:
+## Roadmap
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+The broader DCL ecosystem will include:
 
-## 📋 Planned Features
+* Documentation website
+* Interactive playground
+* VS Code extension with language server support
+* Model Content Protocol (MCP)
+* Diagram generation
+* AI-assisted authoring
+* Multi-runtime projections
 
-- [ ] Web-based IDE and playground
-- [ ] VS Code extension with syntax highlighting and diagnostics
-- [ ] Code generation for multiple backends (Go, TypeScript, etc.)
-- [ ] Interactive documentation site
-- [ ] LSP (Language Server Protocol) support
+## Contributing
 
-## 📄 License
+Contributions, discussions, examples, and feedback are welcome.
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+See:
 
-## 📞 Contact & Support
+* CONTRIBUTING.md
+* GOVERNANCE.md
 
-For questions, issues, or suggestions:
-- **GitHub Issues**: [Report bugs or request features](../../issues)
-- **Discussions**: [Join the community discussion](../../discussions)
+for project contribution and governance guidance.
 
-## 🙏 Acknowledgments
+## License
 
-Built with care for teams modeling complex business processes.
+Licensed under the Apache License 2.0.
 
----
+See LICENSE for details.
 
-**Status**: Early development. API and syntax may change. Feedback is welcome!
+## Status
+
+DCL is currently pre-1.0 and under active development.
+
+Language syntax and semantics may evolve between releases as the language continues to mature.
+
+## Creator
+
+Declarative Capability Language (DCL) was created by Russell East.
+
+

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"capabilitylanguage/internal/ast"
@@ -13,6 +14,7 @@ import (
 	"capabilitylanguage/internal/ir"
 	"capabilitylanguage/internal/lexer"
 	"capabilitylanguage/internal/parser"
+	"capabilitylanguage/internal/version"
 )
 
 type Result struct {
@@ -112,6 +114,7 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 	}
 	c.indexContexts()
 	c.indexSymbols()
+	c.validateLanguageVersions()
 	for _, policy := range program.Policies {
 		key := policyKey(policy.Meta.ContextName, policy.Name)
 		if _, exists := c.policies[key]; !exists {
@@ -128,8 +131,20 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 	return c
 }
 
+func (c *compiler) validateLanguageVersions() {
+	for _, decl := range c.program.Languages {
+		if decl.Name != version.LanguageName {
+			continue
+		}
+		if compareVersion(decl.Version, version.LanguageVersion) > 0 {
+			c.diags.Error("DCL_VERSION_UNSUPPORTED", fmt.Sprintf("language version %s is newer than supported version %s", decl.Version, version.LanguageVersion), decl.Span, decl.Version)
+		}
+	}
+}
+
 func (c *compiler) buildIR() ir.ProgramIR {
 	out := ir.ProgramIR{
+		Version:  ir.VersionIR{Language: version.LanguageVersion, Compiler: version.CompilerVersion},
 		Modules:  []ir.ModuleIR{{ID: "module:main", Files: c.program.Files}},
 		Analysis: map[string]ir.PortabilityFacts{"default": {Classification: "portable"}},
 	}
@@ -1586,6 +1601,7 @@ func mergeProgram(dst *ast.Program, src *ast.Program) {
 	if src == nil {
 		return
 	}
+	dst.Languages = append(dst.Languages, src.Languages...)
 	dst.Contexts = append(dst.Contexts, src.Contexts...)
 	dst.Dependencies = append(dst.Dependencies, src.Dependencies...)
 	dst.Shapes = append(dst.Shapes, src.Shapes...)
@@ -1840,6 +1856,37 @@ func contains(items []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func compareVersion(a, b string) int {
+	aParts := strings.Split(a, ".")
+	bParts := strings.Split(b, ".")
+	max := len(aParts)
+	if len(bParts) > max {
+		max = len(bParts)
+	}
+	for i := 0; i < max; i++ {
+		aNum := versionPart(aParts, i)
+		bNum := versionPart(bParts, i)
+		if aNum > bNum {
+			return 1
+		}
+		if aNum < bNum {
+			return -1
+		}
+	}
+	return 0
+}
+
+func versionPart(parts []string, i int) int {
+	if i >= len(parts) {
+		return 0
+	}
+	n, err := strconv.Atoi(parts[i])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 func sortProgramIR(out *ir.ProgramIR) {

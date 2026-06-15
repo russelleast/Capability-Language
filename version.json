@@ -1,0 +1,10 @@
+{
+  "language": {
+    "name": "dcl",
+    "version": "0.9"
+  },
+  "compiler": {
+    "name": "dcl",
+    "version": "0.1.0"
+  }
+}

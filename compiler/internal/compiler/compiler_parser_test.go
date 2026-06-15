@@ -201,6 +201,43 @@ func TestDocumentedExamplesCompile(t *testing.T) {
 	}
 }
 
+func TestLanguageVersionDeclaration(t *testing.T) {
+	src := `language dcl 0.9
+actor User is human
+shape Input {}
+capability Versioned {
+  intent Input from User
+  outcome Accepted
+  when { otherwise then Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	assertNoDiagnostic(t, result.Diagnostics, "DCL_VERSION_DECL_MISSING")
+	if result.IR.Version.Language != "0.9" {
+		t.Fatalf("expected IR language version 0.9, got %#v", result.IR.Version)
+	}
+}
+
+func TestMissingLanguageVersionWarns(t *testing.T) {
+	result := CompileFiles([]string{writeTempDCL(t, helloWorld)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_VERSION_DECL_MISSING")
+}
+
+func TestNewerLanguageVersionIsRejected(t *testing.T) {
+	src := `language dcl 1.0
+actor User is human
+shape Input {}
+capability FutureVersion {
+  intent Input from User
+  outcome Accepted
+  when { otherwise then Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_VERSION_UNSUPPORTED")
+}
+
 func TestIntentNameIsAuthoredTypeForSingularIntent(t *testing.T) {
 	result := CompileFiles([]string{writeTempDCL(t, helloWorld)})
 	if HasErrors(result.Diagnostics) {

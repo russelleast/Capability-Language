@@ -1,8 +1,11 @@
 ### Build and Run
 
+Current versions: DCL language v0.9; compiler v0.1.0.
+
 ```bash
 cd Capability-Language/compiler
 go run ./cmd/dcl --help
+go run ./cmd/dcl version
 ```
 
 ### Run DCL Files

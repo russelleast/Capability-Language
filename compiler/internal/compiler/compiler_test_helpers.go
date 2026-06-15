@@ -19,6 +19,15 @@ func assertDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) 
 	t.Fatalf("expected diagnostic %s in %#v", code, diags)
 }
 
+func assertNoDiagnostic(t *testing.T, diags []diagnostic.Diagnostic, code string) {
+	t.Helper()
+	for _, diag := range diags {
+		if diag.Code == code {
+			t.Fatalf("unexpected diagnostic %s in %#v", code, diags)
+		}
+	}
+}
+
 func v07OrderFulfilmentSource(lifecycle string) string {
 	return `
 actor Customer is human

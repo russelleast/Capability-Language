@@ -3,6 +3,7 @@ package ir
 import "capabilitylanguage/internal/diagnostic"
 
 type ProgramIR struct {
+	Version           VersionIR                   `json:"version"`
 	Modules           []ModuleIR                  `json:"modules"`
 	Contexts          []ContextIR                 `json:"contexts,omitempty"`
 	Dependencies      []DependencyIR              `json:"dependencies,omitempty"`
@@ -17,6 +18,11 @@ type ProgramIR struct {
 	Shapes            []ShapeIR                   `json:"shapes"`
 	Diagnostics       []diagnostic.Diagnostic     `json:"diagnostics"`
 	Analysis          map[string]PortabilityFacts `json:"analysis,omitempty"`
+}
+
+type VersionIR struct {
+	Language string `json:"language"`
+	Compiler string `json:"compiler"`
 }
 
 type ModuleIR struct {

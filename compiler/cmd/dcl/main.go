@@ -7,6 +7,7 @@ import (
 
 	"capabilitylanguage/internal/compiler"
 	"capabilitylanguage/internal/diagnostic"
+	"capabilitylanguage/internal/version"
 )
 
 func main() {
@@ -16,6 +17,8 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "version", "--version":
+		fmt.Fprintln(os.Stdout, version.Summary())
 	case "check":
 		runCheck(os.Args[2:])
 	case "ir":
@@ -33,7 +36,7 @@ func runCheck(args []string) {
 	}
 	result := compiler.CompileFiles(args)
 	if len(result.Diagnostics) == 0 {
-		fmt.Fprintln(os.Stdout, "ok")
+		fmt.Fprintf(os.Stdout, "ok (DCL language %s)\n", result.IR.Version.Language)
 		return
 	}
 	diagnostic.WriteHuman(os.Stderr, result.Diagnostics)
@@ -78,6 +81,8 @@ func parseIRArgs(args []string) ([]string, bool) {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
+	fmt.Fprintln(os.Stderr, "  dcl version")
+	fmt.Fprintln(os.Stderr, "  dcl --version")
 	fmt.Fprintln(os.Stderr, "  dcl check <files...>")
 	fmt.Fprintln(os.Stderr, "  dcl ir <files...> [--format json]")
 }

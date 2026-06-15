@@ -23,6 +23,9 @@ func Parse(tokens []lexer.Token) (*ast.Program, []diagnostic.Diagnostic) {
 	for !p.at(lexer.EOF) {
 		p.parseTopLevel(prog)
 	}
+	if len(prog.Languages) == 0 {
+		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 0.9", fileStartSpan(tokens), "")
+	}
 	return prog, p.diags.Items()
 }
 
@@ -41,6 +44,12 @@ func (p *Parser) parseTopLevel(prog *ast.Program) {
 		visibility = "private"
 	}
 	switch p.peek().Text {
+	case "language":
+		if visibility == "private" {
+			tok := p.peek()
+			p.diags.Error("DCL_PARSE_PRIVATE_LANGUAGE_UNSUPPORTED", "language declarations cannot be private", tok.Span, tok.Text)
+		}
+		prog.Languages = append(prog.Languages, p.parseLanguage())
 	case "context":
 		if visibility == "private" {
 			tok := p.peek()
@@ -82,6 +91,16 @@ func (p *Parser) parseTopLevel(prog *ast.Program) {
 		p.diags.Error("DCL_PARSE_EXPECTED_DECLARATION", "expected declaration", tok.Span, tok.Text)
 		p.synchronizeTopLevel()
 	}
+}
+
+func (p *Parser) parseLanguage() ast.LanguageDecl {
+	start := p.expectText("language")
+	nameTok := p.expectIdent("language name")
+	versionTok := p.expectIdent("language version")
+	if nameTok.Text != "dcl" {
+		p.diags.Error("DCL_PARSE_LANGUAGE_UNSUPPORTED", "language declaration must use dcl", nameTok.Span, nameTok.Text)
+	}
+	return ast.LanguageDecl{Name: nameTok.Text, Version: versionTok.Text, Span: start.Span}
 }
 
 func (p *Parser) parseContext(prog *ast.Program) {
@@ -836,4 +855,14 @@ func parentContext(name string) string {
 		return ""
 	}
 	return name[:idx]
+}
+
+func fileStartSpan(tokens []lexer.Token) diagnostic.Span {
+	if len(tokens) == 0 {
+		return diagnostic.Span{}
+	}
+	span := tokens[0].Span
+	span.Line = 1
+	span.Column = 1
+	return span
 }

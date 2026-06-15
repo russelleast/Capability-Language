@@ -4,6 +4,7 @@ import "capabilitylanguage/internal/diagnostic"
 
 type Program struct {
 	Files        []string
+	Languages    []LanguageDecl
 	Contexts     []ContextDecl
 	Dependencies []DependencyDecl
 	Shapes       []ShapeDecl
@@ -12,6 +13,12 @@ type Program struct {
 	Effects      []EffectDecl
 	Policies     []PolicyDecl
 	Capabilities []CapabilityDecl
+}
+
+type LanguageDecl struct {
+	Name    string
+	Version string
+	Span    diagnostic.Span
 }
 
 type DeclMeta struct {
