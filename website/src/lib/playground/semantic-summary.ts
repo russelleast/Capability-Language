@@ -19,6 +19,8 @@ export type CapabilitySummary = {
   events?: string[];
   policies?: string[];
   lifecycle?: {
+    begin?: string;
+    ends?: string[];
     steps?: string[];
     transitions?: string[];
   };
@@ -80,6 +82,8 @@ type PolicyUseOutput = {
 };
 
 type LifecycleOutput = {
+  initial_state?: string;
+  terminal_states?: string[];
   steps?: LifecycleStepOutput[];
   transitions?: TransitionOutput[];
 };
@@ -149,8 +153,10 @@ function summarizeCapability(capability: CapabilityOutput, effectivePolicies: Ef
 
   const steps = nonEmpty(capability.lifecycle?.steps?.map(formatLifecycleStep));
   const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
-  if (steps || transitions) {
-    summary.lifecycle = { steps, transitions };
+  const begin = capability.lifecycle?.initial_state;
+  const ends = nonEmpty(capability.lifecycle?.terminal_states);
+  if (begin || ends || steps || transitions) {
+    summary.lifecycle = { begin, ends, steps, transitions };
   }
 
   return summary;
@@ -216,7 +222,7 @@ function formatEffectivePolicy(policy: EffectivePolicyOutput): string[] {
 
 function formatLifecycleStep(step: LifecycleStepOutput | undefined): string | undefined {
   if (!step?.name) return undefined;
-  const details = [step.kind, step.is_terminal ? "terminal" : undefined].filter(Boolean).join(", ");
+  const details = Array.from(new Set([step.kind, step.is_terminal ? "terminal" : undefined].filter(Boolean))).join(", ");
   return details ? `${step.name} (${details})` : step.name;
 }
 

@@ -555,7 +555,7 @@ main {
   border-radius: 8px;
   display: grid;
   gap: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: hidden;
 }
 
@@ -685,6 +685,65 @@ main {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.flow-list {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.flow-card {
+  background: #f7faf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.85rem;
+}
+
+.flow-card h3 {
+  font-size: 1.05rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.flow-section {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.flow-section strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.flow-section ul {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.flow-section li {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  padding: 0.45rem 0.55rem;
+}
+
+.flow-empty {
+  background: #f7faf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  margin: 0;
+  padding: 0.8rem;
 }
 
 .advanced-output {

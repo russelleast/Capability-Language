@@ -73,6 +73,9 @@ const initialExample = playgroundExamples[0];
               <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="map">
                 Capability Map
               </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="flow">
+                Flow
+              </button>
               <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="advanced">
                 Advanced
               </button>
@@ -84,6 +87,10 @@ const initialExample = playgroundExamples[0];
             <section class="capability-map-output result-panel" data-result-panel="map" hidden>
               <h2>Capability Map</h2>
               <p>The capability map will appear here after a successful compile.</p>
+            </section>
+            <section class="flow-output result-panel" data-result-panel="flow" hidden>
+              <h2>Flow</h2>
+              <p>Lifecycle and event flow will appear here after a successful compile.</p>
             </section>
             <section class="advanced-output result-panel" data-result-panel="advanced" hidden>
               <h2>Advanced: View compiler output</h2>
@@ -141,6 +148,7 @@ const initialExample = playgroundExamples[0];
     const compilerResults = document.querySelector("[data-compiler-results]");
     const summaryOutput = document.querySelector("[data-summary-output]");
     const mapOutput = document.querySelector("[data-result-panel='map']");
+    const flowOutput = document.querySelector("[data-result-panel='flow']");
     const advancedOutput = document.querySelector("[data-result-panel='advanced']");
     const compilerOutput = document.querySelector("[data-compiler-output]");
     const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
@@ -207,6 +215,7 @@ const initialExample = playgroundExamples[0];
       compilerResults?.removeAttribute("hidden");
       summaryOutput.replaceChildren(summaryHeading(), summaryIntro(), renderSemanticSummary(summary));
       renderCapabilityMap(summary);
+      renderFlow(summary);
       activateResultPanel("summary");
     }
 
@@ -341,6 +350,82 @@ const initialExample = playgroundExamples[0];
       return card;
     }
 
+    function renderFlow(summary: SemanticSummary) {
+      if (!flowOutput) return;
+
+      flowOutput.replaceChildren(flowHeading(), flowIntro());
+
+      const flow = document.createElement("div");
+      flow.className = "flow-list";
+      const flowCapabilities = summary.capabilities.filter(hasFlow);
+
+      if (flowCapabilities.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "flow-empty";
+        empty.textContent = "No lifecycle transitions were found in this source.";
+        flow.append(empty);
+      }
+
+      for (const capability of flowCapabilities) {
+        flow.append(renderFlowCard(capability));
+      }
+
+      flowOutput.append(flow);
+    }
+
+    function flowHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Flow";
+      return heading;
+    }
+
+    function flowIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "Lifecycle transitions and emitted events derived from the compiler summary.";
+      return intro;
+    }
+
+    function hasFlow(capability: CapabilitySummary) {
+      return Boolean(
+        capability.lifecycle?.begin ||
+          capability.lifecycle?.ends?.length ||
+          capability.lifecycle?.steps?.length ||
+          capability.lifecycle?.transitions?.length ||
+          capability.events?.length,
+      );
+    }
+
+    function renderFlowCard(capability: CapabilitySummary) {
+      const card = document.createElement("article");
+      card.className = "flow-card";
+
+      const heading = document.createElement("h3");
+      heading.textContent = capability.name;
+      card.append(heading);
+
+      if (capability.lifecycle?.begin) {
+        appendFlowSection(card, "Begin step", [capability.lifecycle.begin]);
+      }
+      appendFlowSection(card, "Lifecycle steps", capability.lifecycle?.steps);
+      appendFlowSection(card, "End steps", capability.lifecycle?.ends);
+      appendFlowSection(card, "Transitions", capability.lifecycle?.transitions);
+      appendFlowSection(card, "Emitted events", capability.events);
+
+      return card;
+    }
+
+    function appendFlowSection(parent: HTMLElement, title: string, items?: string[]) {
+      if (!items?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "flow-section";
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      section.append(heading, renderValueList(items));
+      parent.append(section);
+    }
+
     function appendMapSection(parent: HTMLElement, title: string, items?: string[]) {
       if (!items?.length) return;
 
@@ -422,6 +507,7 @@ const initialExample = playgroundExamples[0];
       if (compilerResults) compilerResults.setAttribute("hidden", "");
       if (summaryOutput) summaryOutput.replaceChildren();
       if (mapOutput) mapOutput.replaceChildren();
+      if (flowOutput) flowOutput.replaceChildren();
       if (compilerOutput) compilerOutput.textContent = "{}";
       activateResultPanel("summary");
 
