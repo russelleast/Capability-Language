@@ -25,9 +25,8 @@ const initialExample = playgroundExamples[0];
         <code>dcl {compilerVersion}</code>.
       </p>
       <p>
-        The website is statically hosted on GitHub Pages. No backend compile
-        service is used, and the Go compiler does not have a browser/WASM build
-        in this repository yet.
+        The website is statically hosted on GitHub Pages. The compiler runs in
+        your browser through Go WASM; no backend compile service is used.
       </p>
     </article>
 
@@ -78,10 +77,10 @@ const initialExample = playgroundExamples[0];
       <div class="notice">
         <strong>Browser compiler status</strong>
         <p>
-          Compilation is intentionally stubbed until a browser-compatible DCL
-          compiler build exists. The Compile button calls
-          <code>compileDcl(source)</code> and reports that limitation instead of
-          pretending success.
+          The Compile button calls <code>compileDcl(source)</code>, which loads
+          the static WASM compiler from <code>/compiler/dcl.wasm</code>. If the
+          WASM runtime cannot load, the adapter reports that clearly in
+          diagnostics.
         </p>
       </div>
 
@@ -177,7 +176,7 @@ const initialExample = playgroundExamples[0];
     resetButton?.addEventListener("click", loadExample);
 
     compileButton?.addEventListener("click", async () => {
-      setStatus(browserCompilerAvailable ? "Compiling..." : "Browser compiler unavailable.", "pending");
+      setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
 
       const result = await compileDcl(editor?.value ?? "");
       renderDiagnostics(result);
@@ -188,8 +187,11 @@ const initialExample = playgroundExamples[0];
       }
 
       const hasErrors = result.diagnostics.some((diagnostic) => diagnostic.severity === "error");
+      const compilerUnavailable = result.diagnostics.some(
+        (diagnostic) => diagnostic.code === "DCL_PLAYGROUND_COMPILER_UNAVAILABLE",
+      );
       setStatus(
-        hasErrors ? "Compile failed." : "Compile did not run in this browser build.",
+        compilerUnavailable ? "Browser compiler unavailable." : hasErrors ? "Compile failed." : "Compile completed with diagnostics.",
         hasErrors ? "error" : "pending",
       );
     });
