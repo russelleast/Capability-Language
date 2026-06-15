@@ -1,0 +1,111 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = (href) => `${base}${href}`;
+
+const example = `language dcl 0.9
+
+actor Customer is human
+
+effect PersistRegistration is persistence
+effect SendVerificationMessage is notification
+
+capability RegisterCustomer {
+  intent RegistrationInput from Customer
+
+  outcomes {
+    RegistrationAccepted
+    TermsRejected
+    VerificationDeferred
+  }
+
+  rule TermsAccepted: input.acceptedTerms is true
+
+  effects {
+    PersistRegistration
+    SendVerificationMessage after PersistRegistration
+  }
+
+  events {
+    emits VerificationMessageSent
+  }
+
+  when {
+    TermsAccepted violated then TermsRejected
+    SendVerificationMessage unresolved then VerificationDeferred
+    otherwise then RegistrationAccepted
+  }
+}`;
+---
+
+<BaseLayout>
+  <section class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Declarative Capability Language</p>
+      <h1>Describe software systems by what they mean.</h1>
+      <p class="lead">
+        DCL is a language for modeling capabilities, intent, outcomes, rules,
+        effects, events, policies, and lifecycle progression as first-class parts
+        of a software system.
+      </p>
+      <div class="actions">
+        <a class="button primary" href={path("/learn/")}>Learn DCL</a>
+        <a class="button secondary" href={path("/examples/")}>Read examples</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section two-column">
+    <div>
+      <h2>What is DCL?</h2>
+      <p>
+        DCL is a declarative capability language. Instead of starting with
+        endpoints, services, queues, or controllers, DCL starts with the
+        responsibility a system exposes: the capability, the intent it accepts,
+        the outcomes it can produce, and the rules that keep those outcomes
+        meaningful.
+      </p>
+      <p>
+        The language is capability-first and semantics-first. Syntax exists to
+        make architectural intent explicit, analyzable, and portable across
+        documentation, validation, diagrams, tests, and future tooling.
+      </p>
+    </div>
+    <div class="notice">
+      <strong>Current focus</strong>
+      <p>
+        This first public site documents the language identity and early learning
+        path. The interactive editor, compiler WASM, diagnostics, IR views, and
+        diagrams are planned extension points, not shipped website features yet.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Language Concepts</h2>
+    <div class="concept-grid">
+      <div class="concept"><strong>Capabilities</strong><p>System responsibilities described as language primitives.</p></div>
+      <div class="concept"><strong>Intent</strong><p>The input or request a capability is designed to handle.</p></div>
+      <div class="concept"><strong>Outcomes</strong><p>Named results that make success, refusal, and deferral explicit.</p></div>
+      <div class="concept"><strong>Rules</strong><p>Invariants and decision constraints that shape valid behavior.</p></div>
+      <div class="concept"><strong>Effects</strong><p>Observable changes a capability may cause.</p></div>
+      <div class="concept"><strong>Events</strong><p>Signals emitted or awaited by capabilities and lifecycles.</p></div>
+      <div class="concept"><strong>Policies</strong><p>Operational and architectural requirements attached to language elements.</p></div>
+      <div class="concept"><strong>Lifecycles</strong><p>Progression through states, outcomes, events, and completion.</p></div>
+    </div>
+  </section>
+
+  <section class="section two-column">
+    <div>
+      <h2>A small DCL example</h2>
+      <p>
+        This example sketches a customer registration capability. It names the
+        intent, outcomes, rules, effects, emitted events, and outcome selection
+        without prescribing a service framework or runtime implementation.
+      </p>
+    </div>
+    <CodeBlock title="register-customer.dcl" code={example} />
+  </section>
+</BaseLayout>
