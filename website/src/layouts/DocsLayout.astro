@@ -1,0 +1,15 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+
+const { frontmatter = {} } = Astro.props;
+const title = frontmatter.title ?? "DCL";
+const description = frontmatter.description;
+---
+
+<BaseLayout title={title} description={description}>
+  <section class="content-wrap">
+    <article class="prose">
+      <slot />
+    </article>
+  </section>
+</BaseLayout>

@@ -1,0 +1,8 @@
+---
+const { code, language = "dcl", title = "" } = Astro.props;
+---
+
+<figure class="code-block">
+  {title && <figcaption>{title}</figcaption>}
+  <pre><code class={`language-${language}`}>{code}</code></pre>
+</figure>

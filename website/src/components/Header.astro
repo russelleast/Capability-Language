@@ -1,0 +1,25 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = (href) => `${base}${href}`;
+
+const navItems = [
+  { href: "/learn/", label: "Learn" },
+  { href: "/docs/", label: "Docs" },
+  { href: "/guides/", label: "Guides" },
+  { href: "/examples/", label: "Examples" },
+  { href: "/playground/", label: "Playground" },
+];
+---
+
+<header class="site-header">
+  <nav class="nav" aria-label="Primary navigation">
+    <a class="brand" href={path("/")}>
+      <span class="brand-mark">DCL</span>
+      <span class="brand-name">Declarative Capability Language</span>
+    </a>
+    <div class="nav-links">
+      {navItems.map((item) => <a href={path(item.href)}>{item.label}</a>)}
+      <a href="https://github.com/russelleast/Capability-Language">GitHub</a>
+    </div>
+  </nav>
+</header>

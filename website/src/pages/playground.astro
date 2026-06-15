@@ -1,0 +1,37 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Playground"
+  description="Future home of the DCL browser playground, editor, compiler diagnostics, IR view, and diagrams."
+>
+  <section class="content-wrap">
+    <article class="prose">
+      <h1>Playground</h1>
+      <p>
+        The DCL playground is planned as an interactive place to write capability
+        models, run the compiler in the browser, inspect diagnostics, view
+        intermediate representation, and generate diagrams.
+      </p>
+
+      <div class="notice">
+        <strong>Not implemented yet</strong>
+        <p>
+          This first website is static and content-first. Monaco editor,
+          compiler WASM, diagnostics, IR views, Cytoscape diagrams, and runtime
+          execution are future capabilities.
+        </p>
+      </div>
+
+      <h2>Planned Extension Points</h2>
+      <ul>
+        <li>Editor shell for Monaco or another browser code editor.</li>
+        <li>Compiler WASM loading and version selection.</li>
+        <li>Diagnostics panel for parser and semantic feedback.</li>
+        <li>IR view for compiler output and analysis.</li>
+        <li>Diagram area for capability, policy, and lifecycle visualization.</li>
+      </ul>
+    </article>
+  </section>
+</BaseLayout>

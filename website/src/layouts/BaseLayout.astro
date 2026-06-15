@@ -1,0 +1,29 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/global.css";
+
+const {
+  title = "DCL - Declarative Capability Language",
+  description = "DCL is a declarative capability language for describing software systems in terms of capabilities, intent, outcomes, rules, effects, events, policies, and lifecycle progression.",
+} = Astro.props;
+
+const pageTitle = title.includes("DCL") ? title : `${title} - DCL`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
