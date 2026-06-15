@@ -56,10 +56,14 @@ const initialExample = playgroundExamples[0];
       </p>
 
       <div class="playground-grid">
-        <label class="editor-panel" for="source-editor">
-          <span>DCL source</span>
+        <div class="editor-panel">
+          <label for="source-editor">DCL source</label>
+          <div class="monaco-editor-host" data-monaco-editor hidden></div>
           <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
-        </label>
+          <p class="editor-fallback-message" data-editor-fallback-message hidden>
+            Monaco editor could not load. The fallback editor is available below.
+          </p>
+        </div>
 
         <aside class="diagnostics-panel" aria-live="polite">
           <div class="status-card" data-result-status>
@@ -118,7 +122,7 @@ const initialExample = playgroundExamples[0];
 
       <h2>Next extension points</h2>
       <ul>
-        <li>Monaco editor integration.</li>
+        <li>Editor diagnostics and completion suggestions.</li>
         <li>Compiler WASM loading behind the existing adapter.</li>
         <li>IR view for compiler output.</li>
         <li>Capability graph and lifecycle diagram views.</li>
@@ -139,6 +143,8 @@ const initialExample = playgroundExamples[0];
 
     const select = document.querySelector("[data-example-select]") as HTMLSelectElement | null;
     const editor = document.querySelector("[data-source-editor]") as HTMLTextAreaElement | null;
+    const monacoHost = document.querySelector("[data-monaco-editor]") as HTMLElement | null;
+    const editorFallbackMessage = document.querySelector("[data-editor-fallback-message]");
     const resetButton = document.querySelector("[data-reset-button]") as HTMLButtonElement | null;
     const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
     const summary = document.querySelector("[data-example-summary]");
@@ -153,6 +159,24 @@ const initialExample = playgroundExamples[0];
     const compilerOutput = document.querySelector("[data-compiler-output]");
     const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
     const resultPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-result-panel]"));
+    let sourceEditor = {
+      getValue: () => editor?.value ?? "",
+      setValue: (value: string) => {
+        if (editor) editor.value = value;
+      },
+    };
+
+    if (editor && monacoHost) {
+      import("../lib/playground/dcl-editor")
+        .then(({ createDclEditor }) => {
+          sourceEditor = createDclEditor(editor, monacoHost);
+        })
+        .catch(() => {
+          monacoHost.hidden = true;
+          editor.hidden = false;
+          editorFallbackMessage?.removeAttribute("hidden");
+        });
+    }
 
     function selectedExample() {
       return playgroundExamples.find((example) => example.id === select?.value) ?? playgroundExamples[0];
@@ -500,7 +524,7 @@ const initialExample = playgroundExamples[0];
     function loadExample() {
       const example = selectedExample();
 
-      if (editor) editor.value = example.source;
+      sourceEditor.setValue(example.source);
       if (summary) summary.textContent = example.description;
       if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
       if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
@@ -523,7 +547,7 @@ const initialExample = playgroundExamples[0];
     compileButton?.addEventListener("click", async () => {
       setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
 
-      const result = await compileDcl(editor?.value ?? "");
+      const result = await compileDcl(sourceEditor.getValue());
       renderDiagnostics(result);
       renderSummary(result);
       renderAdvancedOutput(result);

@@ -409,7 +409,7 @@ main {
   min-width: 0;
 }
 
-.editor-panel span,
+.editor-panel label,
 .diagnostics-panel h2 {
   color: var(--text);
   font-size: 0.95rem;
@@ -429,6 +429,26 @@ main {
   padding: 1rem;
   resize: vertical;
   width: 100%;
+}
+
+.editor-panel textarea[hidden],
+.monaco-editor-host[hidden],
+.editor-fallback-message[hidden] {
+  display: none;
+}
+
+.monaco-editor-host {
+  border: 1px solid #26352f;
+  border-radius: 8px;
+  min-height: 520px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.editor-fallback-message {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .diagnostics-panel {
