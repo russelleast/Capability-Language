@@ -1,37 +1,197 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { compilerVersion, languageLabel } from "../config/version";
+import { playgroundExamples } from "../lib/playground/examples";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = (href) => `${base}${href}`;
+const initialExample = playgroundExamples[0];
 ---
 
 <BaseLayout
-  title="Playground"
-  description="Future home of the DCL browser playground, editor, compiler diagnostics, IR view, and diagrams."
+  title="DCL Playground"
+  description="Try validated DCL examples, edit source, and prepare for browser compiler diagnostics."
 >
-  <section class="content-wrap">
-    <article class="prose">
-      <h1>Playground</h1>
+  <section class="content-wrap playground-page">
+    <article class="prose playground-intro">
+      <p class="eyebrow">Experimental</p>
+      <h1>DCL Playground</h1>
       <p>
-        The DCL playground is planned as an interactive place to write capability
-        models, run the compiler in the browser, inspect diagnostics, view
-        intermediate representation, and generate diagrams.
+        Choose a validated example, edit the DCL source, and use the stable
+        compiler adapter boundary that will host browser compilation.
+      </p>
+      <p class="version-line">
+        Current language: <strong>{languageLabel}</strong>. Compiler:
+        <code>dcl {compilerVersion}</code>.
+      </p>
+      <p>
+        The website is statically hosted on GitHub Pages. No backend compile
+        service is used, and the Go compiler does not have a browser/WASM build
+        in this repository yet.
+      </p>
+    </article>
+
+    <div class="playground-shell" data-playground>
+      <div class="playground-toolbar">
+        <label class="field-label" for="example-select">Example</label>
+        <select id="example-select" class="example-select" data-example-select>
+          {
+            playgroundExamples.map((example) => (
+              <option value={example.id}>{example.title}</option>
+            ))
+          }
+        </select>
+        <button class="button secondary control-button" type="button" data-reset-button>
+          Reset example
+        </button>
+        <button class="button primary control-button" type="button" data-compile-button>
+          Compile
+        </button>
+      </div>
+
+      <p class="example-summary" data-example-summary>
+        {initialExample.description}
+      </p>
+      <p class="example-path" data-example-path>
+        Source: <code>{initialExample.path}</code>
       </p>
 
+      <div class="playground-grid">
+        <label class="editor-panel" for="source-editor">
+          <span>DCL source</span>
+          <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
+        </label>
+
+        <aside class="diagnostics-panel" aria-live="polite">
+          <div class="status-card" data-result-status>
+            Ready. Select an example or edit the source.
+          </div>
+          <h2>Diagnostics</h2>
+          <div class="diagnostics-output" data-diagnostics-output>
+            <p>No compile run yet.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <article class="prose playground-notes">
       <div class="notice">
-        <strong>Not implemented yet</strong>
+        <strong>Browser compiler status</strong>
         <p>
-          This first website is static and content-first. Monaco editor,
-          compiler WASM, diagnostics, IR views, Cytoscape diagrams, and runtime
-          execution are future capabilities.
+          Compilation is intentionally stubbed until a browser-compatible DCL
+          compiler build exists. The Compile button calls
+          <code>compileDcl(source)</code> and reports that limitation instead of
+          pretending success.
         </p>
       </div>
 
-      <h2>Planned Extension Points</h2>
+      <h2>Next extension points</h2>
       <ul>
-        <li>Editor shell for Monaco or another browser code editor.</li>
-        <li>Compiler WASM loading and version selection.</li>
-        <li>Diagnostics panel for parser and semantic feedback.</li>
-        <li>IR view for compiler output and analysis.</li>
-        <li>Diagram area for capability, policy, and lifecycle visualization.</li>
+        <li>Monaco editor integration.</li>
+        <li>Compiler WASM loading behind the existing adapter.</li>
+        <li>IR view for compiler output.</li>
+        <li>Capability graph and lifecycle diagram views.</li>
+        <li>Policy and diagnostic explanations.</li>
       </ul>
+
+      <p>
+        Continue with <a href={path("/examples/")}>Examples</a> or the
+        <a href={path("/docs/")}>Reference</a>.
+      </p>
     </article>
   </section>
+
+  <script>
+    import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
+    import { playgroundExamples } from "../lib/playground/examples";
+
+    const select = document.querySelector("[data-example-select]") as HTMLSelectElement | null;
+    const editor = document.querySelector("[data-source-editor]") as HTMLTextAreaElement | null;
+    const resetButton = document.querySelector("[data-reset-button]") as HTMLButtonElement | null;
+    const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
+    const summary = document.querySelector("[data-example-summary]");
+    const sourcePath = document.querySelector("[data-example-path]");
+    const status = document.querySelector("[data-result-status]");
+    const diagnostics = document.querySelector("[data-diagnostics-output]");
+
+    function selectedExample() {
+      return playgroundExamples.find((example) => example.id === select?.value) ?? playgroundExamples[0];
+    }
+
+    function setStatus(message: string, state = "idle") {
+      if (!status) return;
+      status.textContent = message;
+      status.setAttribute("data-state", state);
+    }
+
+    function renderDiagnostics(result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!diagnostics) return;
+
+      if (result.diagnostics.length === 0) {
+        diagnostics.innerHTML = "<p>No diagnostics.</p>";
+        return;
+      }
+
+      const list = document.createElement("ul");
+      list.className = "diagnostic-list";
+
+      for (const diagnostic of result.diagnostics) {
+        const item = document.createElement("li");
+        item.className = `diagnostic diagnostic-${diagnostic.severity}`;
+
+        const heading = document.createElement("strong");
+        heading.textContent = diagnostic.code
+          ? `${diagnostic.severity.toUpperCase()} ${diagnostic.code}`
+          : diagnostic.severity.toUpperCase();
+
+        const message = document.createElement("p");
+        message.textContent = diagnostic.message;
+
+        item.append(heading, message);
+
+        if (diagnostic.line || diagnostic.column) {
+          const location = document.createElement("span");
+          location.className = "diagnostic-location";
+          location.textContent = `Line ${diagnostic.line ?? "?"}, column ${diagnostic.column ?? "?"}`;
+          item.append(location);
+        }
+
+        list.append(item);
+      }
+
+      diagnostics.replaceChildren(list);
+    }
+
+    function loadExample() {
+      const example = selectedExample();
+
+      if (editor) editor.value = example.source;
+      if (summary) summary.textContent = example.description;
+      if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
+      if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
+
+      setStatus("Ready. Example loaded from validated website source.");
+    }
+
+    select?.addEventListener("change", loadExample);
+    resetButton?.addEventListener("click", loadExample);
+
+    compileButton?.addEventListener("click", async () => {
+      setStatus(browserCompilerAvailable ? "Compiling..." : "Browser compiler unavailable.", "pending");
+
+      const result = await compileDcl(editor?.value ?? "");
+      renderDiagnostics(result);
+
+      if (result.ok) {
+        setStatus("Compile succeeded.", "success");
+        return;
+      }
+
+      const hasErrors = result.diagnostics.some((diagnostic) => diagnostic.severity === "error");
+      setStatus(
+        hasErrors ? "Compile failed." : "Compile did not run in this browser build.",
+        hasErrors ? "error" : "pending",
+      );
+    });
+  </script>
 </BaseLayout>

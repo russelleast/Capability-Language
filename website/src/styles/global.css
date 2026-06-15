@@ -336,6 +336,188 @@ main {
   margin: 0 0 0.8rem;
 }
 
+.playground-page {
+  max-width: 1180px;
+}
+
+.playground-intro {
+  max-width: 860px;
+}
+
+.playground-shell {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 2rem 0;
+  padding: 1rem;
+}
+
+.playground-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+}
+
+.field-label {
+  color: var(--text);
+  display: grid;
+  font-size: 0.9rem;
+  font-weight: 750;
+  gap: 0.35rem;
+}
+
+.example-select {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+}
+
+.control-button {
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.example-summary {
+  color: var(--muted);
+  margin: 1rem 0 0.2rem;
+}
+
+.example-path {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.playground-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  margin-top: 1rem;
+}
+
+.editor-panel {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.editor-panel span,
+.diagnostics-panel h2 {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.editor-panel textarea {
+  background: var(--code-bg);
+  border: 1px solid #26352f;
+  border-radius: 8px;
+  color: var(--code-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  min-height: 520px;
+  padding: 1rem;
+  resize: vertical;
+  width: 100%;
+}
+
+.diagnostics-panel {
+  border-left: 1px solid var(--line);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-rows: auto auto 1fr;
+  padding-left: 1rem;
+}
+
+.status-card {
+  background: #edf3ee;
+  border: 1px solid #cfe0d4;
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-weight: 750;
+  padding: 0.8rem;
+}
+
+.status-card[data-state="success"] {
+  background: #edf7ef;
+  border-color: #b7ddbf;
+}
+
+.status-card[data-state="error"] {
+  background: #fff0ee;
+  border-color: #efc4bd;
+  color: #8a2d1c;
+}
+
+.status-card[data-state="pending"] {
+  background: #fff8e6;
+  border-color: #eadba6;
+  color: #6e5512;
+}
+
+.diagnostics-output {
+  color: var(--muted);
+  min-width: 0;
+}
+
+.diagnostics-output p {
+  margin: 0;
+}
+
+.diagnostic-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diagnostic {
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.diagnostic-info {
+  border-left-color: var(--accent);
+}
+
+.diagnostic-warning {
+  border-left-color: #9a7414;
+}
+
+.diagnostic-error {
+  border-left-color: #a53722;
+}
+
+.diagnostic strong {
+  color: var(--text);
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+.diagnostic-location {
+  color: var(--muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+.playground-notes {
+  max-width: 860px;
+}
+
 .site-footer {
   border-top: 1px solid var(--line);
   color: var(--muted);
@@ -372,5 +554,17 @@ main {
   .two-column,
   .concept-grid {
     grid-template-columns: 1fr;
+  }
+
+  .playground-toolbar,
+  .playground-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostics-panel {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 1rem;
   }
 }
