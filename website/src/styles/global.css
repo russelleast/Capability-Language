@@ -491,6 +491,14 @@ main {
   text-transform: uppercase;
 }
 
+.editor-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
 .editor-panel textarea {
   background: var(--code-bg);
   border: 1px solid #26352f;

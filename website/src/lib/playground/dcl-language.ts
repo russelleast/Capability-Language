@@ -1,4 +1,5 @@
 import type * as Monaco from "monaco-editor/esm/vs/editor/editor.api.js";
+import { formatDcl } from "./formatDcl";
 import { sitePath } from "./links";
 
 export const DCL_LANGUAGE_ID = "dcl";
@@ -430,6 +431,20 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
           },
         ],
       };
+    },
+  });
+
+  monaco.languages.registerDocumentFormattingEditProvider(DCL_LANGUAGE_ID, {
+    provideDocumentFormattingEdits(model) {
+      const formatted = formatDcl(model.getValue());
+      if (formatted === model.getValue()) return [];
+
+      return [
+        {
+          range: model.getFullModelRange(),
+          text: formatted,
+        },
+      ];
     },
   });
 

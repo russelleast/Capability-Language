@@ -81,9 +81,14 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         <div class="editor-panel">
           <div class="pane-heading">
             <label for="source-editor">DCL source</label>
-            <button class="button secondary control-button editor-suggest-button" type="button" data-show-suggestions-button>
-              Show suggestions
-            </button>
+            <div class="editor-actions">
+              <button class="button secondary control-button editor-format-button" type="button" data-format-source-button>
+                Format
+              </button>
+              <button class="button secondary control-button editor-suggest-button" type="button" data-show-suggestions-button>
+                Show suggestions
+              </button>
+            </div>
           </div>
           <div class="monaco-editor-host" data-monaco-editor hidden></div>
           <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
@@ -93,6 +98,8 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
               <p>
                 Autocomplete: macOS <kbd>Option</kbd>+<kbd>Escape</kbd>, Windows/Linux
                 <kbd>Ctrl</kbd>+<kbd>Space</kbd>, or the Show suggestions button.
+                Format source with <kbd>Shift</kbd>+<kbd>Option</kbd>+<kbd>F</kbd> on macOS,
+                <kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> on Windows/Linux, or the Format button.
               </p>
               <p>
                 Compiler diagnostics appear after pressing Compile. Red and yellow markers come from the DCL compiler.
@@ -196,6 +203,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
 
   <script>
     import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
+    import { formatDcl } from "../lib/playground/formatDcl";
     import { playgroundExamples } from "../lib/playground/examples";
     import { playgroundExamplePath } from "../lib/playground/links";
     import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
@@ -207,6 +215,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     const editorFallbackMessage = document.querySelector("[data-editor-fallback-message]");
     const resetButton = document.querySelector("[data-reset-button]") as HTMLButtonElement | null;
     const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
+    const formatSourceButton = document.querySelector("[data-format-source-button]") as HTMLButtonElement | null;
     const showSuggestionsButton = document.querySelector("[data-show-suggestions-button]") as HTMLButtonElement | null;
     const copySourceButton = document.querySelector("[data-copy-source-button]") as HTMLButtonElement | null;
     const copyDiagnosticsButton = document.querySelector("[data-copy-diagnostics-button]") as HTMLButtonElement | null;
@@ -224,12 +233,20 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     const compilerOutput = document.querySelector("[data-compiler-output]");
     const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
     const resultPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-result-panel]"));
-    let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics"> = {
+    let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics" | "formatSource" | "showSuggestions"> = {
       getValue: () => editor?.value ?? "",
       setValue: (value: string) => {
         if (editor) editor.value = value;
       },
       setDiagnostics: () => undefined,
+      formatSource: () => {
+        if (!editor) return false;
+        const current = editor.value;
+        const formatted = formatDcl(current);
+        if (formatted === current) return false;
+        editor.value = formatted;
+        return true;
+      },
       showSuggestions: () => editor?.focus(),
     };
 
@@ -723,8 +740,25 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       setStatus("Ready. Example loaded from validated website source.");
     }
 
+    function clearCompileOutput(message: string) {
+      sourceEditor.setDiagnostics([]);
+      if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
+      if (diagnosticsCount) diagnosticsCount.textContent = "No run";
+      if (compilerResults) compilerResults.setAttribute("hidden", "");
+      if (summaryOutput) summaryOutput.replaceChildren();
+      if (mapOutput) mapOutput.replaceChildren();
+      if (flowOutput) flowOutput.replaceChildren();
+      if (compilerOutput) compilerOutput.textContent = "{}";
+      activateResultPanel("summary");
+      setStatus(message);
+    }
+
     select?.addEventListener("change", () => loadExample({ updateUrl: true }));
     resetButton?.addEventListener("click", () => loadExample({ updateUrl: true }));
+    formatSourceButton?.addEventListener("click", () => {
+      const changed = sourceEditor.formatSource();
+      clearCompileOutput(changed ? "Source formatted. Compile again to refresh diagnostics." : "Source already formatted.");
+    });
     showSuggestionsButton?.addEventListener("click", () => sourceEditor.showSuggestions());
     copySourceButton?.addEventListener("click", () => copyText(sourceEditor.getValue(), copySourceButton, "Copied"));
     copyDiagnosticsButton?.addEventListener("click", () =>

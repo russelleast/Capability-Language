@@ -1,9 +1,11 @@
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
+import "monaco-editor/esm/vs/editor/contrib/format/browser/formatActions.js";
 import "monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution.js";
 import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController.js";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker.js?worker";
 import type { Diagnostic } from "./compiler";
 import { DCL_LANGUAGE_ID, registerDclLanguage } from "./dcl-language";
+import { formatDcl } from "./formatDcl";
 
 type MonacoEnvironment = {
   getWorker(): Worker;
@@ -19,6 +21,7 @@ export type DclEditorController = {
   getValue(): string;
   setValue(value: string): void;
   setDiagnostics(diagnostics: Diagnostic[]): void;
+  formatSource(): boolean;
   showSuggestions(): void;
   layout(): void;
   dispose(): void;
@@ -88,6 +91,26 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
       if (!model) return;
 
       monaco.editor.setModelMarkers(model, "dcl", diagnostics.flatMap(toMonacoMarker));
+    },
+    formatSource() {
+      const model = editor.getModel();
+      if (!model) return false;
+
+      const current = model.getValue();
+      const formatted = formatDcl(current);
+      if (formatted === current) return false;
+
+      editor.pushUndoStop();
+      editor.executeEdits("dcl-format", [
+        {
+          range: model.getFullModelRange(),
+          text: formatted,
+          forceMoveMarkers: true,
+        },
+      ]);
+      editor.pushUndoStop();
+      monaco.editor.setModelMarkers(model, "dcl", []);
+      return true;
     },
     showSuggestions() {
       triggerSuggest(editor);
