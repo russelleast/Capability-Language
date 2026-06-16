@@ -2,6 +2,7 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import CodeBlock from "../../components/CodeBlock.astro";
 import source from "../../examples/leave-request.dcl?raw";
+import { playgroundExamplePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "How Do I Model Validation?",
@@ -31,4 +32,7 @@ const frontmatter = {
   </p>
 
   <CodeBlock title="leave-request.dcl" code={source} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("leave-request")}>Open in Playground</a>
+  </p>
 </DocsLayout>

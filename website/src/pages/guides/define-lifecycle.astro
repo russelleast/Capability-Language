@@ -2,6 +2,7 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import CodeBlock from "../../components/CodeBlock.astro";
 import source from "../../examples/payment-processing.dcl?raw";
+import { playgroundExamplePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "How Do I Define a Lifecycle?",
@@ -24,4 +25,7 @@ const frontmatter = {
   </p>
 
   <CodeBlock title="payment-processing.dcl" code={source} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("payment-processing")}>Open in Playground</a>
+  </p>
 </DocsLayout>

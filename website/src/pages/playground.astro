@@ -2,9 +2,8 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { compilerVersion, languageLabel } from "../config/version";
 import { playgroundExamples } from "../lib/playground/examples";
+import { sitePath } from "../lib/playground/links";
 
-const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-const path = (href) => `${base}${href}`;
 const initialExample = playgroundExamples[0];
 ---
 
@@ -54,6 +53,9 @@ const initialExample = playgroundExamples[0];
           </button>
           <button class="button secondary control-button" type="button" data-copy-diagnostics-button>
             Copy diagnostics
+          </button>
+          <button class="button secondary control-button" type="button" data-copy-playground-link-button>
+            Copy playground link
           </button>
           <button class="button secondary control-button" type="button" data-reset-button>
             Reset
@@ -160,8 +162,8 @@ const initialExample = playgroundExamples[0];
       </ul>
 
       <p>
-        Continue with <a href={path("/examples/")}>Examples</a> or the
-        <a href={path("/docs/")}>Reference</a>.
+        Continue with <a href={sitePath("/examples/")}>Examples</a> or the
+        <a href={sitePath("/docs/")}>Reference</a>.
       </p>
     </article>
   </section>
@@ -169,6 +171,7 @@ const initialExample = playgroundExamples[0];
   <script>
     import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
     import { playgroundExamples } from "../lib/playground/examples";
+    import { playgroundExamplePath } from "../lib/playground/links";
     import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
     import type { DclEditorController } from "../lib/playground/dcl-editor";
 
@@ -180,6 +183,7 @@ const initialExample = playgroundExamples[0];
     const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
     const copySourceButton = document.querySelector("[data-copy-source-button]") as HTMLButtonElement | null;
     const copyDiagnosticsButton = document.querySelector("[data-copy-diagnostics-button]") as HTMLButtonElement | null;
+    const copyPlaygroundLinkButton = document.querySelector("[data-copy-playground-link-button]") as HTMLButtonElement | null;
     const summary = document.querySelector("[data-example-summary]");
     const sourcePath = document.querySelector("[data-example-path]");
     const status = document.querySelector("[data-result-status]");
@@ -215,6 +219,25 @@ const initialExample = playgroundExamples[0];
 
     function selectedExample() {
       return playgroundExamples.find((example) => example.id === select?.value) ?? playgroundExamples[0];
+    }
+
+    function selectExampleFromUrl() {
+      const exampleId = new URLSearchParams(window.location.search).get("example");
+      if (!exampleId || !select) return false;
+      const example = playgroundExamples.find((item) => item.id === exampleId);
+      if (!example) return false;
+
+      select.value = example.id;
+      return true;
+    }
+
+    function currentPlaygroundLink() {
+      return new URL(playgroundExamplePath(selectedExample().id), window.location.origin).toString();
+    }
+
+    function updateExampleUrl() {
+      const url = new URL(currentPlaygroundLink());
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }
 
     function setStatus(message: string, state = "idle") {
@@ -652,7 +675,7 @@ const initialExample = playgroundExamples[0];
       }
     }
 
-    function loadExample() {
+    function loadExample(options: { updateUrl?: boolean } = {}) {
       const example = selectedExample();
 
       sourceEditor.setValue(example.source);
@@ -668,14 +691,18 @@ const initialExample = playgroundExamples[0];
       if (compilerOutput) compilerOutput.textContent = "{}";
       activateResultPanel("summary");
 
+      if (options.updateUrl) updateExampleUrl();
       setStatus("Ready. Example loaded from validated website source.");
     }
 
-    select?.addEventListener("change", loadExample);
-    resetButton?.addEventListener("click", loadExample);
+    select?.addEventListener("change", () => loadExample({ updateUrl: true }));
+    resetButton?.addEventListener("click", () => loadExample({ updateUrl: true }));
     copySourceButton?.addEventListener("click", () => copyText(sourceEditor.getValue(), copySourceButton, "Copied"));
     copyDiagnosticsButton?.addEventListener("click", () =>
       copyText(diagnostics?.textContent?.trim() || "No diagnostics.", copyDiagnosticsButton, "Copied"),
+    );
+    copyPlaygroundLinkButton?.addEventListener("click", () =>
+      copyText(currentPlaygroundLink(), copyPlaygroundLinkButton, "Copied"),
     );
     resultTabs.forEach((tab) => {
       tab.addEventListener("click", () => activateResultPanel(tab.dataset.resultTab ?? "summary"));
@@ -706,5 +733,9 @@ const initialExample = playgroundExamples[0];
         hasErrors ? "error" : "pending",
       );
     });
+
+    if (selectExampleFromUrl()) {
+      loadExample();
+    }
   </script>
 </BaseLayout>
