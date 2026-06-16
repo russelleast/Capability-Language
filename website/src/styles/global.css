@@ -519,15 +519,82 @@ main {
   width: 100%;
 }
 
-.editor-help,
 .editor-fallback-message {
   color: var(--muted);
   font-size: 0.9rem;
   margin: 0;
 }
 
-.editor-help code {
+.editor-help-panel {
+  align-items: start;
+  background: #edf3ee;
+  border: 1px solid #cfe0d4;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0.85rem;
+}
+
+.editor-help-panel h2 {
+  color: var(--text);
+  font-size: 0.92rem;
+  margin: 0 0 0.25rem;
+}
+
+.editor-help-panel p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.editor-help-panel p + p {
+  margin-top: 0.3rem;
+}
+
+.editor-help-panel kbd {
+  background: #fdfefd;
+  border: 1px solid #cfe0d4;
+  border-radius: 4px;
   color: var(--accent-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  padding: 0.04rem 0.25rem;
+}
+
+.editor-help-snippets {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+  max-width: 20rem;
+}
+
+.editor-help-snippets span {
+  color: var(--muted);
+  flex-basis: 100%;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.editor-help-snippets a {
+  background: #fdfefd;
+  border: 1px solid #cfe0d4;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 750;
+  padding: 0.18rem 0.45rem;
+  text-decoration: none;
+}
+
+.editor-help-snippets a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .diagnostics-panel {
@@ -1043,6 +1110,19 @@ main {
 
   .playground-actions {
     justify-content: flex-start;
+  }
+
+  .editor-help-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-help-snippets {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .editor-help-snippets span {
+    text-align: left;
   }
 
   .summary-card-grid {

@@ -1,4 +1,5 @@
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
+import "monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution.js";
 import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController.js";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker.js?worker";
 import type { Diagnostic } from "./compiler";

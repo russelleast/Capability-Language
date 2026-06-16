@@ -1,10 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { compilerVersion, languageLabel } from "../config/version";
+import { dclEditorHelpSnippetLabels, dclSnippets } from "../lib/playground/dcl-language";
 import { playgroundExamples } from "../lib/playground/examples";
 import { sitePath } from "../lib/playground/links";
 
 const initialExample = playgroundExamples[0];
+const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetLabels.includes(snippet.label));
 ---
 
 <BaseLayout
@@ -85,10 +87,28 @@ const initialExample = playgroundExamples[0];
           </div>
           <div class="monaco-editor-host" data-monaco-editor hidden></div>
           <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
-          <p class="editor-help">
-            Autocomplete: type <code>cap</code>, <code>actor</code>, or <code>shape</code>. On macOS press
-            Option+Escape; on Windows/Linux press Ctrl+Space.
-          </p>
+          <section class="editor-help-panel" aria-labelledby="editor-help-title">
+            <div class="editor-help-copy">
+              <h2 id="editor-help-title">Editor help</h2>
+              <p>
+                Autocomplete: macOS <kbd>Option</kbd>+<kbd>Escape</kbd>, Windows/Linux
+                <kbd>Ctrl</kbd>+<kbd>Space</kbd>, or the Show suggestions button.
+              </p>
+              <p>
+                Compiler diagnostics appear after pressing Compile. Red and yellow markers come from the DCL compiler.
+              </p>
+            </div>
+            <div class="editor-help-snippets" aria-label="Common snippets">
+              <span>Snippets</span>
+              {
+                editorHelpSnippets.map((snippet) => (
+                  <a href={sitePath(`/docs/#${snippet.label}`)}>
+                    <code>{snippet.label}</code>
+                  </a>
+                ))
+              }
+            </div>
+          </section>
           <p class="editor-fallback-message" data-editor-fallback-message hidden>
             Monaco editor could not load. The fallback editor is available below.
           </p>
