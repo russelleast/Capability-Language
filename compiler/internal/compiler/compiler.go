@@ -22,6 +22,31 @@ type Result struct {
 	Diagnostics []diagnostic.Diagnostic
 }
 
+func CompileSource(path, source string) Result {
+	var bag diagnostic.Bag
+	program := ast.Program{Files: []string{path}}
+
+	tokens, lexDiags := lexer.Lex(path, source)
+
+	for _, d := range lexDiags {
+		bag.Add(d.Severity, d.Code, d.Message, d.Span, d.Node)
+	}
+
+	parsed, parseDiags := parser.Parse(tokens)
+
+	for _, d := range parseDiags {
+		bag.Add(d.Severity, d.Code, d.Message, d.Span, d.Node)
+	}
+
+	mergeProgram(&program, parsed)
+
+	c := newCompiler(program, &bag)
+	out := c.buildIR()
+	out.Diagnostics = bag.Items()
+
+	return Result{IR: out, Diagnostics: out.Diagnostics}
+}
+
 func CompileFiles(paths []string) Result {
 	var bag diagnostic.Bag
 	var program ast.Program

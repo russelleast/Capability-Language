@@ -2,6 +2,7 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import CodeBlock from "../../components/CodeBlock.astro";
 import source from "../../examples/register-customer.dcl?raw";
+import { playgroundExamplePath, sitePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "Write a First Capability",
@@ -49,10 +50,13 @@ const frontmatter = {
   </p>
 
   <CodeBlock title="register-customer.dcl" code={source} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("register-customer")}>Open in Playground</a>
+  </p>
 
   <h2>Next Step</h2>
   <p>
-    Read the <a href="/Capability-Language/examples/register-customer/">register
+    Read the <a href={sitePath("/examples/register-customer/")}>register
     customer example</a> for expected outcomes and concept notes.
   </p>
 </DocsLayout>

@@ -2,6 +2,7 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import CodeBlock from "../../components/CodeBlock.astro";
 import source from "../../examples/register-customer.dcl?raw";
+import { playgroundExamplePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "Register Customer Example",
@@ -18,6 +19,9 @@ const frontmatter = {
   </p>
 
   <CodeBlock title="register-customer.dcl" code={source} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("register-customer")}>Open in Playground</a>
+  </p>
 
   <h2>What It Says</h2>
   <p>

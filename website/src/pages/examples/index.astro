@@ -9,9 +9,7 @@ import contextShared from "../../examples/context-shared.dcl?raw";
 import contextSales from "../../examples/context-sales.dcl?raw";
 import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
 import paymentProcessing from "../../examples/payment-processing.dcl?raw";
-
-const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-const path = (href) => `${base}${href}`;
+import { playgroundExamplePath, sitePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "Examples",
@@ -33,7 +31,10 @@ const frontmatter = {
     delivery, events, policies, and lifecycle progression.
   </p>
   <p>
-    <a href={path("/examples/ecommerce-platform/")}>Open the E-Commerce Platform example</a>.
+    <a href={sitePath("/examples/ecommerce-platform/")}>Open the E-Commerce Platform example</a>.
+  </p>
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("ecommerce-platform")}>Open in Playground</a>
   </p>
 
   <h2>Hello World</h2>
@@ -42,6 +43,9 @@ const frontmatter = {
     outcome, and unconditional outcome causation.
   </p>
   <CodeBlock title="hello-world.dcl" code={helloWorld} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("hello-world")}>Open in Playground</a>
+  </p>
   <p><strong>Expected outcome:</strong> <code>GreetingPrepared</code>.</p>
   <p><strong>Key concepts:</strong> actor, shape, intent, outcome, <code>always then</code>.</p>
 
@@ -51,6 +55,9 @@ const frontmatter = {
     outcome selection for rejection, deferral, and acceptance.
   </p>
   <CodeBlock title="register-customer.dcl" code={registerCustomer} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("register-customer")}>Open in Playground</a>
+  </p>
   <p>
     <strong>Expected outcomes:</strong> <code>RegistrationAccepted</code>,
     <code>TermsRejected</code>, or <code>VerificationDeferred</code>.
@@ -63,6 +70,9 @@ const frontmatter = {
     those roles and the input shape.
   </p>
   <CodeBlock title="leave-request.dcl" code={leaveRequest} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("leave-request")}>Open in Playground</a>
+  </p>
   <p>
     <strong>Expected outcomes:</strong> <code>LeaveRequested</code>,
     <code>SelfApprovalRejected</code>, or <code>DurationRejected</code>.
@@ -75,6 +85,9 @@ const frontmatter = {
     without naming a runtime implementation.
   </p>
   <CodeBlock title="policy-example.dcl" code={policyExample} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("policy-example")}>Open in Playground</a>
+  </p>
   <p>
     <strong>Expected outcomes:</strong> <code>InvoiceAccepted</code> or
     <code>InvoicePublishDeferred</code>.
@@ -100,6 +113,9 @@ const frontmatter = {
     forward based on contributor outcomes and emitted events.
   </p>
   <CodeBlock title="supervising-lifecycle.dcl" code={supervisingLifecycle} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("supervising-lifecycle")}>Open in Playground</a>
+  </p>
   <p><strong>Expected terminal states:</strong> <code>Completed</code> or <code>Failed</code>.</p>
   <p><strong>Key concepts:</strong> contributors, sourced outcomes, sourced events, lifecycle completion.</p>
 
@@ -109,6 +125,9 @@ const frontmatter = {
     uses a deadline to cause an expiry outcome.
   </p>
   <CodeBlock title="payment-processing.dcl" code={paymentProcessing} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("payment-processing")}>Open in Playground</a>
+  </p>
   <p>
     <strong>Expected outcomes:</strong> <code>PaymentRequested</code> or
     <code>PaymentExpired</code>.

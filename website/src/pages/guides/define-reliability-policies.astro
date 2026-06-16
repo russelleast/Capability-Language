@@ -2,6 +2,7 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import CodeBlock from "../../components/CodeBlock.astro";
 import source from "../../examples/reliability-policy.dcl?raw";
+import { playgroundExamplePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "How Do I Define Reliability Policies?",
@@ -24,4 +25,7 @@ const frontmatter = {
   </p>
 
   <CodeBlock title="reliability-policy.dcl" code={source} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("reliability-policy")}>Open in Playground</a>
+  </p>
 </DocsLayout>

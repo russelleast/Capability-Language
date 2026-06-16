@@ -1,37 +1,750 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { compilerVersion, languageLabel } from "../config/version";
+import { playgroundExamples } from "../lib/playground/examples";
+import { sitePath } from "../lib/playground/links";
+
+const initialExample = playgroundExamples[0];
 ---
 
 <BaseLayout
-  title="Playground"
-  description="Future home of the DCL browser playground, editor, compiler diagnostics, IR view, and diagrams."
+  title="DCL Playground"
+  description="Try validated DCL examples, edit source, and prepare for browser compiler diagnostics."
 >
-  <section class="content-wrap">
-    <article class="prose">
-      <h1>Playground</h1>
+  <section class="content-wrap playground-page">
+    <article class="prose playground-intro">
+      <p class="eyebrow">Experimental</p>
+      <h1>DCL Playground</h1>
       <p>
-        The DCL playground is planned as an interactive place to write capability
-        models, run the compiler in the browser, inspect diagnostics, view
-        intermediate representation, and generate diagrams.
+        Choose a validated example, edit the DCL source, and use the stable
+        compiler adapter boundary that will host browser compilation.
       </p>
+      <p class="version-line">
+        Current language: <strong>{languageLabel}</strong>. Compiler:
+        <code>dcl {compilerVersion}</code>.
+      </p>
+      <p>
+        The website is statically hosted on GitHub Pages. The compiler runs in
+        your browser through Go WASM; no backend compile service is used.
+      </p>
+    </article>
 
-      <div class="notice">
-        <strong>Not implemented yet</strong>
-        <p>
-          This first website is static and content-first. Monaco editor,
-          compiler WASM, diagnostics, IR views, Cytoscape diagrams, and runtime
-          execution are future capabilities.
+    <div class="playground-shell" data-playground>
+      <div class="playground-toolbar">
+        <div class="playground-toolbar-main">
+          <label class="field-label" for="example-select">
+            <span>Example</span>
+            <select id="example-select" class="example-select" data-example-select>
+              {
+                playgroundExamples.map((example) => (
+                  <option value={example.id}>{example.title}</option>
+                ))
+              }
+            </select>
+          </label>
+          <div class="playground-badges">
+            <span class="validated-badge">Validated example</span>
+            <span class="version-pill">Compiler {compilerVersion}</span>
+          </div>
+        </div>
+        <div class="playground-actions">
+          <button class="button secondary control-button" type="button" data-copy-source-button>
+            Copy source
+          </button>
+          <button class="button secondary control-button" type="button" data-copy-diagnostics-button>
+            Copy diagnostics
+          </button>
+          <button class="button secondary control-button" type="button" data-copy-playground-link-button>
+            Copy playground link
+          </button>
+          <button class="button secondary control-button" type="button" data-reset-button>
+            Reset
+          </button>
+          <button class="button primary control-button" type="button" data-compile-button>
+            Compile
+          </button>
+        </div>
+      </div>
+
+      <div class="example-meta">
+        <p class="example-summary" data-example-summary>
+          {initialExample.description}
+        </p>
+        <p class="example-path" data-example-path>
+          Source: <code>{initialExample.path}</code>
         </p>
       </div>
 
-      <h2>Planned Extension Points</h2>
+      <div class="playground-grid">
+        <div class="editor-panel">
+          <div class="pane-heading">
+            <label for="source-editor">DCL source</label>
+            <button class="button secondary control-button editor-suggest-button" type="button" data-show-suggestions-button>
+              Show suggestions
+            </button>
+          </div>
+          <div class="monaco-editor-host" data-monaco-editor hidden></div>
+          <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
+          <p class="editor-help">
+            Autocomplete: type <code>cap</code>, <code>actor</code>, or <code>shape</code>. On macOS press
+            Option+Escape; on Windows/Linux press Ctrl+Space.
+          </p>
+          <p class="editor-fallback-message" data-editor-fallback-message hidden>
+            Monaco editor could not load. The fallback editor is available below.
+          </p>
+        </div>
+
+        <aside class="diagnostics-panel" aria-live="polite">
+          <div class="pane-heading">
+            <h2>Compiler results</h2>
+            <span>Browser WASM</span>
+          </div>
+          <div class="status-card" data-result-status>
+            Ready. Select an example or edit the source.
+          </div>
+          <section class="compiler-results" data-compiler-results hidden>
+            <div class="result-tabs" role="tablist" aria-label="Compiler result views">
+              <button class="result-tab" type="button" role="tab" aria-selected="true" data-result-tab="summary">
+                Semantic Summary
+              </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="map">
+                Capability Map
+              </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="flow">
+                Flow
+              </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="advanced">
+                Advanced
+              </button>
+            </div>
+            <section class="summary-output result-panel" data-summary-output data-result-panel="summary">
+              <h2>Semantic Summary</h2>
+              <p>The compiler summary will appear here after a successful compile.</p>
+            </section>
+            <section class="capability-map-output result-panel" data-result-panel="map" hidden>
+              <h2>Capability Map</h2>
+              <p>The capability map will appear here after a successful compile.</p>
+            </section>
+            <section class="flow-output result-panel" data-result-panel="flow" hidden>
+              <h2>Flow</h2>
+              <p>Lifecycle and event flow will appear here after a successful compile.</p>
+            </section>
+            <section class="advanced-output result-panel" data-result-panel="advanced" hidden>
+              <h2>Advanced: View compiler output</h2>
+              <pre><code data-compiler-output>{}</code></pre>
+            </section>
+          </section>
+          <div class="diagnostics-section">
+            <div class="pane-heading">
+              <h2>Diagnostics</h2>
+              <span data-diagnostics-count>No run</span>
+            </div>
+            <div class="diagnostics-output" data-diagnostics-output>
+              <p class="empty-state">No compile run yet.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <article class="prose playground-notes">
+      <div class="notice">
+        <strong>Browser compiler status</strong>
+        <p>
+          The Compile button calls <code>compileDcl(source)</code>, which loads
+          the static WASM compiler from <code>/compiler/dcl.wasm</code>. If the
+          WASM runtime cannot load, the adapter reports that clearly in
+          diagnostics.
+        </p>
+      </div>
+
+      <h2>Next extension points</h2>
       <ul>
-        <li>Editor shell for Monaco or another browser code editor.</li>
-        <li>Compiler WASM loading and version selection.</li>
-        <li>Diagnostics panel for parser and semantic feedback.</li>
-        <li>IR view for compiler output and analysis.</li>
-        <li>Diagram area for capability, policy, and lifecycle visualization.</li>
+        <li>Editor diagnostics and completion suggestions.</li>
+        <li>Compiler WASM loading behind the existing adapter.</li>
+        <li>IR view for compiler output.</li>
+        <li>Capability graph and lifecycle diagram views.</li>
+        <li>Policy and diagnostic explanations.</li>
       </ul>
+
+      <p>
+        Continue with <a href={sitePath("/examples/")}>Examples</a> or the
+        <a href={sitePath("/docs/")}>Reference</a>.
+      </p>
     </article>
   </section>
+
+  <script>
+    import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
+    import { playgroundExamples } from "../lib/playground/examples";
+    import { playgroundExamplePath } from "../lib/playground/links";
+    import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
+    import type { DclEditorController } from "../lib/playground/dcl-editor";
+
+    const select = document.querySelector("[data-example-select]") as HTMLSelectElement | null;
+    const editor = document.querySelector("[data-source-editor]") as HTMLTextAreaElement | null;
+    const monacoHost = document.querySelector("[data-monaco-editor]") as HTMLElement | null;
+    const editorFallbackMessage = document.querySelector("[data-editor-fallback-message]");
+    const resetButton = document.querySelector("[data-reset-button]") as HTMLButtonElement | null;
+    const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
+    const showSuggestionsButton = document.querySelector("[data-show-suggestions-button]") as HTMLButtonElement | null;
+    const copySourceButton = document.querySelector("[data-copy-source-button]") as HTMLButtonElement | null;
+    const copyDiagnosticsButton = document.querySelector("[data-copy-diagnostics-button]") as HTMLButtonElement | null;
+    const copyPlaygroundLinkButton = document.querySelector("[data-copy-playground-link-button]") as HTMLButtonElement | null;
+    const summary = document.querySelector("[data-example-summary]");
+    const sourcePath = document.querySelector("[data-example-path]");
+    const status = document.querySelector("[data-result-status]");
+    const diagnostics = document.querySelector("[data-diagnostics-output]");
+    const diagnosticsCount = document.querySelector("[data-diagnostics-count]");
+    const compilerResults = document.querySelector("[data-compiler-results]");
+    const summaryOutput = document.querySelector("[data-summary-output]");
+    const mapOutput = document.querySelector("[data-result-panel='map']");
+    const flowOutput = document.querySelector("[data-result-panel='flow']");
+    const advancedOutput = document.querySelector("[data-result-panel='advanced']");
+    const compilerOutput = document.querySelector("[data-compiler-output]");
+    const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
+    const resultPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-result-panel]"));
+    let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics"> = {
+      getValue: () => editor?.value ?? "",
+      setValue: (value: string) => {
+        if (editor) editor.value = value;
+      },
+      setDiagnostics: () => undefined,
+      showSuggestions: () => editor?.focus(),
+    };
+
+    if (editor && monacoHost) {
+      import("../lib/playground/dcl-editor")
+        .then(({ createDclEditor }) => {
+          sourceEditor = createDclEditor(editor, monacoHost);
+        })
+        .catch(() => {
+          monacoHost.hidden = true;
+          editor.hidden = false;
+          editorFallbackMessage?.removeAttribute("hidden");
+        });
+    }
+
+    function selectedExample() {
+      return playgroundExamples.find((example) => example.id === select?.value) ?? playgroundExamples[0];
+    }
+
+    function selectExampleFromUrl() {
+      const exampleId = new URLSearchParams(window.location.search).get("example");
+      if (!exampleId || !select) return false;
+      const example = playgroundExamples.find((item) => item.id === exampleId);
+      if (!example) return false;
+
+      select.value = example.id;
+      return true;
+    }
+
+    function currentPlaygroundLink() {
+      return new URL(playgroundExamplePath(selectedExample().id), window.location.origin).toString();
+    }
+
+    function updateExampleUrl() {
+      const url = new URL(currentPlaygroundLink());
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    function setStatus(message: string, state = "idle") {
+      if (!status) return;
+      status.textContent = message;
+      status.setAttribute("data-state", state);
+    }
+
+    function renderDiagnostics(result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!diagnostics) return;
+
+      if (result.diagnostics.length === 0) {
+        if (diagnosticsCount) diagnosticsCount.textContent = "Clean";
+        diagnostics.innerHTML = '<p class="diagnostic-success">No diagnostics. The compiler accepted this source.</p>';
+        return;
+      }
+
+      const severityCounts = result.diagnostics.reduce(
+        (counts, diagnostic) => {
+          counts[diagnostic.severity] += 1;
+          return counts;
+        },
+        { error: 0, warning: 0, info: 0 },
+      );
+      if (diagnosticsCount) {
+        diagnosticsCount.textContent = [
+          severityCounts.error ? `${severityCounts.error} error${severityCounts.error === 1 ? "" : "s"}` : "",
+          severityCounts.warning ? `${severityCounts.warning} warning${severityCounts.warning === 1 ? "" : "s"}` : "",
+          severityCounts.info ? `${severityCounts.info} info` : "",
+        ].filter(Boolean).join(", ");
+      }
+
+      const list = document.createElement("ul");
+      list.className = "diagnostic-list";
+
+      for (const diagnostic of result.diagnostics) {
+        const item = document.createElement("li");
+        item.className = `diagnostic diagnostic-${diagnostic.severity}`;
+
+        const severity = document.createElement("span");
+        severity.className = "diagnostic-severity";
+        severity.textContent = diagnostic.severity;
+
+        const heading = document.createElement("strong");
+        heading.textContent = diagnostic.code ?? "Compiler diagnostic";
+
+        const message = document.createElement("p");
+        message.textContent = diagnostic.message;
+
+        item.append(severity, heading, message);
+
+        if (diagnostic.line || diagnostic.column) {
+          const location = document.createElement("span");
+          location.className = "diagnostic-location";
+          location.textContent = `Line ${diagnostic.line ?? "?"}, column ${diagnostic.column ?? "?"}`;
+          item.append(location);
+        }
+
+        list.append(item);
+      }
+
+      diagnostics.replaceChildren(list);
+    }
+
+    function renderSummary(result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!summaryOutput) return;
+
+      if (!result.ok || !result.ir) {
+        compilerResults?.setAttribute("hidden", "");
+        summaryOutput.replaceChildren();
+        return;
+      }
+
+      const summary = summarizeCompilerOutput(result.ir);
+      compilerResults?.removeAttribute("hidden");
+      summaryOutput.replaceChildren(summaryHeading(), summaryIntro(), renderSemanticSummary(summary));
+      renderCapabilityMap(summary);
+      renderFlow(summary);
+      activateResultPanel("summary");
+    }
+
+    function summaryHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Semantic Summary";
+      return heading;
+    }
+
+    function summaryIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "This is the meaning the compiler derived from your DCL source.";
+      return intro;
+    }
+
+    function renderSemanticSummary(summary: SemanticSummary) {
+      const container = document.createElement("div");
+      container.className = "summary-list";
+
+      if (summary.capabilities.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "No capabilities were found in the compiler output.";
+        container.append(empty);
+      }
+
+      for (const capability of summary.capabilities) {
+        container.append(renderCapabilitySummary(capability));
+      }
+
+      if (summary.contexts?.length) {
+        container.append(renderSummaryGroup("Contexts", summary.contexts.map((context) => {
+          const deps = context.dependencies?.length ? ` depends on ${context.dependencies.join(", ")}` : "";
+          return `${context.name}${deps}`;
+        })));
+      }
+
+      if (summary.dependencies?.length) {
+        container.append(renderSummaryGroup("Dependencies", summary.dependencies));
+      }
+
+      return container;
+    }
+
+    function renderCapabilitySummary(capability: CapabilitySummary) {
+      const section = document.createElement("section");
+      section.className = "summary-capability";
+
+      const heading = document.createElement("h3");
+      heading.textContent = `Capability: ${capability.name}`;
+      section.append(heading);
+
+      const groups = document.createElement("div");
+      groups.className = "summary-card-grid";
+      groups.append(
+        renderSummaryGroup("Intents", capability.intents),
+        renderSummaryGroup("Actors", capability.actors),
+        renderSummaryGroup("Outcomes", capability.outcomes),
+        renderSummaryGroup("Rules", capability.rules),
+        renderSummaryGroup("Effects", capability.effects),
+        renderSummaryGroup("Events", capability.events),
+        renderSummaryGroup("Policies", capability.policies),
+      );
+      section.append(groups);
+
+      if (capability.lifecycle?.steps?.length || capability.lifecycle?.transitions?.length) {
+        const lifecycle = document.createElement("div");
+        lifecycle.className = "summary-group";
+        const label = document.createElement("strong");
+        label.textContent = "Lifecycle";
+        lifecycle.append(label);
+        if (capability.lifecycle.steps?.length) lifecycle.append(renderInlineList("Steps", capability.lifecycle.steps));
+        if (capability.lifecycle.transitions?.length) lifecycle.append(renderInlineList("Transitions", capability.lifecycle.transitions));
+        section.append(lifecycle);
+      }
+
+      return section;
+    }
+
+    function renderCapabilityMap(summary: SemanticSummary) {
+      if (!mapOutput) return;
+
+      mapOutput.replaceChildren(mapHeading(), mapIntro());
+
+      const map = document.createElement("div");
+      map.className = "capability-map";
+
+      if (summary.capabilities.length === 0) {
+        const empty = document.createElement("p");
+        empty.textContent = "No capabilities were found in the compiler output.";
+        map.append(empty);
+      }
+
+      for (const capability of summary.capabilities) {
+        map.append(renderCapabilityMapCard(capability));
+      }
+
+      mapOutput.append(map);
+    }
+
+    function mapHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Capability Map";
+      return heading;
+    }
+
+    function mapIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "A plain-language view of how actors, capabilities, outcomes, effects, events, policies, and lifecycles relate.";
+      return intro;
+    }
+
+    function renderCapabilityMapCard(capability: CapabilitySummary) {
+      const card = document.createElement("article");
+      card.className = "capability-map-card";
+
+      const heading = document.createElement("h3");
+      heading.textContent = capability.name;
+      card.append(heading);
+
+      appendMapPath(card, "Actors express intents", [...(capability.actors ?? []), ...(capability.intents ?? [])], capability.name, capability.outcomes);
+      if (capability.effects?.length) appendMapPath(card, "Capability causes effects", [capability.name], undefined, capability.effects);
+      if (capability.events?.length) appendMapPath(card, "Capability emits events", [capability.name], undefined, capability.events);
+      appendMapSection(card, "Rules guide decisions", capability.rules);
+      appendMapSection(card, "Policies shape operation", capability.policies);
+
+      const lifecycleItems = [
+        ...(capability.lifecycle?.steps?.map((step) => `Step: ${step}`) ?? []),
+        ...(capability.lifecycle?.transitions?.map((transition) => `Transition: ${transition}`) ?? []),
+      ];
+      appendMapSection(card, "Lifecycle progresses through steps", lifecycleItems);
+
+      return card;
+    }
+
+    function appendMapPath(parent: HTMLElement, title: string, sources?: string[], center?: string, targets?: string[]) {
+      if (!sources?.length && !center && !targets?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "capability-map-path";
+
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      section.append(heading);
+
+      const path = document.createElement("div");
+      path.className = "map-path";
+      appendMapNodes(path, sources);
+      if (center) appendMapNode(path, center, "capability");
+      appendMapNodes(path, targets);
+      section.append(path);
+      parent.append(section);
+    }
+
+    function appendMapNodes(parent: HTMLElement, items?: string[]) {
+      for (const item of items ?? []) {
+        appendMapNode(parent, item);
+      }
+    }
+
+    function appendMapNode(parent: HTMLElement, label: string, kind = "default") {
+      const node = document.createElement("span");
+      node.className = `map-node map-node-${kind}`;
+      node.textContent = label;
+      parent.append(node);
+    }
+
+    function renderFlow(summary: SemanticSummary) {
+      if (!flowOutput) return;
+
+      flowOutput.replaceChildren(flowHeading(), flowIntro());
+
+      const flow = document.createElement("div");
+      flow.className = "flow-list";
+      const flowCapabilities = summary.capabilities.filter(hasFlow);
+
+      if (flowCapabilities.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "flow-empty";
+        empty.textContent = "No lifecycle transitions were found in this source.";
+        flow.append(empty);
+      }
+
+      for (const capability of flowCapabilities) {
+        flow.append(renderFlowCard(capability));
+      }
+
+      flowOutput.append(flow);
+    }
+
+    function flowHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Flow";
+      return heading;
+    }
+
+    function flowIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "Lifecycle transitions and emitted events derived from the compiler summary.";
+      return intro;
+    }
+
+    function hasFlow(capability: CapabilitySummary) {
+      return Boolean(
+        capability.lifecycle?.begin ||
+          capability.lifecycle?.ends?.length ||
+          capability.lifecycle?.steps?.length ||
+          capability.lifecycle?.transitions?.length ||
+          capability.events?.length,
+      );
+    }
+
+    function renderFlowCard(capability: CapabilitySummary) {
+      const card = document.createElement("article");
+      card.className = "flow-card";
+
+      const heading = document.createElement("h3");
+      heading.textContent = capability.name;
+      card.append(heading);
+
+      if (capability.lifecycle?.begin) {
+        appendFlowSection(card, "Begin step", [capability.lifecycle.begin]);
+      }
+      appendFlowTimeline(card, capability);
+      appendFlowSection(card, "Lifecycle steps", capability.lifecycle?.steps);
+      appendFlowSection(card, "End steps", capability.lifecycle?.ends);
+      appendFlowSection(card, "Emitted events", capability.events);
+
+      return card;
+    }
+
+    function appendFlowTimeline(parent: HTMLElement, capability: CapabilitySummary) {
+      if (!capability.lifecycle?.transitions?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "flow-section";
+      const heading = document.createElement("strong");
+      heading.textContent = "Timeline";
+      const timeline = document.createElement("ol");
+      timeline.className = "flow-timeline";
+
+      for (const transition of capability.lifecycle.transitions) {
+        const item = document.createElement("li");
+        item.textContent = transition;
+        timeline.append(item);
+      }
+
+      section.append(heading, timeline);
+      parent.append(section);
+    }
+
+    function appendFlowSection(parent: HTMLElement, title: string, items?: string[]) {
+      if (!items?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "flow-section";
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      section.append(heading, renderValueList(items));
+      parent.append(section);
+    }
+
+    function appendMapSection(parent: HTMLElement, title: string, items?: string[]) {
+      if (!items?.length) return;
+
+      const section = document.createElement("section");
+      section.className = "capability-map-section";
+
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+      section.append(heading, renderValueList(items));
+      parent.append(section);
+    }
+
+    function renderSummaryGroup(labelText: string, items?: string[]) {
+      const group = document.createElement("div");
+      group.className = "summary-group";
+      if (!items?.length) {
+        group.setAttribute("hidden", "");
+        return group;
+      }
+
+      const label = document.createElement("strong");
+      label.textContent = labelText;
+      group.append(label, renderValueList(items));
+      return group;
+    }
+
+    function renderInlineList(label: string, items: string[]) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "summary-inline-list";
+      const strong = document.createElement("span");
+      strong.textContent = `${label}:`;
+      wrapper.append(strong, renderValueList(items));
+      return wrapper;
+    }
+
+    function renderValueList(items: string[]) {
+      const list = document.createElement("ul");
+      for (const item of items) {
+        const element = document.createElement("li");
+        element.textContent = item;
+        list.append(element);
+      }
+      return list;
+    }
+
+    function renderAdvancedOutput(result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!advancedOutput || !compilerOutput) return;
+
+      if (!result.ir) {
+        compilerOutput.textContent = "{}";
+        return;
+      }
+
+      compilerOutput.textContent = JSON.stringify(result.ir, null, 2);
+    }
+
+    async function copyText(text: string, button: HTMLButtonElement | null, successLabel: string) {
+      if (!button) return;
+      const original = button.textContent ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = successLabel;
+      } catch {
+        const fallback = document.createElement("textarea");
+        fallback.value = text;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.append(fallback);
+        fallback.select();
+        document.execCommand("copy");
+        fallback.remove();
+        button.textContent = successLabel;
+      } finally {
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1400);
+      }
+    }
+
+    function activateResultPanel(view: string) {
+      for (const tab of resultTabs) {
+        const selected = tab.dataset.resultTab === view;
+        tab.setAttribute("aria-selected", String(selected));
+      }
+
+      for (const panel of resultPanels) {
+        if (panel.dataset.resultPanel === view) {
+          panel.removeAttribute("hidden");
+        } else {
+          panel.setAttribute("hidden", "");
+        }
+      }
+    }
+
+    function loadExample(options: { updateUrl?: boolean } = {}) {
+      const example = selectedExample();
+
+      sourceEditor.setValue(example.source);
+      sourceEditor.setDiagnostics([]);
+      if (summary) summary.textContent = example.description;
+      if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
+      if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
+      if (diagnosticsCount) diagnosticsCount.textContent = "No run";
+      if (compilerResults) compilerResults.setAttribute("hidden", "");
+      if (summaryOutput) summaryOutput.replaceChildren();
+      if (mapOutput) mapOutput.replaceChildren();
+      if (flowOutput) flowOutput.replaceChildren();
+      if (compilerOutput) compilerOutput.textContent = "{}";
+      activateResultPanel("summary");
+
+      if (options.updateUrl) updateExampleUrl();
+      setStatus("Ready. Example loaded from validated website source.");
+    }
+
+    select?.addEventListener("change", () => loadExample({ updateUrl: true }));
+    resetButton?.addEventListener("click", () => loadExample({ updateUrl: true }));
+    showSuggestionsButton?.addEventListener("click", () => sourceEditor.showSuggestions());
+    copySourceButton?.addEventListener("click", () => copyText(sourceEditor.getValue(), copySourceButton, "Copied"));
+    copyDiagnosticsButton?.addEventListener("click", () =>
+      copyText(diagnostics?.textContent?.trim() || "No diagnostics.", copyDiagnosticsButton, "Copied"),
+    );
+    copyPlaygroundLinkButton?.addEventListener("click", () =>
+      copyText(currentPlaygroundLink(), copyPlaygroundLinkButton, "Copied"),
+    );
+    resultTabs.forEach((tab) => {
+      tab.addEventListener("click", () => activateResultPanel(tab.dataset.resultTab ?? "summary"));
+    });
+
+    compileButton?.addEventListener("click", async () => {
+      setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
+      sourceEditor.setDiagnostics([]);
+
+      const result = await compileDcl(sourceEditor.getValue());
+      sourceEditor.setDiagnostics(result.diagnostics);
+      renderDiagnostics(result);
+      renderSummary(result);
+      renderAdvancedOutput(result);
+
+      if (result.ok) {
+        const hasWarnings = result.diagnostics.some((diagnostic) => diagnostic.severity === "warning");
+        setStatus(hasWarnings ? "Compiled with warnings." : "Compile succeeded.", hasWarnings ? "warning" : "success");
+        return;
+      }
+
+      const hasErrors = result.diagnostics.some((diagnostic) => diagnostic.severity === "error");
+      const compilerUnavailable = result.diagnostics.some(
+        (diagnostic) => diagnostic.code === "DCL_PLAYGROUND_COMPILER_UNAVAILABLE",
+      );
+      setStatus(
+        compilerUnavailable ? "Browser compiler unavailable." : hasErrors ? "Compile failed." : "Compile completed with diagnostics.",
+        hasErrors ? "error" : "pending",
+      );
+    });
+
+    if (selectExampleFromUrl()) {
+      loadExample();
+    }
+  </script>
 </BaseLayout>
