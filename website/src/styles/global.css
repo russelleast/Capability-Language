@@ -433,6 +433,11 @@ main {
   white-space: nowrap;
 }
 
+.editor-suggest-button {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.65rem;
+}
+
 .example-meta {
   border-bottom: 1px solid var(--line);
   padding: 0.8rem 1rem;
@@ -514,10 +519,15 @@ main {
   width: 100%;
 }
 
+.editor-help,
 .editor-fallback-message {
   color: var(--muted);
   font-size: 0.9rem;
   margin: 0;
+}
+
+.editor-help code {
+  color: var(--accent-strong);
 }
 
 .diagnostics-panel {

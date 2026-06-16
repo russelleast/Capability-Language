@@ -79,10 +79,16 @@ const initialExample = playgroundExamples[0];
         <div class="editor-panel">
           <div class="pane-heading">
             <label for="source-editor">DCL source</label>
-            <span>Editable</span>
+            <button class="button secondary control-button editor-suggest-button" type="button" data-show-suggestions-button>
+              Show suggestions
+            </button>
           </div>
           <div class="monaco-editor-host" data-monaco-editor hidden></div>
           <textarea id="source-editor" aria-label="DCL source" spellcheck="false" data-source-editor>{initialExample.source}</textarea>
+          <p class="editor-help">
+            Autocomplete: type <code>cap</code>, <code>actor</code>, or <code>shape</code>. On macOS press
+            Option+Escape; on Windows/Linux press Ctrl+Space.
+          </p>
           <p class="editor-fallback-message" data-editor-fallback-message hidden>
             Monaco editor could not load. The fallback editor is available below.
           </p>
@@ -181,6 +187,7 @@ const initialExample = playgroundExamples[0];
     const editorFallbackMessage = document.querySelector("[data-editor-fallback-message]");
     const resetButton = document.querySelector("[data-reset-button]") as HTMLButtonElement | null;
     const compileButton = document.querySelector("[data-compile-button]") as HTMLButtonElement | null;
+    const showSuggestionsButton = document.querySelector("[data-show-suggestions-button]") as HTMLButtonElement | null;
     const copySourceButton = document.querySelector("[data-copy-source-button]") as HTMLButtonElement | null;
     const copyDiagnosticsButton = document.querySelector("[data-copy-diagnostics-button]") as HTMLButtonElement | null;
     const copyPlaygroundLinkButton = document.querySelector("[data-copy-playground-link-button]") as HTMLButtonElement | null;
@@ -203,6 +210,7 @@ const initialExample = playgroundExamples[0];
         if (editor) editor.value = value;
       },
       setDiagnostics: () => undefined,
+      showSuggestions: () => editor?.focus(),
     };
 
     if (editor && monacoHost) {
@@ -697,6 +705,7 @@ const initialExample = playgroundExamples[0];
 
     select?.addEventListener("change", () => loadExample({ updateUrl: true }));
     resetButton?.addEventListener("click", () => loadExample({ updateUrl: true }));
+    showSuggestionsButton?.addEventListener("click", () => sourceEditor.showSuggestions());
     copySourceButton?.addEventListener("click", () => copyText(sourceEditor.getValue(), copySourceButton, "Copied"));
     copyDiagnosticsButton?.addEventListener("click", () =>
       copyText(diagnostics?.textContent?.trim() || "No diagnostics.", copyDiagnosticsButton, "Copied"),
