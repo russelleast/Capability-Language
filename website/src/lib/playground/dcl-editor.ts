@@ -1,5 +1,6 @@
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker.js?worker";
+import type { Diagnostic } from "./compiler";
 
 type MonacoEnvironment = {
   getWorker(): Worker;
@@ -14,6 +15,7 @@ declare global {
 export type DclEditorController = {
   getValue(): string;
   setValue(value: string): void;
+  setDiagnostics(diagnostics: Diagnostic[]): void;
   layout(): void;
   dispose(): void;
 };
@@ -101,14 +103,54 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
       }
       textarea.value = value;
     },
+    setDiagnostics(diagnostics: Diagnostic[]) {
+      const model = editor.getModel();
+      if (!model) return;
+
+      monaco.editor.setModelMarkers(model, "dcl", diagnostics.flatMap(toMonacoMarker));
+    },
     layout() {
       editor.layout();
     },
     dispose() {
+      const model = editor.getModel();
+      if (model) monaco.editor.setModelMarkers(model, "dcl", []);
       subscription.dispose();
       editor.dispose();
     },
   };
+}
+
+function toMonacoMarker(diagnostic: Diagnostic): monaco.editor.IMarkerData[] {
+  if (!hasEditorLocation(diagnostic)) return [];
+
+  const message = diagnostic.code ? `${diagnostic.code}: ${diagnostic.message}` : diagnostic.message;
+  return [
+    {
+      severity: toMonacoSeverity(diagnostic.severity),
+      message,
+      code: diagnostic.code,
+      startLineNumber: diagnostic.line,
+      startColumn: diagnostic.column,
+      endLineNumber: diagnostic.line,
+      endColumn: diagnostic.column + 1,
+    },
+  ];
+}
+
+function hasEditorLocation(diagnostic: Diagnostic): diagnostic is Diagnostic & { line: number; column: number } {
+  return Number.isInteger(diagnostic.line) && diagnostic.line > 0 && Number.isInteger(diagnostic.column) && diagnostic.column > 0;
+}
+
+function toMonacoSeverity(severity: Diagnostic["severity"]): monaco.MarkerSeverity {
+  switch (severity) {
+    case "error":
+      return monaco.MarkerSeverity.Error;
+    case "warning":
+      return monaco.MarkerSeverity.Warning;
+    case "info":
+      return monaco.MarkerSeverity.Info;
+  }
 }
 
 function registerDclLanguage() {

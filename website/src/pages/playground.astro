@@ -170,6 +170,7 @@ const initialExample = playgroundExamples[0];
     import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
     import { playgroundExamples } from "../lib/playground/examples";
     import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
+    import type { DclEditorController } from "../lib/playground/dcl-editor";
 
     const select = document.querySelector("[data-example-select]") as HTMLSelectElement | null;
     const editor = document.querySelector("[data-source-editor]") as HTMLTextAreaElement | null;
@@ -192,11 +193,12 @@ const initialExample = playgroundExamples[0];
     const compilerOutput = document.querySelector("[data-compiler-output]");
     const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
     const resultPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-result-panel]"));
-    let sourceEditor = {
+    let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics"> = {
       getValue: () => editor?.value ?? "",
       setValue: (value: string) => {
         if (editor) editor.value = value;
       },
+      setDiagnostics: () => undefined,
     };
 
     if (editor && monacoHost) {
@@ -654,6 +656,7 @@ const initialExample = playgroundExamples[0];
       const example = selectedExample();
 
       sourceEditor.setValue(example.source);
+      sourceEditor.setDiagnostics([]);
       if (summary) summary.textContent = example.description;
       if (sourcePath) sourcePath.innerHTML = `Source: <code>${example.path}</code>`;
       if (diagnostics) diagnostics.innerHTML = "<p>No compile run yet.</p>";
@@ -680,8 +683,10 @@ const initialExample = playgroundExamples[0];
 
     compileButton?.addEventListener("click", async () => {
       setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
+      sourceEditor.setDiagnostics([]);
 
       const result = await compileDcl(sourceEditor.getValue());
+      sourceEditor.setDiagnostics(result.diagnostics);
       renderDiagnostics(result);
       renderSummary(result);
       renderAdvancedOutput(result);
