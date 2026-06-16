@@ -10,7 +10,9 @@ export type ContextSummary = {
 };
 
 export type CapabilitySummary = {
+  id?: string;
   name: string;
+  context?: string;
   intents?: string[];
   actors?: string[];
   outcomes?: string[];
@@ -34,7 +36,10 @@ type ProgramOutput = {
 };
 
 type CapabilityOutput = {
+  id?: string;
   name?: string;
+  context?: string;
+  fully_qualified_name?: string;
   intents?: IntentOutput[];
   actors?: ActorRoleOutput[];
   outcomes?: NamedOutput[];
@@ -135,7 +140,11 @@ export function summarizeCompilerOutput(output: unknown): SemanticSummary {
 
 function summarizeCapability(capability: CapabilityOutput, effectivePolicies: EffectivePolicyOutput[]): CapabilitySummary {
   const name = capability.name ?? "Unnamed capability";
-  const summary: CapabilitySummary = { name };
+  const summary: CapabilitySummary = {
+    id: capability.id ?? capability.fully_qualified_name,
+    name,
+    context: capability.context ?? contextFromCapabilityId(capability.id ?? capability.fully_qualified_name, name),
+  };
 
   summary.intents = nonEmpty(capability.intents?.map(formatIntent));
   summary.actors = nonEmpty(capability.actors?.map(formatActorRole));
@@ -160,6 +169,13 @@ function summarizeCapability(capability: CapabilityOutput, effectivePolicies: Ef
   }
 
   return summary;
+}
+
+function contextFromCapabilityId(id: string | undefined, name: string): string | undefined {
+  if (!id) return undefined;
+  const withoutKind = id.replace(/^capability:/, "");
+  if (withoutKind === name || !withoutKind.endsWith(`.${name}`)) return undefined;
+  return withoutKind.slice(0, -name.length - 1) || undefined;
 }
 
 function summarizeContexts(contexts: ContextOutput[] | undefined): ContextSummary[] | undefined {

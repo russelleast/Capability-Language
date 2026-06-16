@@ -174,6 +174,36 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       </div>
     </div>
 
+    <section class="visuals-section" aria-labelledby="visuals-title" data-visuals-section>
+      <div class="visuals-heading">
+        <div>
+          <p class="eyebrow">Architecture View</p>
+          <h2 id="visuals-title">Visuals</h2>
+        </div>
+        <p data-visuals-status>Compile DCL source to generate visuals.</p>
+      </div>
+      <div class="visual-tabs" role="tablist" aria-label="Playground visual views">
+        <button class="visual-tab" type="button" role="tab" aria-selected="true" data-visual-tab="heatmap">
+          Context Heat Map
+        </button>
+        <button class="visual-tab" type="button" role="tab" aria-selected="false" data-visual-tab="capability-flow">
+          Capability Flow
+        </button>
+        <button class="visual-tab" type="button" role="tab" aria-selected="false" data-visual-tab="lifecycle-flow">
+          Lifecycle/Event Flow
+        </button>
+      </div>
+      <div class="visual-panel" data-visual-panel="heatmap">
+        <p class="visual-empty">Compile DCL source to generate visuals.</p>
+      </div>
+      <div class="visual-panel" data-visual-panel="capability-flow" hidden>
+        <p class="visual-empty">Compile DCL source to generate visuals.</p>
+      </div>
+      <div class="visual-panel" data-visual-panel="lifecycle-flow" hidden>
+        <p class="visual-empty">Compile DCL source to generate visuals.</p>
+      </div>
+    </section>
+
     <article class="prose playground-notes">
       <div class="notice">
         <strong>Browser compiler status</strong>
@@ -207,6 +237,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     import { playgroundExamples } from "../lib/playground/examples";
     import { playgroundExamplePath } from "../lib/playground/links";
     import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
+    import { createVisualModel, type VisualCapability, type VisualContext, type VisualModel } from "../lib/playground/visual-model";
     import type { DclEditorController } from "../lib/playground/dcl-editor";
 
     const select = document.querySelector("[data-example-select]") as HTMLSelectElement | null;
@@ -233,6 +264,13 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     const compilerOutput = document.querySelector("[data-compiler-output]");
     const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
     const resultPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-result-panel]"));
+    const visualTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-visual-tab]"));
+    const visualPanels = Array.from(document.querySelectorAll<HTMLElement>("[data-visual-panel]"));
+    const visualsStatus = document.querySelector("[data-visuals-status]");
+    const heatMapOutput = document.querySelector<HTMLElement>("[data-visual-panel='heatmap']");
+    const visualCapabilityFlowOutput = document.querySelector<HTMLElement>("[data-visual-panel='capability-flow']");
+    const visualLifecycleFlowOutput = document.querySelector<HTMLElement>("[data-visual-panel='lifecycle-flow']");
+    let selectedVisualCapabilityId = "";
     let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics" | "formatSource" | "showSuggestions"> = {
       getValue: () => editor?.value ?? "",
       setValue: (value: string) => {
@@ -353,6 +391,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       if (!result.ok || !result.ir) {
         compilerResults?.setAttribute("hidden", "");
         summaryOutput.replaceChildren();
+        renderVisualEmpty("Compile DCL source to generate visuals.");
         return;
       }
 
@@ -361,6 +400,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       summaryOutput.replaceChildren(summaryHeading(), summaryIntro(), renderSemanticSummary(summary));
       renderCapabilityMap(summary);
       renderFlow(summary);
+      renderVisuals(summary, result.diagnostics);
       activateResultPanel("summary");
     }
 
@@ -670,6 +710,287 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       return list;
     }
 
+    function renderVisuals(summary: SemanticSummary, compileDiagnostics: Awaited<ReturnType<typeof compileDcl>>["diagnostics"]) {
+      const model = createVisualModel(summary, compileDiagnostics);
+      selectedVisualCapabilityId = model.capabilities[0]?.id ?? "";
+      if (visualsStatus) {
+        visualsStatus.textContent = model.capabilities.length
+          ? `Showing ${model.capabilities.length} ${model.capabilities.length === 1 ? "capability" : "capabilities"} across ${model.contexts.length} ${model.contexts.length === 1 ? "context" : "contexts"}.`
+          : "No capabilities found.";
+      }
+
+      renderContextHeatMap(model);
+      renderVisualCapabilityFlow(model);
+      renderVisualLifecycleFlow(model);
+      activateVisualPanel("heatmap");
+    }
+
+    function renderVisualEmpty(message: string) {
+      if (visualsStatus) visualsStatus.textContent = message;
+      for (const panel of visualPanels) {
+        const empty = document.createElement("p");
+        empty.className = "visual-empty";
+        empty.textContent = message;
+        panel.replaceChildren(empty);
+      }
+      selectedVisualCapabilityId = "";
+      activateVisualPanel("heatmap");
+    }
+
+    function renderContextHeatMap(model: VisualModel) {
+      if (!heatMapOutput) return;
+      if (model.capabilities.length === 0) {
+        heatMapOutput.replaceChildren(visualEmpty("No capabilities found."));
+        return;
+      }
+
+      const layout = document.createElement("div");
+      layout.className = "context-heatmap-layout";
+      const grid = document.createElement("div");
+      grid.className = "context-heatmap-grid";
+      const details = document.createElement("aside");
+      details.className = "visual-details-panel";
+      details.setAttribute("aria-live", "polite");
+      details.dataset.visualDetails = "capability";
+
+      for (const context of model.contexts) {
+        grid.append(renderContextPanel(context, model));
+      }
+
+      layout.append(grid, details);
+      heatMapOutput.replaceChildren(layout);
+      updateVisualSelection(model, selectedVisualCapabilityId);
+    }
+
+    function renderContextPanel(context: VisualContext, model: VisualModel) {
+      const panel = document.createElement("section");
+      panel.className = "visual-context-panel";
+
+      const heading = document.createElement("div");
+      heading.className = "visual-context-heading";
+      const title = document.createElement("h3");
+      title.textContent = context.name;
+      const meta = document.createElement("span");
+      meta.textContent = `${context.capabilities.length} ${context.capabilities.length === 1 ? "capability" : "capabilities"}`;
+      heading.append(title, meta);
+      panel.append(heading);
+
+      if (context.dependencies.length) {
+        const deps = document.createElement("div");
+        deps.className = "visual-dependencies";
+        const label = document.createElement("span");
+        label.textContent = "depends on";
+        deps.append(label);
+        for (const dependency of context.dependencies) {
+          const badge = document.createElement("span");
+          badge.className = "visual-dependency-badge";
+          badge.textContent = dependency;
+          deps.append(badge);
+        }
+        panel.append(deps);
+      }
+
+      const tiles = document.createElement("div");
+      tiles.className = "visual-capability-tiles";
+      for (const capability of context.capabilities) {
+        tiles.append(renderCapabilityTile(capability, model));
+      }
+      panel.append(tiles);
+      return panel;
+    }
+
+    function renderCapabilityTile(capability: VisualCapability, model: VisualModel) {
+      const tile = document.createElement("button");
+      tile.className = `visual-capability-tile heat-${capability.heatLevel}`;
+      tile.type = "button";
+      tile.dataset.capabilityId = capability.id;
+      tile.setAttribute("aria-pressed", String(capability.id === selectedVisualCapabilityId));
+
+      const title = document.createElement("strong");
+      title.textContent = capability.name;
+      const score = document.createElement("span");
+      score.className = "visual-score";
+      score.textContent = `Complexity ${capability.complexityScore}`;
+      const header = document.createElement("span");
+      header.className = "visual-tile-header";
+      header.append(title, score);
+      tile.append(header);
+
+      if (capability.diagnostics.length) {
+        const diagnosticBadge = document.createElement("span");
+        diagnosticBadge.className = "visual-diagnostic-badge";
+        diagnosticBadge.textContent = `${capability.diagnostics.length} diagnostic${capability.diagnostics.length === 1 ? "" : "s"}`;
+        tile.append(diagnosticBadge);
+      }
+
+      tile.addEventListener("click", () => updateVisualSelection(model, capability.id));
+      return tile;
+    }
+
+    function updateVisualSelection(model: VisualModel, capabilityId: string) {
+      const capability = model.capabilities.find((item) => item.id === capabilityId) ?? model.capabilities[0];
+      selectedVisualCapabilityId = capability?.id ?? "";
+
+      heatMapOutput?.querySelectorAll<HTMLButtonElement>("[data-capability-id]").forEach((tile) => {
+        const selected = tile.dataset.capabilityId === selectedVisualCapabilityId;
+        tile.classList.toggle("is-selected", selected);
+        tile.setAttribute("aria-pressed", String(selected));
+      });
+
+      const details = heatMapOutput?.querySelector<HTMLElement>("[data-visual-details='capability']");
+      if (!details || !capability) return;
+      details.replaceChildren(renderCapabilityDetails(capability));
+    }
+
+    function renderCapabilityDetails(capability: VisualCapability) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "visual-details";
+      const heading = document.createElement("div");
+      heading.className = "visual-details-heading";
+      const title = document.createElement("h3");
+      title.textContent = capability.name;
+      const context = document.createElement("span");
+      context.textContent = capability.contextName;
+      heading.append(title, context);
+      wrapper.append(heading);
+
+      const summary = document.createElement("p");
+      summary.className = "visual-details-summary";
+      summary.textContent = `Complexity ${capability.complexityScore}, based on declared DCL primitives.`;
+      wrapper.append(summary);
+
+      if (capability.diagnostics.length) {
+        const diagnosticsList = document.createElement("div");
+        diagnosticsList.className = "visual-detail-group visual-detail-diagnostics";
+        const label = document.createElement("strong");
+        label.textContent = "Diagnostics";
+        diagnosticsList.append(label, renderValueList(capability.diagnostics.map((diagnostic) => `${diagnostic.severity}: ${diagnostic.message}`)));
+        wrapper.append(diagnosticsList);
+      }
+
+      appendDetailGroup(wrapper, "Intents", capability.summary.intents);
+      appendDetailGroup(wrapper, "Actors", capability.summary.actors);
+      appendDetailGroup(wrapper, "Outcomes", capability.summary.outcomes);
+      appendDetailGroup(wrapper, "Rules", capability.summary.rules);
+      appendDetailGroup(wrapper, "Effects", capability.summary.effects);
+      appendDetailGroup(wrapper, "Events", capability.summary.events);
+      appendDetailGroup(wrapper, "Policies", capability.summary.policies);
+
+      const lifecycle = [
+        capability.summary.lifecycle?.begin ? `Begin: ${capability.summary.lifecycle.begin}` : undefined,
+        ...(capability.summary.lifecycle?.steps?.map((step) => `Step: ${step}`) ?? []),
+        ...(capability.summary.lifecycle?.transitions?.map((transition) => `Move: ${transition}`) ?? []),
+        ...(capability.summary.lifecycle?.ends?.map((end) => `End: ${end}`) ?? []),
+      ].filter((item): item is string => Boolean(item));
+      appendDetailGroup(wrapper, "Lifecycle", lifecycle);
+
+      return wrapper;
+    }
+
+    function appendDetailGroup(parent: HTMLElement, labelText: string, items?: string[]) {
+      if (!items?.length) return;
+      const group = document.createElement("section");
+      group.className = "visual-detail-group";
+      const label = document.createElement("strong");
+      label.textContent = labelText;
+      group.append(label, renderValueList(items));
+      parent.append(group);
+    }
+
+    function renderVisualCapabilityFlow(model: VisualModel) {
+      if (!visualCapabilityFlowOutput) return;
+      if (model.capabilities.length === 0) {
+        visualCapabilityFlowOutput.replaceChildren(visualEmpty("No capabilities found."));
+        return;
+      }
+
+      const list = document.createElement("div");
+      list.className = "visual-flow-list";
+      for (const capability of model.capabilities) {
+        const card = document.createElement("article");
+        card.className = "visual-flow-card";
+        const title = document.createElement("h3");
+        title.textContent = capability.name;
+        const context = document.createElement("span");
+        context.textContent = capability.contextName;
+        card.append(title, context);
+        appendFlowLane(card, "Intent", capability.summary.intents);
+        appendFlowLane(card, "Rules", capability.summary.rules);
+        appendFlowLane(card, "Outcomes", capability.summary.outcomes);
+        appendFlowLane(card, "Effects & events", [...(capability.summary.effects ?? []), ...(capability.summary.events ?? [])]);
+        list.append(card);
+      }
+      visualCapabilityFlowOutput.replaceChildren(list);
+    }
+
+    function renderVisualLifecycleFlow(model: VisualModel) {
+      if (!visualLifecycleFlowOutput) return;
+      const flowCapabilities = model.capabilities.filter((capability) =>
+        Boolean(capability.summary.lifecycle?.begin || capability.summary.lifecycle?.steps?.length || capability.summary.lifecycle?.transitions?.length || capability.summary.events?.length),
+      );
+      if (flowCapabilities.length === 0) {
+        visualLifecycleFlowOutput.replaceChildren(visualEmpty("No lifecycle or event flow found."));
+        return;
+      }
+
+      const list = document.createElement("div");
+      list.className = "visual-flow-list";
+      for (const capability of flowCapabilities) {
+        const card = document.createElement("article");
+        card.className = "visual-flow-card";
+        const title = document.createElement("h3");
+        title.textContent = capability.name;
+        const context = document.createElement("span");
+        context.textContent = capability.contextName;
+        card.append(title, context);
+        appendFlowLane(card, "Begin", capability.summary.lifecycle?.begin ? [capability.summary.lifecycle.begin] : undefined);
+        appendFlowLane(card, "Steps", capability.summary.lifecycle?.steps);
+        appendFlowLane(card, "Transitions", capability.summary.lifecycle?.transitions);
+        appendFlowLane(card, "Events", capability.summary.events);
+        list.append(card);
+      }
+      visualLifecycleFlowOutput.replaceChildren(list);
+    }
+
+    function appendFlowLane(parent: HTMLElement, labelText: string, items?: string[]) {
+      if (!items?.length) return;
+      const lane = document.createElement("section");
+      lane.className = "visual-flow-lane";
+      const label = document.createElement("strong");
+      label.textContent = labelText;
+      const values = document.createElement("div");
+      values.className = "visual-flow-values";
+      for (const item of items) {
+        const chip = document.createElement("span");
+        chip.textContent = item;
+        values.append(chip);
+      }
+      lane.append(label, values);
+      parent.append(lane);
+    }
+
+    function visualEmpty(message: string) {
+      const empty = document.createElement("p");
+      empty.className = "visual-empty";
+      empty.textContent = message;
+      return empty;
+    }
+
+    function activateVisualPanel(view: string) {
+      for (const tab of visualTabs) {
+        const selected = tab.dataset.visualTab === view;
+        tab.setAttribute("aria-selected", String(selected));
+      }
+
+      for (const panel of visualPanels) {
+        if (panel.dataset.visualPanel === view) {
+          panel.removeAttribute("hidden");
+        } else {
+          panel.setAttribute("hidden", "");
+        }
+      }
+    }
+
     function renderAdvancedOutput(result: Awaited<ReturnType<typeof compileDcl>>) {
       if (!advancedOutput || !compilerOutput) return;
 
@@ -735,6 +1056,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       if (flowOutput) flowOutput.replaceChildren();
       if (compilerOutput) compilerOutput.textContent = "{}";
       activateResultPanel("summary");
+      renderVisualEmpty("Compile DCL source to generate visuals.");
 
       if (options.updateUrl) updateExampleUrl();
       setStatus("Ready. Example loaded from validated website source.");
@@ -750,6 +1072,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       if (flowOutput) flowOutput.replaceChildren();
       if (compilerOutput) compilerOutput.textContent = "{}";
       activateResultPanel("summary");
+      renderVisualEmpty("Compile DCL source to generate visuals.");
       setStatus(message);
     }
 
@@ -769,6 +1092,9 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     );
     resultTabs.forEach((tab) => {
       tab.addEventListener("click", () => activateResultPanel(tab.dataset.resultTab ?? "summary"));
+    });
+    visualTabs.forEach((tab) => {
+      tab.addEventListener("click", () => activateVisualPanel(tab.dataset.visualTab ?? "heatmap"));
     });
 
     compileButton?.addEventListener("click", async () => {
