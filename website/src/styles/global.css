@@ -358,7 +358,7 @@ main {
   border-radius: 8px;
   box-shadow: 0 18px 50px rgba(23, 32, 27, 0.08);
   margin: 2rem 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .playground-toolbar {
@@ -515,8 +515,34 @@ main {
   border: 1px solid #26352f;
   border-radius: 8px;
   min-height: 620px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   width: 100%;
+  z-index: 1;
+}
+
+.monaco-editor-host:focus-within {
+  z-index: 20;
+}
+
+.monaco-hover,
+.suggest-widget {
+  max-width: min(38rem, calc(100vw - 2rem)) !important;
+  z-index: 10000 !important;
+}
+
+.monaco-hover .hover-contents,
+.monaco-hover .markdown-hover,
+.monaco-hover .rendered-markdown,
+.monaco-hover .rendered-markdown p,
+.suggest-widget .docs,
+.suggest-widget .details {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.monaco-hover .rendered-markdown {
+  max-width: 100%;
 }
 
 .editor-fallback-message {

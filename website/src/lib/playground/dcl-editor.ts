@@ -40,6 +40,7 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
     language: DCL_LANGUAGE_ID,
     theme: "dcl-dark",
     automaticLayout: true,
+    fixedOverflowWidgets: true,
     fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
     fontSize: 14,
     lineNumbers: "on",
