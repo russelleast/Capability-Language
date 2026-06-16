@@ -236,7 +236,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     import { formatDcl } from "../lib/playground/formatDcl";
     import { playgroundExamples } from "../lib/playground/examples";
     import { playgroundExamplePath } from "../lib/playground/links";
-    import { summarizeCompilerOutput, type CapabilitySummary, type SemanticSummary } from "../lib/playground/semantic-summary";
+    import { summarizeCompilerOutput, type CapabilityItemKind, type CapabilitySummary, type SemanticSummary, type SourceLocation } from "../lib/playground/semantic-summary";
     import { createVisualModel, type VisualCapability, type VisualContext, type VisualModel } from "../lib/playground/visual-model";
     import type { DclEditorController } from "../lib/playground/dcl-editor";
 
@@ -271,12 +271,18 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     const visualCapabilityFlowOutput = document.querySelector<HTMLElement>("[data-visual-panel='capability-flow']");
     const visualLifecycleFlowOutput = document.querySelector<HTMLElement>("[data-visual-panel='lifecycle-flow']");
     let selectedVisualCapabilityId = "";
-    let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics" | "formatSource" | "showSuggestions"> = {
+    let sourceEditor: Pick<DclEditorController, "getValue" | "setValue" | "setDiagnostics" | "revealSourceLocation" | "formatSource" | "showSuggestions"> = {
       getValue: () => editor?.value ?? "",
       setValue: (value: string) => {
         if (editor) editor.value = value;
       },
       setDiagnostics: () => undefined,
+      revealSourceLocation(location: SourceLocation) {
+        if (!editor || !hasSourceLocation(location)) return false;
+        editor.focus();
+        editor.setSelectionRange(editor.value.length, editor.value.length);
+        return false;
+      },
       formatSource: () => {
         if (!editor) return false;
         const current = editor.value;
@@ -823,11 +829,11 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         tile.append(diagnosticBadge);
       }
 
-      tile.addEventListener("click", () => updateVisualSelection(model, capability.id));
+      tile.addEventListener("click", () => updateVisualSelection(model, capability.id, { reveal: true }));
       return tile;
     }
 
-    function updateVisualSelection(model: VisualModel, capabilityId: string) {
+    function updateVisualSelection(model: VisualModel, capabilityId: string, options: { reveal?: boolean } = {}) {
       const capability = model.capabilities.find((item) => item.id === capabilityId) ?? model.capabilities[0];
       selectedVisualCapabilityId = capability?.id ?? "";
 
@@ -840,6 +846,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       const details = heatMapOutput?.querySelector<HTMLElement>("[data-visual-details='capability']");
       if (!details || !capability) return;
       details.replaceChildren(renderCapabilityDetails(capability));
+      if (options.reveal) revealVisualLocation(capability.location);
     }
 
     function renderCapabilityDetails(capability: VisualCapability) {
@@ -858,6 +865,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       summary.className = "visual-details-summary";
       summary.textContent = `Complexity ${capability.complexityScore}, based on declared DCL primitives.`;
       wrapper.append(summary);
+      wrapper.append(renderRevealSourceAction(capability.location));
 
       if (capability.diagnostics.length) {
         const diagnosticsList = document.createElement("div");
@@ -868,13 +876,13 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         wrapper.append(diagnosticsList);
       }
 
-      appendDetailGroup(wrapper, "Intents", capability.summary.intents);
-      appendDetailGroup(wrapper, "Actors", capability.summary.actors);
-      appendDetailGroup(wrapper, "Outcomes", capability.summary.outcomes);
-      appendDetailGroup(wrapper, "Rules", capability.summary.rules);
-      appendDetailGroup(wrapper, "Effects", capability.summary.effects);
-      appendDetailGroup(wrapper, "Events", capability.summary.events);
-      appendDetailGroup(wrapper, "Policies", capability.summary.policies);
+      appendDetailGroup(wrapper, capability, "Intents", "intents", capability.summary.intents);
+      appendDetailGroup(wrapper, capability, "Actors", "actors", capability.summary.actors);
+      appendDetailGroup(wrapper, capability, "Outcomes", "outcomes", capability.summary.outcomes);
+      appendDetailGroup(wrapper, capability, "Rules", "rules", capability.summary.rules);
+      appendDetailGroup(wrapper, capability, "Effects", "effects", capability.summary.effects);
+      appendDetailGroup(wrapper, capability, "Events", "events", capability.summary.events);
+      appendDetailGroup(wrapper, capability, "Policies", "policies", capability.summary.policies);
 
       const lifecycle = [
         capability.summary.lifecycle?.begin ? `Begin: ${capability.summary.lifecycle.begin}` : undefined,
@@ -882,19 +890,77 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         ...(capability.summary.lifecycle?.transitions?.map((transition) => `Move: ${transition}`) ?? []),
         ...(capability.summary.lifecycle?.ends?.map((end) => `End: ${end}`) ?? []),
       ].filter((item): item is string => Boolean(item));
-      appendDetailGroup(wrapper, "Lifecycle", lifecycle);
+      appendDetailGroup(wrapper, capability, "Lifecycle", "lifecycle", lifecycle);
 
       return wrapper;
     }
 
-    function appendDetailGroup(parent: HTMLElement, labelText: string, items?: string[]) {
+    function renderRevealSourceAction(location: SourceLocation | undefined) {
+      const action = document.createElement("div");
+      action.className = "visual-source-action";
+
+      if (hasSourceLocation(location)) {
+        const button = document.createElement("button");
+        button.className = "visual-source-button";
+        button.type = "button";
+        button.textContent = "Reveal in source";
+        button.addEventListener("click", () => revealVisualLocation(location));
+        action.append(button);
+        return action;
+      }
+
+      const fallback = document.createElement("p");
+      fallback.className = "visual-source-unavailable";
+      fallback.textContent = "Source location is not available for this item yet.";
+      action.append(fallback);
+      return action;
+    }
+
+    function appendDetailGroup(parent: HTMLElement, capability: VisualCapability, labelText: string, kind: CapabilityItemKind, items?: string[]) {
       if (!items?.length) return;
       const group = document.createElement("section");
       group.className = "visual-detail-group";
       const label = document.createElement("strong");
       label.textContent = labelText;
-      group.append(label, renderValueList(items));
+      group.append(label, renderVisualDetailItems(capability, kind, items));
       parent.append(group);
+    }
+
+    function renderVisualDetailItems(capability: VisualCapability, kind: CapabilityItemKind, items: string[]) {
+      const list = document.createElement("ul");
+      for (const item of items) {
+        const element = document.createElement("li");
+        const label = document.createElement("span");
+        label.textContent = item;
+        element.append(label);
+
+        const location = capability.summary.itemLocations?.[kind]?.[item];
+        if (hasSourceLocation(location)) {
+          const button = document.createElement("button");
+          button.className = "visual-inline-source-button";
+          button.type = "button";
+          button.textContent = "Reveal";
+          button.addEventListener("click", () => revealVisualLocation(location));
+          element.append(button);
+        } else {
+          const fallback = document.createElement("span");
+          fallback.className = "visual-inline-source-unavailable";
+          fallback.textContent = "Source location is not available for this item yet.";
+          element.append(fallback);
+        }
+
+        list.append(element);
+      }
+      return list;
+    }
+
+    function revealVisualLocation(location: SourceLocation | undefined) {
+      if (!hasSourceLocation(location)) return false;
+      return sourceEditor.revealSourceLocation(location);
+    }
+
+    function hasSourceLocation(location: SourceLocation | undefined): location is SourceLocation & { line: number } {
+      return Boolean(location && Number.isInteger(location.line) && location.line > 0);
     }
 
     function renderVisualCapabilityFlow(model: VisualModel) {

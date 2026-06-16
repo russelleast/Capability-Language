@@ -15,6 +15,7 @@ export type VisualCapability = {
   name: string;
   contextName: string;
   summary: CapabilitySummary;
+  location: CapabilitySummary["location"];
   counts: Record<VisualPrimitiveKey, number>;
   complexityScore: number;
   heatLevel: "quiet" | "warm" | "rich" | "dense";
@@ -109,6 +110,7 @@ function toVisualCapability(
     name: capability.name,
     contextName,
     summary: capability,
+    location: capability.location,
     counts,
     complexityScore,
     heatLevel: heatLevel(complexityScore),
