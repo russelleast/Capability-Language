@@ -40,21 +40,46 @@ const DclCompilerAdapter_1 = require("./compiler/DclCompilerAdapter");
 const DclDiagnosticProvider_1 = require("./diagnostics/DclDiagnosticProvider");
 const DclFormattingProvider_1 = require("./formatting/DclFormattingProvider");
 const DclHoverProvider_1 = require("./hovers/DclHoverProvider");
+const DclCapabilityGraphBuilder_1 = require("./graphs/DclCapabilityGraphBuilder");
 const DclSourceLocation_1 = require("./source/DclSourceLocation");
 const DclExplorerProvider_1 = require("./views/DclExplorerProvider");
 const DclSummaryProvider_1 = require("./views/DclSummaryProvider");
+const DclCapabilityGraphPanel_1 = require("./webviews/DclCapabilityGraphPanel");
 const DCL_SELECTOR = { language: "dcl", scheme: "file" };
 function activate(context) {
     const compiler = new DclCompilerAdapter_1.DclCompilerAdapter(vscode.workspace.workspaceFolders);
     const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler);
     const summary = new DclSummaryProvider_1.DclSummaryProvider();
     const explorer = new DclExplorerProvider_1.DclExplorerProvider();
-    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.workspace.onDidSaveTextDocument((document) => {
+    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => showCapabilityGraph(context.extensionUri, explorer, node)), vscode.workspace.onDidSaveTextDocument((document) => {
         const compileOnSave = vscode.workspace.getConfiguration("dcl").get("compileOnSave", true);
         if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
             void compileFiles([document.uri], diagnostics, summary, explorer, false, false);
         }
     }));
+}
+async function showCapabilityGraph(extensionUri, explorer, node) {
+    const summary = explorer.getSummary();
+    if (!summary?.capabilities.length) {
+        void vscode.window.showWarningMessage("Compile DCL before opening a capability graph.");
+        return;
+    }
+    let capabilityName = node?.kind === "capability" ? node.capabilityName : undefined;
+    if (!capabilityName) {
+        const picked = await vscode.window.showQuickPick(summary.capabilities.map((capability) => ({
+            label: capability.name,
+            description: capability.context,
+        })), { title: "Select DCL Capability" });
+        capabilityName = picked?.label;
+    }
+    if (!capabilityName)
+        return;
+    const graph = (0, DclCapabilityGraphBuilder_1.buildCapabilityGraph)(summary, capabilityName);
+    if (!graph) {
+        void vscode.window.showWarningMessage(`No compiler summary found for capability '${capabilityName}'.`);
+        return;
+    }
+    DclCapabilityGraphPanel_1.DclCapabilityGraphPanel.show(extensionUri, graph);
 }
 function deactivate() { }
 async function compileCurrentFile(diagnostics, summary, explorer, revealSummary) {

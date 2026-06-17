@@ -3,9 +3,11 @@ import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdap
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
+import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
 import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
-import { DclExplorerProvider } from "./views/DclExplorerProvider";
+import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvider";
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
+import { DclCapabilityGraphPanel } from "./webviews/DclCapabilityGraphPanel";
 
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
 
@@ -27,6 +29,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
+    vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => showCapabilityGraph(context.extensionUri, explorer, node)),
     vscode.workspace.onDidSaveTextDocument((document) => {
       const compileOnSave = vscode.workspace.getConfiguration("dcl").get<boolean>("compileOnSave", true);
       if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
@@ -34,6 +37,40 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+}
+
+async function showCapabilityGraph(
+  extensionUri: vscode.Uri,
+  explorer: DclExplorerProvider,
+  node: DclExplorerNode | undefined,
+): Promise<void> {
+  const summary = explorer.getSummary();
+  if (!summary?.capabilities.length) {
+    void vscode.window.showWarningMessage("Compile DCL before opening a capability graph.");
+    return;
+  }
+
+  let capabilityName = node?.kind === "capability" ? node.capabilityName : undefined;
+  if (!capabilityName) {
+    const picked = await vscode.window.showQuickPick(
+      summary.capabilities.map((capability) => ({
+        label: capability.name,
+        description: capability.context,
+      })),
+      { title: "Select DCL Capability" },
+    );
+    capabilityName = picked?.label;
+  }
+
+  if (!capabilityName) return;
+
+  const graph = buildCapabilityGraph(summary, capabilityName);
+  if (!graph) {
+    void vscode.window.showWarningMessage(`No compiler summary found for capability '${capabilityName}'.`);
+    return;
+  }
+
+  DclCapabilityGraphPanel.show(extensionUri, graph);
 }
 
 export function deactivate(): void {}

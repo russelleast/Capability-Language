@@ -88,8 +88,10 @@ npm run package:smoke
 
 VS Code packages JavaScript from `out/`, so compiled output is intentionally included in the VSIX. TypeScript source, source maps, local fixtures, local VS Code config, and dependency folders are excluded by `.vscodeignore`.
 
+The v0.3 capability graph WebView loads Cytoscape from the packaged extension. `npm run copy:vendor` copies `node_modules/cytoscape/dist/cytoscape.min.js` to `media/cytoscape.min.js`, and dependency folders remain excluded from the VSIX.
+
 ## Architecture Boundaries
 
 The extension does not parse DCL in TypeScript. Compiler CLI JSON and diagnostics remain authoritative.
 
-Do not add graph visualisation, Cytoscape, WebViews, or an LSP in this maintenance slice.
+The v0.3 graph slice is intentionally narrow: one read-only capability graph built from compiler semantic summary data. Do not add additional graph types, bidirectional source/graph navigation, source parsing, or an LSP in this slice.

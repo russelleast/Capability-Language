@@ -19,8 +19,9 @@ export class DclExplorerNode extends vscode.TreeItem {
     label: string,
     readonly children: DclExplorerNode[] = [],
     readonly sourceLocation?: SourceLocation,
-    kind: ExplorerNodeKind = "item",
+    readonly kind: ExplorerNodeKind = "item",
     description?: string,
+    readonly capabilityName?: string,
   ) {
     super(label, children.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
     this.description = description;
@@ -82,6 +83,10 @@ export class DclExplorerProvider implements vscode.TreeDataProvider<DclExplorerN
     return element;
   }
 
+  getSummary(): SemanticSummary | undefined {
+    return this.state.kind === "summary" ? this.state.summary : undefined;
+  }
+
   getChildren(element?: DclExplorerNode): vscode.ProviderResult<DclExplorerNode[]> {
     if (element) return element.children;
     if (this.state.kind === "empty") {
@@ -118,7 +123,7 @@ function capabilityNode(capability: CapabilitySummary): DclExplorerNode {
     lifecycleSection(capability),
   ].filter((node): node is DclExplorerNode => Boolean(node));
 
-  return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context);
+  return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name);
 }
 
 function sectionFromCapability(label: string, kind: CapabilityListKind, capability: CapabilitySummary): DclExplorerNode | undefined {

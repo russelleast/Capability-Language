@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Added `DCL: Show Capability Graph` for a read-only graph of one selected capability.
+- Added a VS Code WebView panel backed by Cytoscape.
+- Added a testable graph model layer for capability-centered nodes and semantic relationship edges.
+- Added graph model unit tests.
+- Updated packaging to include the Cytoscape browser bundle used by the WebView.
+
 ## 0.2.3
 
 - Added Vitest unit test foundation with a mocked VS Code API.

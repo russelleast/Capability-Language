@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -36,6 +36,7 @@
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.showCapabilityGraph",
     "onView:dclSemanticSummary",
     "onView:dclExplorer"
   ],
@@ -99,6 +100,11 @@
         "command": "dcl.revealSemanticItemInSource",
         "title": "DCL: Reveal Semantic Item in Source",
         "category": "DCL"
+      },
+      {
+        "command": "dcl.showCapabilityGraph",
+        "title": "DCL: Show Capability Graph",
+        "category": "DCL"
       }
     ],
     "configuration": {
@@ -161,6 +167,9 @@
           "command": "dcl.refreshExplorer"
         },
         {
+          "command": "dcl.showCapabilityGraph"
+        },
+        {
           "command": "dcl.revealSemanticItemInSource",
           "when": "false"
         }
@@ -175,6 +184,18 @@
           "command": "dcl.compileWorkspace",
           "when": "view == dclExplorer",
           "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability",
+          "group": "inline"
         }
       ],
       "editor/context": [
@@ -200,16 +221,18 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "tsc -p ./ --noEmit",
+    "copy:vendor": "node scripts/copy-vendor-assets.mjs",
     "package": "vsce package",
-    "package:smoke": "npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
+    "package:smoke": "npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run copy:vendor && npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
     "@types/vscode": "^1.86.0",
     "@vscode/vsce": "^3.9.2",
+    "cytoscape": "^3.34.0",
     "typescript": "^5.3.3",
     "vitest": "^4.1.9"
   }

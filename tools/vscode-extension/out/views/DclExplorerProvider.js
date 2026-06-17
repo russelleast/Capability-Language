@@ -37,10 +37,12 @@ exports.DclExplorerProvider = exports.DclExplorerNode = void 0;
 const vscode = __importStar(require("vscode"));
 const semanticSummary_1 = require("./semanticSummary");
 class DclExplorerNode extends vscode.TreeItem {
-    constructor(label, children = [], sourceLocation, kind = "item", description) {
+    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName) {
         super(label, children.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
         this.children = children;
         this.sourceLocation = sourceLocation;
+        this.kind = kind;
+        this.capabilityName = capabilityName;
         this.description = description;
         this.contextValue = `dclExplorer.${kind}${sourceLocation ? ".located" : ""}`;
         this.tooltip = sourceLocation?.file ? `${label}\n${sourceLocation.file}:${sourceLocation.line}:${sourceLocation.column ?? 1}` : label;
@@ -94,6 +96,9 @@ class DclExplorerProvider {
     getTreeItem(element) {
         return element;
     }
+    getSummary() {
+        return this.state.kind === "summary" ? this.state.summary : undefined;
+    }
     getChildren(element) {
         if (element)
             return element.children;
@@ -128,7 +133,7 @@ function capabilityNode(capability) {
         sectionFromCapability("Policies", "policies", capability),
         lifecycleSection(capability),
     ].filter((node) => Boolean(node));
-    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context);
+    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name);
 }
 function sectionFromCapability(label, kind, capability) {
     const values = capability[kind];
