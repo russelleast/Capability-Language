@@ -9,8 +9,17 @@ export type ContextSummary = {
   dependencies?: string[];
 };
 
+export type SourceLocation = {
+  file?: string;
+  line: number;
+  column?: number;
+};
+
 export type CapabilitySummary = {
+  id?: string;
   name: string;
+  context?: string;
+  location?: SourceLocation;
   intents?: string[];
   actors?: string[];
   outcomes?: string[];
@@ -24,17 +33,24 @@ export type CapabilitySummary = {
     steps?: string[];
     transitions?: string[];
   };
+  itemLocations?: Partial<Record<CapabilityItemKind, Record<string, SourceLocation>>>;
 };
+
+export type CapabilityItemKind = "intents" | "actors" | "outcomes" | "rules" | "effects" | "events" | "policies" | "lifecycle";
 
 type ProgramOutput = {
   capabilities?: CapabilityOutput[];
   contexts?: ContextOutput[];
   dependencies?: DependencyOutput[];
   effective_policies?: EffectivePolicyOutput[];
+  symbols?: SymbolOutput[];
 };
 
 type CapabilityOutput = {
+  id?: string;
   name?: string;
+  context?: string;
+  fully_qualified_name?: string;
   intents?: IntentOutput[];
   actors?: ActorRoleOutput[];
   outcomes?: NamedOutput[];
@@ -118,24 +134,51 @@ type EffectivePolicyOutput = {
   applied_policies?: string[];
   target_kind?: string;
   target_symbol?: string;
+  source_locations?: SourceLocationOutput[];
 };
+
+type SymbolOutput = {
+  name?: string;
+  kind?: string;
+  context?: string;
+  declared?: string;
+};
+
+type SourceLocationOutput = {
+  file?: string;
+  line?: number;
+  column?: number;
+};
+
+type SymbolLocationIndex = Map<string, SourceLocation>;
 
 export function summarizeCompilerOutput(output: unknown): SemanticSummary {
   const program = isObject(output) ? (output as ProgramOutput) : {};
   const effectivePolicies = Array.isArray(program.effective_policies) ? program.effective_policies : [];
+  const symbolLocations = symbolLocationIndex(program.symbols);
 
   return {
     capabilities: Array.isArray(program.capabilities)
-      ? program.capabilities.map((capability) => summarizeCapability(capability, effectivePolicies))
+      ? program.capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations))
       : [],
     contexts: summarizeContexts(program.contexts),
     dependencies: summarizeDependencies(program.dependencies),
   };
 }
 
-function summarizeCapability(capability: CapabilityOutput, effectivePolicies: EffectivePolicyOutput[]): CapabilitySummary {
+function summarizeCapability(
+  capability: CapabilityOutput,
+  effectivePolicies: EffectivePolicyOutput[],
+  symbolLocations: SymbolLocationIndex,
+): CapabilitySummary {
   const name = capability.name ?? "Unnamed capability";
-  const summary: CapabilitySummary = { name };
+  const context = capability.context ?? contextFromCapabilityId(capability.id ?? capability.fully_qualified_name, name);
+  const summary: CapabilitySummary = {
+    id: capability.id ?? capability.fully_qualified_name,
+    name,
+    context,
+    location: symbolLocation(symbolLocations, "capability", name, context),
+  };
 
   summary.intents = nonEmpty(capability.intents?.map(formatIntent));
   summary.actors = nonEmpty(capability.actors?.map(formatActorRole));
@@ -150,6 +193,7 @@ function summarizeCapability(capability: CapabilityOutput, effectivePolicies: Ef
     ...(capability.policies?.map(formatPolicyUse) ?? []),
     ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
   ]);
+  summary.itemLocations = summarizeItemLocations(capability, effectivePolicies, symbolLocations, context);
 
   const steps = nonEmpty(capability.lifecycle?.steps?.map(formatLifecycleStep));
   const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
@@ -160,6 +204,77 @@ function summarizeCapability(capability: CapabilityOutput, effectivePolicies: Ef
   }
 
   return summary;
+}
+
+function summarizeItemLocations(
+  capability: CapabilityOutput,
+  effectivePolicies: EffectivePolicyOutput[],
+  symbolLocations: SymbolLocationIndex,
+  context: string | undefined,
+): CapabilitySummary["itemLocations"] {
+  const locations: NonNullable<CapabilitySummary["itemLocations"]> = {};
+
+  for (const intent of capability.intents ?? []) {
+    const label = formatIntent(intent);
+    const location = intent?.input_shape ? symbolLocation(symbolLocations, "shape", intent.input_shape, context) : undefined;
+    addItemLocation(locations, "intents", label, location);
+  }
+
+  for (const actor of capability.actors ?? []) {
+    const label = formatActorRole(actor);
+    const location = actor?.actor ? symbolLocation(symbolLocations, "actor", actor.actor, context) : undefined;
+    addItemLocation(locations, "actors", label, location);
+  }
+
+  for (const effect of capability.effects ?? []) {
+    const label = formatEffectUse(effect);
+    const location = effect?.effect ? symbolLocation(symbolLocations, "effect", effect.effect, context) : undefined;
+    addItemLocation(locations, "effects", label, location);
+  }
+
+  for (const event of capability.emitted_events ?? []) {
+    const label = event.event;
+    const location = event.event ? symbolLocation(symbolLocations, "event", event.event, context) : undefined;
+    addItemLocation(locations, "events", label, location);
+  }
+  for (const event of capability.events ?? []) {
+    const label = formatEventEmission(event);
+    const location = event?.event ? symbolLocation(symbolLocations, "event", event.event, context) : undefined;
+    addItemLocation(locations, "events", label, location);
+  }
+
+  for (const policy of capability.policies ?? []) {
+    const label = formatPolicyUse(policy);
+    const location = policy?.policy ? symbolLocation(symbolLocations, "policy", policy.policy, context) : undefined;
+    addItemLocation(locations, "policies", label, location);
+  }
+
+  for (const policy of effectivePolicies.filter((item) => item.containing_capability === capability.name)) {
+    const sourceLocation = normalizeSourceLocation(policy.source_locations?.[0]);
+    for (const label of formatEffectivePolicy(policy)) {
+      addItemLocation(locations, "policies", label, sourceLocation);
+    }
+  }
+
+  return Object.keys(locations).length ? locations : undefined;
+}
+
+function addItemLocation(
+  locations: NonNullable<CapabilitySummary["itemLocations"]>,
+  kind: CapabilityItemKind,
+  label: string | undefined,
+  location: SourceLocation | undefined,
+): void {
+  if (!label || !location) return;
+  locations[kind] ??= {};
+  locations[kind][label] = location;
+}
+
+function contextFromCapabilityId(id: string | undefined, name: string): string | undefined {
+  if (!id) return undefined;
+  const withoutKind = id.replace(/^capability:/, "");
+  if (withoutKind === name || !withoutKind.endsWith(`.${name}`)) return undefined;
+  return withoutKind.slice(0, -name.length - 1) || undefined;
 }
 
 function summarizeContexts(contexts: ContextOutput[] | undefined): ContextSummary[] | undefined {
@@ -184,6 +299,50 @@ function summarizeDependencies(dependencies: DependencyOutput[] | undefined): st
       return `${source} depends on ${target}${symbols}`;
     }),
   );
+}
+
+function symbolLocationIndex(symbols: SymbolOutput[] | undefined): SymbolLocationIndex {
+  const index: SymbolLocationIndex = new Map();
+  if (!Array.isArray(symbols)) return index;
+
+  for (const symbol of symbols) {
+    if (!symbol.kind || !symbol.name) continue;
+    const location = parseDeclaredLocation(symbol.declared);
+    if (!location) continue;
+    index.set(symbolKey(symbol.kind, symbol.name, symbol.context), location);
+    index.set(symbolKey(symbol.kind, symbol.name, undefined), location);
+  }
+
+  return index;
+}
+
+function symbolLocation(index: SymbolLocationIndex, kind: string, name: string | undefined, context: string | undefined): SourceLocation | undefined {
+  if (!name) return undefined;
+  return index.get(symbolKey(kind, name, context)) ?? index.get(symbolKey(kind, name, undefined));
+}
+
+function symbolKey(kind: string, name: string, context: string | undefined): string {
+  return `${kind}:${context ?? ""}:${name}`;
+}
+
+function parseDeclaredLocation(declared: string | undefined): SourceLocation | undefined {
+  if (!declared) return undefined;
+  const match = /^(.*):(\d+):(\d+)$/.exec(declared);
+  if (!match) return undefined;
+  return normalizeSourceLocation({
+    file: match[1],
+    line: Number(match[2]),
+    column: Number(match[3]),
+  });
+}
+
+function normalizeSourceLocation(location: SourceLocationOutput | undefined): SourceLocation | undefined {
+  if (!location || !Number.isInteger(location.line) || (location.line ?? 0) <= 0) return undefined;
+  return {
+    file: location.file,
+    line: location.line as number,
+    column: Number.isInteger(location.column) && (location.column ?? 0) > 0 ? location.column : undefined,
+  };
 }
 
 function formatIntent(intent: IntentOutput | undefined): string | undefined {

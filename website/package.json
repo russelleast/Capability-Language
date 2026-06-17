@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build:compiler": "bash scripts/build-compiler-wasm.sh",
+    "validate:examples": "node scripts/validate-examples.mjs",
     "prebuild": "npm run build:compiler",
     "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev",
     "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",

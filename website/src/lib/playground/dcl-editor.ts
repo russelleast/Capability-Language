@@ -1,8 +1,11 @@
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
+import "monaco-editor/esm/vs/editor/contrib/format/browser/formatActions.js";
+import "monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution.js";
 import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController.js";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker.js?worker";
 import type { Diagnostic } from "./compiler";
 import { DCL_LANGUAGE_ID, registerDclLanguage } from "./dcl-language";
+import { formatDcl } from "./formatDcl";
 
 type MonacoEnvironment = {
   getWorker(): Worker;
@@ -18,9 +21,16 @@ export type DclEditorController = {
   getValue(): string;
   setValue(value: string): void;
   setDiagnostics(diagnostics: Diagnostic[]): void;
+  revealSourceLocation(location: SourceLocation): boolean;
+  formatSource(): boolean;
   showSuggestions(): void;
   layout(): void;
   dispose(): void;
+};
+
+export type SourceLocation = {
+  line: number;
+  column?: number;
 };
 
 const autoSuggestPrefixes = new Set(["cap", "actor", "shape", "policy"]);
@@ -39,6 +49,7 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
     language: DCL_LANGUAGE_ID,
     theme: "dcl-dark",
     automaticLayout: true,
+    fixedOverflowWidgets: true,
     fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
     fontSize: 14,
     lineNumbers: "on",
@@ -67,6 +78,8 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
     textarea.value = editor.getValue();
     triggerSuggestionsForKnownPrefix(editor);
   });
+  let revealDecorationIds: string[] = [];
+  let revealHighlightTimer: number | undefined;
 
   host.hidden = false;
   textarea.hidden = true;
@@ -87,6 +100,59 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
 
       monaco.editor.setModelMarkers(model, "dcl", diagnostics.flatMap(toMonacoMarker));
     },
+    revealSourceLocation(location: SourceLocation) {
+      const model = editor.getModel();
+      if (!model || !hasSourceLocation(location) || location.line > model.getLineCount()) return false;
+
+      const column = Math.min(Math.max(location.column ?? 1, 1), model.getLineMaxColumn(location.line));
+      const range = new monaco.Range(location.line, column, location.line, model.getLineMaxColumn(location.line));
+
+      editor.focus();
+      editor.setPosition({ lineNumber: location.line, column });
+      editor.revealLineInCenter(location.line);
+
+      revealDecorationIds = editor.deltaDecorations(revealDecorationIds, [
+        {
+          range,
+          options: {
+            isWholeLine: true,
+            className: "dcl-source-reveal-line",
+            overviewRuler: {
+              color: "rgba(143, 191, 157, 0.75)",
+              position: monaco.editor.OverviewRulerLane.Center,
+            },
+          },
+        },
+      ]);
+
+      if (revealHighlightTimer) window.clearTimeout(revealHighlightTimer);
+      revealHighlightTimer = window.setTimeout(() => {
+        revealDecorationIds = editor.deltaDecorations(revealDecorationIds, []);
+        revealHighlightTimer = undefined;
+      }, 1800);
+
+      return true;
+    },
+    formatSource() {
+      const model = editor.getModel();
+      if (!model) return false;
+
+      const current = model.getValue();
+      const formatted = formatDcl(current);
+      if (formatted === current) return false;
+
+      editor.pushUndoStop();
+      editor.executeEdits("dcl-format", [
+        {
+          range: model.getFullModelRange(),
+          text: formatted,
+          forceMoveMarkers: true,
+        },
+      ]);
+      editor.pushUndoStop();
+      monaco.editor.setModelMarkers(model, "dcl", []);
+      return true;
+    },
     showSuggestions() {
       triggerSuggest(editor);
     },
@@ -96,10 +162,15 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
     dispose() {
       const model = editor.getModel();
       if (model) monaco.editor.setModelMarkers(model, "dcl", []);
+      if (revealHighlightTimer) window.clearTimeout(revealHighlightTimer);
       subscription.dispose();
       editor.dispose();
     },
   };
+}
+
+function hasSourceLocation(location: SourceLocation): boolean {
+  return Number.isInteger(location.line) && location.line > 0;
 }
 
 function triggerSuggestionsForKnownPrefix(editor: monaco.editor.IStandaloneCodeEditor): void {
