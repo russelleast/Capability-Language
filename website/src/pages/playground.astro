@@ -140,6 +140,9 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
               <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="flow">
                 Flow
               </button>
+              <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="analysis">
+                Analysis
+              </button>
               <button class="result-tab" type="button" role="tab" aria-selected="false" data-result-tab="advanced">
                 Advanced
               </button>
@@ -155,6 +158,10 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
             <section class="flow-output result-panel" data-result-panel="flow" hidden>
               <h2>Flow</h2>
               <p>Lifecycle and event flow will appear here after a successful compile.</p>
+            </section>
+            <section class="analysis-output result-panel" data-result-panel="analysis" hidden>
+              <h2>Analysis</h2>
+              <p>Compiler reasoning will appear here after a successful compile.</p>
             </section>
             <section class="advanced-output result-panel" data-result-panel="advanced" hidden>
               <h2>Advanced: View compiler output</h2>
@@ -232,7 +239,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
   </section>
 
   <script>
-    import { compileDcl, browserCompilerAvailable } from "../lib/playground/compiler";
+    import { compileDcl, browserCompilerAvailable, type Diagnostic } from "../lib/playground/compiler";
     import { formatDcl } from "../lib/playground/formatDcl";
     import { playgroundExamples } from "../lib/playground/examples";
     import { playgroundExamplePath } from "../lib/playground/links";
@@ -260,6 +267,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     const summaryOutput = document.querySelector("[data-summary-output]");
     const mapOutput = document.querySelector("[data-result-panel='map']");
     const flowOutput = document.querySelector("[data-result-panel='flow']");
+    const analysisOutput = document.querySelector("[data-result-panel='analysis']");
     const advancedOutput = document.querySelector("[data-result-panel='advanced']");
     const compilerOutput = document.querySelector("[data-compiler-output]");
     const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
@@ -371,12 +379,14 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         severity.textContent = diagnostic.severity;
 
         const heading = document.createElement("strong");
-        heading.textContent = diagnostic.code ?? "Compiler diagnostic";
+        const explanation = explainDiagnostic(diagnostic);
+        heading.textContent = explanation.title;
 
         const message = document.createElement("p");
         message.textContent = diagnostic.message;
 
         item.append(severity, heading, message);
+        item.append(renderDiagnosticExplanation(explanation));
 
         if (diagnostic.line || diagnostic.column) {
           const location = document.createElement("span");
@@ -391,12 +401,125 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       diagnostics.replaceChildren(list);
     }
 
+    type DiagnosticExplanation = {
+      title: string;
+      reason: string;
+      impact: string;
+      suggestedFix: string;
+    };
+
+    type AnalysisProgram = {
+      actors?: unknown[];
+      capabilities?: AnalysisCapability[];
+      contexts?: unknown[];
+      effects?: unknown[];
+      events?: unknown[];
+      policies?: unknown[];
+      diagnostics?: Diagnostic[];
+    };
+
+    type AnalysisCapability = {
+      name?: string;
+      intents?: unknown[];
+      outcomes?: unknown[];
+      invariants?: unknown[];
+      effects?: unknown[];
+      events?: unknown[];
+      emitted_events?: unknown[];
+      policies?: unknown[];
+      lifecycle?: {
+        steps?: unknown[];
+        transitions?: unknown[];
+        participating_capabilities?: unknown[];
+        contributors?: unknown[];
+      };
+      analysis?: {
+        reachable_outcomes?: string[];
+        outcome_causes?: unknown[];
+        portability?: string;
+      };
+    };
+
+    function explainDiagnostic(diagnostic: Diagnostic): DiagnosticExplanation {
+      const code = diagnostic.code ?? "Compiler diagnostic";
+      const normalized = code.toLowerCase();
+      const title = code
+        .replace(/^DCL_/, "")
+        .toLowerCase()
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ") || "Compiler diagnostic";
+
+      if (normalized.includes("unknown") || normalized.includes("undefined") || normalized.includes("unresolved")) {
+        return {
+          title,
+          reason: "The compiler could not resolve a referenced DCL symbol from the current context.",
+          impact: "Compilation cannot safely connect this declaration to the intended actor, shape, effect, event, policy, outcome, or capability.",
+          suggestedFix: "Check the referenced name, declare the missing symbol, or add an explicit context dependency if the symbol lives elsewhere.",
+        };
+      }
+
+      if (normalized.includes("lifecycle")) {
+        return {
+          title,
+          reason: "The compiler found a lifecycle rule that does not match the declared lifecycle states, triggers, contributors, or ownership.",
+          impact: "The lifecycle view may be incomplete until the transition model is valid.",
+          suggestedFix: "Review begin, step, end, move, contributor, and trigger declarations for the named lifecycle item.",
+        };
+      }
+
+      if (normalized.includes("policy")) {
+        return {
+          title,
+          reason: "The compiler found a policy declaration, attachment, or policy causation that cannot be applied as written.",
+          impact: "The affected reliability, security, governance, or operational concern may not protect the intended target.",
+          suggestedFix: "Check the policy family, concern, target kind, target name, and whether the policy is attached to the capability boundary.",
+        };
+      }
+
+      if (normalized.includes("duplicate") || normalized.includes("ambiguous") || normalized.includes("conflict")) {
+        return {
+          title,
+          reason: "The compiler found multiple declarations or paths that make the model ambiguous.",
+          impact: "The compiler cannot choose one meaning without risking a wrong semantic interpretation.",
+          suggestedFix: "Rename or remove the duplicate item, or make the reference more explicit.",
+        };
+      }
+
+      if (diagnostic.severity === "warning") {
+        return {
+          title,
+          reason: "The compiler accepted the source but found something that may be incomplete, redundant, or surprising.",
+          impact: "The model can compile, but the generated summary may not express the intent as clearly as possible.",
+          suggestedFix: "Review the warning location and simplify, clarify, or complete the nearby declaration.",
+        };
+      }
+
+      return {
+        title,
+        reason: "The compiler reported this while parsing or validating the DCL source.",
+        impact: diagnostic.severity === "error" ? "The compiler cannot accept the source until this is fixed." : "The source compiled with additional information from the compiler.",
+        suggestedFix: "Use the diagnostic message and source location to inspect the nearby DCL declaration.",
+      };
+    }
+
+    function renderDiagnosticExplanation(explanation: DiagnosticExplanation) {
+      const details = document.createElement("dl");
+      details.className = "diagnostic-explanation";
+      appendDefinition(details, "Reason", explanation.reason);
+      appendDefinition(details, "Impact", explanation.impact);
+      appendDefinition(details, "Suggested fix", explanation.suggestedFix);
+      return details;
+    }
+
     function renderSummary(result: Awaited<ReturnType<typeof compileDcl>>) {
       if (!summaryOutput) return;
 
       if (!result.ok || !result.ir) {
         compilerResults?.setAttribute("hidden", "");
         summaryOutput.replaceChildren();
+        if (analysisOutput) analysisOutput.replaceChildren();
         renderVisualEmpty("Compile DCL source to generate visuals.");
         return;
       }
@@ -406,6 +529,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       summaryOutput.replaceChildren(summaryHeading(), summaryIntro(), renderSemanticSummary(summary));
       renderCapabilityMap(summary);
       renderFlow(summary);
+      renderAnalysis(summary, result);
       renderVisuals(summary, result.diagnostics);
       activateResultPanel("summary");
     }
@@ -596,6 +720,321 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       }
 
       flowOutput.append(flow);
+    }
+
+    function renderAnalysis(summary: SemanticSummary, result: Awaited<ReturnType<typeof compileDcl>>) {
+      if (!analysisOutput) return;
+
+      const program = isObject(result.ir) ? (result.ir as AnalysisProgram) : {};
+      analysisOutput.replaceChildren(analysisHeading(), analysisIntro());
+
+      const sections = document.createElement("div");
+      sections.className = "analysis-list";
+      sections.append(
+        renderCompilerSummary(summary, program),
+        renderValidationResults(summary, program, result.diagnostics),
+        renderCapabilityAnalysis(summary, program),
+        renderArchitectureInsights(summary),
+        renderDiagnosticAnalysis(result.diagnostics),
+      );
+      analysisOutput.append(sections);
+    }
+
+    function analysisHeading() {
+      const heading = document.createElement("h2");
+      heading.textContent = "Analysis";
+      return heading;
+    }
+
+    function analysisIntro() {
+      const intro = document.createElement("p");
+      intro.className = "summary-intro";
+      intro.textContent = "A human-readable view of what the compiler understood, validated, and derived from the current source.";
+      return intro;
+    }
+
+    function renderCompilerSummary(summary: SemanticSummary, program: AnalysisProgram) {
+      const section = analysisSection("Compiler Summary");
+      const grid = document.createElement("div");
+      grid.className = "analysis-metric-grid";
+      const metrics = [
+        ["Contexts", summary.contexts?.length ?? program.contexts?.length ?? 0],
+        ["Capabilities", summary.capabilities.length],
+        ["Actors", program.actors?.length ?? countUnique(summary.capabilities.flatMap((capability) => capability.actors ?? []))],
+        ["Policies", program.policies?.length ?? countUnique(summary.capabilities.flatMap((capability) => capability.policies ?? []))],
+        ["Effects", program.effects?.length ?? countUnique(summary.capabilities.flatMap((capability) => capability.effects ?? []))],
+        ["Events", program.events?.length ?? countUnique(summary.capabilities.flatMap((capability) => capability.events ?? []))],
+      ] as const;
+
+      for (const [label, value] of metrics) {
+        const card = document.createElement("div");
+        card.className = "analysis-metric";
+        const number = document.createElement("strong");
+        number.textContent = String(value);
+        const text = document.createElement("span");
+        text.textContent = label;
+        card.append(number, text);
+        grid.append(card);
+      }
+      section.append(grid);
+      return section;
+    }
+
+    function renderValidationResults(summary: SemanticSummary, program: AnalysisProgram, diagnostics: Diagnostic[]) {
+      const section = analysisSection("Validation Results");
+      const checks = document.createElement("ul");
+      checks.className = "analysis-check-list";
+
+      const diagnosticCodes = diagnostics.map((diagnostic) => diagnostic.code ?? "");
+      if (diagnostics.length === 0) {
+        checks.append(analysisCheck("pass", "No diagnostics reported", "The compiler accepted this source without warnings or errors."));
+      }
+      if (!diagnosticCodes.some((code) => /UNKNOWN|UNDEFINED|UNRESOLVED/.test(code))) {
+        checks.append(analysisCheck("pass", "All referenced symbols resolved", "No unresolved-symbol diagnostics were reported by the compiler."));
+      }
+      if (program.capabilities?.some((capability) => Array.isArray(capability.analysis?.reachable_outcomes))) {
+        const unreachable = program.capabilities.flatMap((capability) => {
+          const outcomes = namesFromUnknownItems(capability.outcomes);
+          const reachable = new Set(capability.analysis?.reachable_outcomes ?? []);
+          return outcomes.filter((outcome) => !reachable.has(outcome));
+        });
+        checks.append(
+          analysisCheck(
+            unreachable.length ? "warn" : "pass",
+            unreachable.length ? "Some outcomes may not be reachable" : "Outcomes reachable",
+            unreachable.length ? `Unreachable outcomes reported by analysis: ${unreachable.join(", ")}.` : "Capability analysis reports declared outcomes as reachable.",
+          ),
+        );
+      }
+      if (summary.capabilities.some((capability) => capability.lifecycle)) {
+        const lifecycleDiagnostics = diagnostics.filter((diagnostic) => diagnostic.code?.includes("LIFECYCLE"));
+        checks.append(
+          analysisCheck(
+            lifecycleDiagnostics.length ? "warn" : "pass",
+            lifecycleDiagnostics.length ? "Lifecycle diagnostics reported" : "Lifecycle valid",
+            lifecycleDiagnostics.length
+              ? "The compiler emitted lifecycle diagnostics for this source."
+              : "No lifecycle diagnostics were reported for declared lifecycle structures.",
+          ),
+        );
+      }
+      if (!diagnosticCodes.some((code) => /AMBIG|CONFLICT|DUPLICATE/.test(code))) {
+        checks.append(analysisCheck("pass", "No ambiguity detected", "No ambiguity, conflict, or duplicate diagnostics were reported."));
+      }
+
+      if (!checks.children.length) {
+        checks.append(analysisCheck("info", "No validation facts available", "The compiler output did not include validation facts for this source."));
+      }
+
+      section.append(checks);
+      return section;
+    }
+
+    function renderCapabilityAnalysis(summary: SemanticSummary, program: AnalysisProgram) {
+      const section = analysisSection("Capability Analysis");
+      const list = document.createElement("div");
+      list.className = "analysis-capability-list";
+      const capabilitiesByName = new Map((program.capabilities ?? []).map((capability) => [capability.name, capability]));
+
+      if (!summary.capabilities.length) {
+        const empty = document.createElement("p");
+        empty.className = "empty-state";
+        empty.textContent = "No capabilities were found in the compiler output.";
+        section.append(empty);
+        return section;
+      }
+
+      for (const capability of summary.capabilities) {
+        const rawCapability = capabilitiesByName.get(capability.name);
+        const card = document.createElement("article");
+        card.className = "analysis-capability-card";
+        const heading = document.createElement("h3");
+        heading.textContent = capability.context ? `${capability.context}.${capability.name}` : capability.name;
+        card.append(heading);
+
+        const groups = document.createElement("div");
+        groups.className = "summary-card-grid";
+        groups.append(
+          renderSummaryGroup("Intents", capability.intents),
+          renderSummaryGroup("Outcomes", capability.outcomes),
+          renderSummaryGroup("Rules", capability.rules),
+          renderSummaryGroup("Effects", capability.effects),
+          renderSummaryGroup("Events", capability.events),
+          renderSummaryGroup("Policies", capability.policies),
+          renderSummaryGroup("Lifecycle participation", lifecycleParticipation(capability, rawCapability)),
+        );
+        card.append(groups);
+
+        if (rawCapability?.analysis?.reachable_outcomes?.length || rawCapability?.analysis?.outcome_causes?.length || rawCapability?.analysis?.portability) {
+          const reasoning = document.createElement("div");
+          reasoning.className = "analysis-reasoning";
+          if (rawCapability.analysis.reachable_outcomes?.length) {
+            reasoning.append(renderSummaryGroup("Reachable outcomes", rawCapability.analysis.reachable_outcomes));
+          }
+          if (rawCapability.analysis.outcome_causes?.length) {
+            reasoning.append(renderSummaryGroup("Outcome causes", rawCapability.analysis.outcome_causes.map(formatOutcomeCause)));
+          }
+          if (rawCapability.analysis.portability) {
+            reasoning.append(renderSummaryGroup("Portability", [rawCapability.analysis.portability]));
+          }
+          card.append(reasoning);
+        }
+
+        list.append(card);
+      }
+
+      section.append(list);
+      return section;
+    }
+
+    function renderArchitectureInsights(summary: SemanticSummary) {
+      const section = analysisSection("Architecture Insights");
+      const list = document.createElement("ul");
+      list.className = "analysis-insight-list";
+      const capabilities = summary.capabilities;
+
+      const mostEffects = maxBy(capabilities, (capability) => capability.effects?.length ?? 0);
+      if (mostEffects && (mostEffects.effects?.length ?? 0) > 0) {
+        list.append(analysisInsight(`${mostEffects.name} has the most effects (${mostEffects.effects?.length ?? 0}).`));
+      }
+
+      const mostOutcomes = maxBy(capabilities, (capability) => capability.outcomes?.length ?? 0);
+      if (mostOutcomes && (mostOutcomes.outcomes?.length ?? 0) > 0) {
+        list.append(analysisInsight(`${mostOutcomes.name} has the most outcomes (${mostOutcomes.outcomes?.length ?? 0}).`));
+      }
+
+      const contextCounts = capabilities.reduce((counts, capability) => {
+        const context = capability.context ?? "Unscoped";
+        counts.set(context, (counts.get(context) ?? 0) + 1);
+        return counts;
+      }, new Map<string, number>());
+      const densestContext = Array.from(contextCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+      if (densestContext) {
+        list.append(analysisInsight(`${densestContext[0]} has the highest capability density (${densestContext[1]}).`));
+      }
+
+      if (!list.children.length) {
+        list.append(analysisInsight("No architecture insights are derivable from this compiler output yet."));
+      }
+
+      section.append(list);
+      return section;
+    }
+
+    function renderDiagnosticAnalysis(diagnostics: Diagnostic[]) {
+      const section = analysisSection("Diagnostic Explanations");
+      if (!diagnostics.length) {
+        const clean = document.createElement("p");
+        clean.className = "diagnostic-success";
+        clean.textContent = "No diagnostics. The compiler accepted this source.";
+        section.append(clean);
+        return section;
+      }
+
+      const list = document.createElement("ul");
+      list.className = "diagnostic-list";
+      for (const diagnostic of diagnostics) {
+        const item = document.createElement("li");
+        item.className = `diagnostic diagnostic-${diagnostic.severity}`;
+        const explanation = explainDiagnostic(diagnostic);
+        const severity = document.createElement("span");
+        severity.className = "diagnostic-severity";
+        severity.textContent = diagnostic.severity;
+        const heading = document.createElement("strong");
+        heading.textContent = explanation.title;
+        const message = document.createElement("p");
+        message.textContent = diagnostic.message;
+        item.append(severity, heading, message, renderDiagnosticExplanation(explanation));
+        list.append(item);
+      }
+      section.append(list);
+      return section;
+    }
+
+    function analysisSection(title: string) {
+      const section = document.createElement("section");
+      section.className = "analysis-section";
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      section.append(heading);
+      return section;
+    }
+
+    function analysisCheck(state: "pass" | "warn" | "info", title: string, detail: string) {
+      const item = document.createElement("li");
+      item.className = `analysis-check analysis-check-${state}`;
+      const marker = document.createElement("span");
+      marker.textContent = state === "pass" ? "✓" : state === "warn" ? "!" : "i";
+      const copy = document.createElement("div");
+      const strong = document.createElement("strong");
+      strong.textContent = title;
+      const paragraph = document.createElement("p");
+      paragraph.textContent = detail;
+      copy.append(strong, paragraph);
+      item.append(marker, copy);
+      return item;
+    }
+
+    function analysisInsight(text: string) {
+      const item = document.createElement("li");
+      item.textContent = text;
+      return item;
+    }
+
+    function lifecycleParticipation(capability: CapabilitySummary, rawCapability: AnalysisCapability | undefined) {
+      const items = [
+        capability.lifecycle?.begin ? `Begin: ${capability.lifecycle.begin}` : undefined,
+        ...(capability.lifecycle?.steps?.map((step) => `Step: ${step}`) ?? []),
+        ...(capability.lifecycle?.transitions?.map((transition) => `Transition: ${transition}`) ?? []),
+        ...(capability.lifecycle?.ends?.map((end) => `End: ${end}`) ?? []),
+        ...(namesFromUnknownItems(rawCapability?.lifecycle?.participating_capabilities).map((item) => `Participates with ${item}`) ?? []),
+        ...(namesFromUnknownItems(rawCapability?.lifecycle?.contributors).map((item) => `Contributor: ${item}`) ?? []),
+      ].filter((item): item is string => Boolean(item));
+      return items.length ? items : undefined;
+    }
+
+    function formatOutcomeCause(cause: unknown) {
+      if (!isObject(cause)) return String(cause);
+      const outcome = stringValue(cause.outcome) ?? "outcome";
+      const source = stringValue(cause.source);
+      const condition = stringValue(cause.condition);
+      const precedence = typeof cause.precedence === "number" ? `, precedence ${cause.precedence}` : "";
+      return [outcome, source ? `from ${source}` : undefined, condition ? `when ${condition}` : undefined].filter(Boolean).join(" ") + precedence;
+    }
+
+    function namesFromUnknownItems(items: unknown[] | undefined) {
+      if (!Array.isArray(items)) return [];
+      return items.map(nameFromUnknownItem).filter((item): item is string => Boolean(item));
+    }
+
+    function nameFromUnknownItem(item: unknown) {
+      if (typeof item === "string") return item;
+      if (!isObject(item)) return undefined;
+      return stringValue(item.name) ?? stringValue(item.actor) ?? stringValue(item.capability) ?? stringValue(item.event) ?? stringValue(item.effect);
+    }
+
+    function appendDefinition(parent: HTMLDListElement, termText: string, detailText: string) {
+      const term = document.createElement("dt");
+      term.textContent = termText;
+      const detail = document.createElement("dd");
+      detail.textContent = detailText;
+      parent.append(term, detail);
+    }
+
+    function countUnique(items: string[]) {
+      return new Set(items).size;
+    }
+
+    function maxBy<T>(items: T[], score: (item: T) => number): T | undefined {
+      return items.reduce<T | undefined>((best, item) => (best === undefined || score(item) > score(best) ? item : best), undefined);
+    }
+
+    function stringValue(value: unknown) {
+      return typeof value === "string" && value ? value : undefined;
+    }
+
+    function isObject(value: unknown): value is Record<string, unknown> {
+      return Boolean(value) && typeof value === "object";
     }
 
     function flowHeading() {
@@ -1120,6 +1559,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       if (summaryOutput) summaryOutput.replaceChildren();
       if (mapOutput) mapOutput.replaceChildren();
       if (flowOutput) flowOutput.replaceChildren();
+      if (analysisOutput) analysisOutput.replaceChildren();
       if (compilerOutput) compilerOutput.textContent = "{}";
       activateResultPanel("summary");
       renderVisualEmpty("Compile DCL source to generate visuals.");
@@ -1136,6 +1576,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       if (summaryOutput) summaryOutput.replaceChildren();
       if (mapOutput) mapOutput.replaceChildren();
       if (flowOutput) flowOutput.replaceChildren();
+      if (analysisOutput) analysisOutput.replaceChildren();
       if (compilerOutput) compilerOutput.textContent = "{}";
       activateResultPanel("summary");
       renderVisualEmpty("Compile DCL source to generate visuals.");

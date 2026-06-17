@@ -770,6 +770,27 @@ main {
   margin-top: 0.35rem;
 }
 
+.diagnostic-explanation {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.25rem 0.5rem;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0.65rem 0 0;
+  padding-top: 0.55rem;
+}
+
+.diagnostic-explanation dt {
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.diagnostic-explanation dd {
+  color: var(--muted);
+  margin: 0;
+}
+
 .compiler-results {
   border-bottom: 1px solid var(--line);
   display: grid;
@@ -790,7 +811,7 @@ main {
   border-radius: 8px;
   display: grid;
   gap: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
 }
 
@@ -891,6 +912,119 @@ main {
   display: grid;
   gap: 0.25rem;
   margin-top: 0.4rem;
+}
+
+.analysis-list,
+.analysis-capability-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.analysis-section,
+.analysis-capability-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 0.85rem;
+}
+
+.analysis-section > h3,
+.analysis-capability-card > h3 {
+  font-size: 1rem;
+  line-height: 1.25;
+  margin: 0 0 0.65rem;
+  overflow-wrap: anywhere;
+}
+
+.analysis-metric-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analysis-metric {
+  background: #f7faf7;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.65rem;
+}
+
+.analysis-metric strong {
+  color: var(--accent-strong);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.analysis-metric span,
+.analysis-check strong {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.analysis-check-list,
+.analysis-insight-list {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.analysis-check {
+  align-items: start;
+  background: #f7faf7;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  padding: 0.65rem;
+}
+
+.analysis-check > span {
+  align-items: center;
+  background: #edf3ee;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  display: inline-flex;
+  font-weight: 900;
+  height: 1.45rem;
+  justify-content: center;
+  width: 1.45rem;
+}
+
+.analysis-check-warn > span {
+  background: #fff8e6;
+  color: #6e5512;
+}
+
+.analysis-check-info > span {
+  background: #eef4f8;
+  color: #285269;
+}
+
+.analysis-check p,
+.analysis-insight-list li {
+  color: var(--muted);
+  margin: 0;
+}
+
+.analysis-insight-list li {
+  background: #f7faf7;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0.65rem;
+}
+
+.analysis-reasoning {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
 }
 
 .capability-map {
@@ -1519,6 +1653,14 @@ main {
   }
 
   .summary-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostic-explanation {
     grid-template-columns: 1fr;
   }
 
