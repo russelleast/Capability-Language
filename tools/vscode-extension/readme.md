@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.1 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -177,7 +177,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3 includes:
+v0.3.1 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -188,8 +188,9 @@ v0.3 includes:
 - packaging and contributor development hardening
 - automated unit test foundation
 - first read-only capability graph visualisation
+- CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3:
+Deferred beyond v0.3.1:
 
 - richer navigation and source linking
 - source-to-graph and graph-to-source navigation

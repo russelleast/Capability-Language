@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Corrected the extension version line after the v0.3 graph foundation.
+- Added CI coverage for building, testing, and packaging the VS Code extension.
+- Added a downloadable VSIX artifact named from the extension package version.
+- Kept marketplace publishing out of CI.
+
 ## 0.3.0
 
 - Added `DCL: Show Capability Graph` for a read-only graph of one selected capability.
