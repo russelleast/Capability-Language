@@ -1,0 +1,156 @@
+---
+import DocsLayout from "../layouts/DocsLayout.astro";
+import { playgroundExamplePath, sitePath } from "../lib/playground/links";
+
+const frontmatter = {
+  title: "Why DCL",
+  description:
+    "Why DCL treats business capability as a compiler-visible unit of architecture.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Why DCL</h1>
+  <p>
+    DCL exists because business capability is a missing or poorly preserved
+    architectural unit. Strategy, architecture, delivery, and runtime systems
+    all depend on capability meaning, but that meaning is often weakened as it
+    moves through prose, diagrams, tickets, APIs, services, platform settings,
+    and code.
+  </p>
+  <p>
+    DCL treats capabilities as architecture. It is an experimental attempt to
+    make capability meaning explicit, inspectable, and compiler-verifiable.
+  </p>
+
+  <h2>The problem is not syntax</h2>
+  <p>
+    Software teams already have many useful syntaxes. Programming languages,
+    configuration languages, modelling notations, diagrams, tickets, and
+    documentation all carry part of the system story. The gap DCL addresses is
+    not a shortage of ways to write things down.
+  </p>
+  <p>
+    The gap is that business capability is rarely represented as a durable
+    language primitive. The responsibility a system exposes is often implied by
+    service names, endpoint shapes, backlog items, workflow diagrams, or
+    implementation code.
+  </p>
+
+  <h2>Business capability gets lost</h2>
+  <p>
+    Business strategy becomes initiatives. Initiatives become architecture.
+    Architecture becomes delivery plans. Delivery plans become software
+    implementation. Implementation becomes runtime behaviour.
+  </p>
+  <p>
+    At each layer, the original capability meaning can become fragmented. A
+    decision that began as a business responsibility may later appear as an API
+    route, a queue, a handler, a table, a retry policy, and a dashboard alert,
+    with no single artefact preserving what the capability means.
+  </p>
+  <p>
+    DCL is for the architectural meaning that gets lost between strategy and
+    code.
+  </p>
+
+  <h2>Existing code models implementation</h2>
+  <p>
+    General-purpose programming languages are excellent at describing how
+    software runs. They model functions, types, modules, control flow, data
+    structures, and runtime behaviour. They can express business logic, but they
+    do not usually model business intent as architecture.
+  </p>
+  <p>
+    DCL describes what software means before describing how it is implemented.
+    It names the capability, the intent that asks for it, the outcomes it can
+    produce, the effects it may cause, the events it emits or awaits, and the
+    policies that govern it.
+  </p>
+
+  <h2>Diagrams and documents are useful but not enough</h2>
+  <p>
+    Architecture documents and diagrams help people reason about systems. They
+    can explain context, trade-offs, boundaries, and design intent in ways that
+    code alone rarely can.
+  </p>
+  <p>
+    But most documents and diagrams are not compiler-verifiable. They can drift
+    from implementation, leave references ambiguous, or describe behaviours that
+    are never checked as part of the language model.
+  </p>
+  <p>
+    DCL is not a replacement for human explanation. It gives explanation a
+    language-level anchor.
+  </p>
+
+  <h2>Why capability should be a language primitive</h2>
+  <p>
+    A capability is a unit of architecture. It is the responsibility a system or
+    context exposes to its environment. That responsibility should be visible
+    before teams have already committed to service boundaries, queues, handlers,
+    screens, database tables, or infrastructure choices.
+  </p>
+  <p>
+    Treating capability as a language primitive lets a model talk directly about
+    intent, outcomes, rules, policies, effects, events, and lifecycle
+    progression. The result is not merely a collection of information from
+    existing sources. It is a source-level representation of capability meaning.
+  </p>
+
+  <h2>Why compiler validation matters</h2>
+  <p>
+    Compiler validation makes capability meaning inspectable in a different way
+    from prose. The compiler can check references, detect ambiguity, validate
+    policy attachment, analyse lifecycle structure, and report semantic problems
+    early.
+  </p>
+  <p>
+    DCL makes business capability compiler-visible. That does not make a model
+    automatically correct, complete, or production-ready. It does mean the model
+    can be checked as a language artefact instead of relying only on informal
+    review.
+  </p>
+
+  <h2>Why this matters more in the AI era</h2>
+  <p>
+    AI-assisted tools work best when context is structured, explicit, current,
+    and checkable. Loose prose, stale diagrams, and fragmented implementation
+    details make it harder to understand what a system is responsible for and
+    why.
+  </p>
+  <p>
+    DCL does not currently claim production AI integration. It is designed to
+    support future tools that can inspect capability models, reason over
+    compiler-checked semantics, and help teams understand architectural intent
+    without flattening it into implementation details.
+  </p>
+
+  <h2>What DCL is not</h2>
+  <ul>
+    <li>DCL is not infrastructure-as-code.</li>
+    <li>DCL is not just documentation.</li>
+    <li>DCL is not a framework convention.</li>
+    <li>DCL is not a claim that diagrams, prose, tests, or code are unnecessary.</li>
+    <li>DCL is not production-ready language infrastructure.</li>
+  </ul>
+  <p>
+    DCL is a language for expressing what a system is responsible for, what
+    intent it accepts, what outcomes it can produce, what it causes, and what
+    policies govern it.
+  </p>
+
+  <h2>Where DCL is going</h2>
+  <p>
+    DCL is experimental. The current project focuses on the language shape,
+    compiler validation, learning material, examples, and a browser playground.
+    Future work may include stronger editor support, language-server features,
+    MCP tooling, richer projections, documentation generation, and integration
+    points for AI-assisted understanding.
+  </p>
+  <p class="inline-actions">
+    <a class="button primary" href={sitePath("/learn/")}>Learn DCL</a>
+    <a class="button secondary" href={playgroundExamplePath("ecommerce-platform")}>Open the E-Commerce example</a>
+    <a class="button secondary" href={sitePath("/roadmap/")}>View the roadmap</a>
+  </p>
+</DocsLayout>

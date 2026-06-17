@@ -2,13 +2,16 @@
 import { languageLabel, languageStatus } from "../config/version";
 
 const year = new Date().getFullYear();
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = (href) => `${base}${href}`;
 ---
 
 <footer class="site-footer">
-  <p>DCL is an open language project for describing software capabilities, intent, outcomes, and lifecycle semantics.</p>
+  <p>DCL is an open language project for treating capabilities as architecture.</p>
   <div class="footer-meta">
     <span>Current Version: {languageLabel}</span>
     <span>Status: {languageStatus}</span>
+    <a href={path("/why-dcl/")}>Why DCL</a>
     <a href="https://github.com/russelleast/Capability-Language">GitHub Repository</a>
     <span>License: Apache 2.0</span>
   </div>

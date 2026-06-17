@@ -3,6 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import CodeBlock from "../components/CodeBlock.astro";
 import { languageLabel, languageStatus } from "../config/version";
 import example from "../examples/register-customer.dcl?raw";
+import { playgroundExamplePath } from "../lib/playground/links";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const path = (href) => `${base}${href}`;
@@ -15,16 +16,97 @@ const path = (href) => `${base}${href}`;
       <p class="eyebrow">Declarative Capability Language</p>
       <h1>Describe software systems by what they mean.</h1>
       <p class="lead">
-        DCL is an experimental declarative language for modeling software
-        capabilities, intent, outcomes, effects, events, policies, contexts, and
-        lifecycle progression as first-class system semantics.
+        DCL treats capabilities as architecture: the missing unit between
+        business intent, system design, and software delivery.
+      </p>
+      <p class="lead secondary-lead">
+        It is an experimental declarative language for preserving capability
+        meaning as explicit, inspectable, and compiler-verifiable system
+        semantics.
       </p>
       <p class="version-line">{languageLabel} · Status: {languageStatus}</p>
       <div class="actions">
         <a class="button primary" href={path("/learn/")}>Learn DCL</a>
-        <a class="button secondary" href={path("/examples/")}>Read examples</a>
-        <a class="button secondary" href={path("/roadmap/")}>View roadmap</a>
+        <a class="button secondary" href={path("/playground/")}>Try the Playground</a>
+        <a class="button secondary" href={playgroundExamplePath("ecommerce-platform")}>Explore the E-Commerce Example</a>
+        <a class="button secondary" href="https://github.com/russelleast/Capability-Language">GitHub</a>
       </div>
+    </div>
+  </section>
+
+  <section class="section two-column">
+    <div>
+      <h2>Why DCL exists</h2>
+      <p>
+        Software delivery is full of translation. Business strategy becomes
+        initiatives. Initiatives become architecture. Architecture becomes
+        services, APIs, queues, workflows, tickets, and code.
+      </p>
+      <p>
+        But the capability itself, the responsibility the business actually
+        needs the system to provide, is rarely preserved as a first-class
+        artefact. DCL exists to make that capability explicit.
+      </p>
+      <p>
+        DCL is for the architectural meaning that gets lost between strategy and
+        code.
+      </p>
+    </div>
+    <div class="notice">
+      <strong>A DCL source file should answer</strong>
+      <ul class="tight-list">
+        <li>What responsibility does this system expose?</li>
+        <li>What intent can ask for it?</li>
+        <li>What outcomes can result?</li>
+        <li>What rules and policies govern it?</li>
+        <li>What effects and events does it cause?</li>
+        <li>How does it progress over time?</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>The translation gap</h2>
+    <div class="translation-flow" aria-label="Business strategy to runtime translation path">
+      <span>Business strategy</span>
+      <span class="flow-arrow">&rarr;</span>
+      <span class="flow-capability">Capability</span>
+      <span class="flow-arrow">&rarr;</span>
+      <span>Architecture</span>
+      <span class="flow-arrow">&rarr;</span>
+      <span>Delivery</span>
+      <span class="flow-arrow">&rarr;</span>
+      <span>Runtime</span>
+    </div>
+    <p class="section-intro">
+      Today, capability meaning is often implicit, spread across diagrams,
+      tickets, prose, service boundaries, and implementation code. DCL places
+      capability explicitly in the middle as a language-level representation of
+      business responsibility, intent, outcomes, effects, policies, and
+      lifecycle progression.
+    </p>
+  </section>
+
+  <section class="section">
+    <h2>What DCL changes</h2>
+    <div class="concept-grid three-column-grid">
+      <div class="concept"><strong>Capability as architecture</strong><p>A capability becomes a first-class language construct, not a paragraph in a document or a hidden assumption inside a service.</p></div>
+      <div class="concept"><strong>Outcomes over responses</strong><p>DCL models meaningful results, including rejection, failure, deferral, and partial completion.</p></div>
+      <div class="concept"><strong>Effects made explicit</strong><p>Persistence, publication, notification, invocation, and other side effects become part of the declared model.</p></div>
+      <div class="concept"><strong>Policies as architecture</strong><p>Reliability, security, observability, and governance are attached to language elements instead of being buried in middleware or infrastructure.</p></div>
+      <div class="concept"><strong>Lifecycle as meaning</strong><p>Long-running behaviour is described as business progression, not just workflow plumbing.</p></div>
+      <div class="concept"><strong>Compiler-visible intent</strong><p>The compiler can validate references, ambiguity, lifecycle structure, policy attachment, and semantic completeness.</p></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Problems DCL addresses</h2>
+    <div class="concept-grid three-column-grid">
+      <div class="concept"><strong>Lost capability intent</strong><p>The original business capability is often diluted as it moves from strategy to architecture to code.</p></div>
+      <div class="concept"><strong>Service-first modelling</strong><p>Teams often model endpoints, services, queues, handlers, and database tables before modelling the responsibility the system exposes.</p></div>
+      <div class="concept"><strong>Documentation that cannot be validated</strong><p>Architecture documents and diagrams help humans, but they cannot usually be compiled, analysed, or checked for ambiguity.</p></div>
+      <div class="concept"><strong>Hidden operational behaviour</strong><p>Retries, timeouts, observability, authorisation, and reliability rules are often scattered across code and platform configuration.</p></div>
+      <div class="concept"><strong>AI context ambiguity</strong><p>AI tools work better with structured, explicit, compiler-checkable context than with loose prose, stale diagrams, and fragmented implementation details.</p></div>
     </div>
   </section>
 
@@ -39,17 +121,20 @@ const path = (href) => `${base}${href}`;
         meaningful.
       </p>
       <p>
-        The language is capability-first and semantics-first. Syntax exists to
-        make architectural intent explicit, analyzable, and portable across
-        documentation, validation, diagrams, tests, and future tooling.
+        Existing programming languages model implementation well, but they do
+        not model business intent directly. Existing architecture diagrams and
+        documents describe systems, but they are not compiler-verifiable. DCL
+        describes what software means before describing how it is implemented.
       </p>
     </div>
     <div class="notice">
       <strong>Current focus</strong>
       <p>
-        {languageLabel} is experimental. The current compiler supports the core
-        language shape documented here; richer playground tooling, compiler WASM,
-        diagrams, and editor integrations are later roadmap items.
+        {languageLabel} is experimental. The current website includes learning
+        pages, guides, validated examples, and a browser playground with compiler
+        feedback and model visualisations. Editor integrations, language server
+        support, MCP tooling, and production runtime projections remain future
+        work.
       </p>
     </div>
   </section>
@@ -78,5 +163,23 @@ const path = (href) => `${base}${href}`;
       </p>
     </div>
     <CodeBlock title="register-customer.dcl" code={example} />
+  </section>
+
+  <section class="section two-column">
+    <div>
+      <h2>Keep exploring</h2>
+      <p>
+        DCL is not infrastructure-as-code, just documentation, or a framework
+        convention. It is a language for expressing what a system is responsible
+        for, what intent it accepts, what outcomes it can produce, what it
+        causes, and what policies govern it.
+      </p>
+    </div>
+    <div class="actions stacked-actions">
+      <a class="button primary" href={path("/why-dcl/")}>Why DCL</a>
+      <a class="button secondary" href={path("/guides/")}>Read the Guides</a>
+      <a class="button secondary" href={path("/docs/")}>Open the Reference</a>
+      <a class="button secondary" href={path("/playground/")}>Try the Playground</a>
+    </div>
   </section>
 </BaseLayout>

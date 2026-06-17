@@ -151,6 +151,11 @@ main {
   max-width: 740px;
 }
 
+.hero .secondary-lead {
+  font-size: 1.05rem;
+  margin-top: 0.8rem;
+}
+
 .version-line {
   color: var(--accent-strong);
   font-weight: 750;
@@ -204,10 +209,19 @@ main {
   margin: 0 0 1rem;
 }
 
+.section-intro {
+  color: var(--muted);
+  max-width: 860px;
+}
+
 .two-column {
   display: grid;
   gap: 2rem;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.75fr);
+}
+
+.two-column > * {
+  min-width: 0;
 }
 
 .concept-grid {
@@ -232,6 +246,57 @@ main {
 .concept p {
   color: var(--muted);
   margin: 0;
+}
+
+.three-column-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tight-list {
+  color: var(--muted);
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.tight-list li + li {
+  margin-top: 0.35rem;
+}
+
+.translation-flow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1.4rem 0;
+}
+
+.translation-flow span {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-weight: 800;
+  padding: 0.65rem 0.85rem;
+}
+
+.translation-flow .flow-arrow {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  padding: 0;
+}
+
+.translation-flow .flow-capability {
+  background: #eef5f0;
+  border-color: #a8c9b4;
+  color: var(--accent-strong);
+}
+
+.stacked-actions {
+  align-content: start;
+  align-items: stretch;
+  flex-direction: column;
+  margin-top: 0;
 }
 
 .content-wrap {
@@ -1622,7 +1687,8 @@ main {
   }
 
   .two-column,
-  .concept-grid {
+  .concept-grid,
+  .three-column-grid {
     grid-template-columns: 1fr;
   }
 
