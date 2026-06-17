@@ -2,3 +2,10 @@ node_modules/**
 src/**
 tsconfig.json
 **/*.map
+.vscode/**
+test-fixtures/**
+docs/**
+*.vsix
+DEVELOPMENT.md
+.gitignore
+.vscodeignore

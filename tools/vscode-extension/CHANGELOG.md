@@ -1,0 +1,30 @@
+# Changelog
+
+## 0.2.2
+
+- Added packaging and contributor development hardening.
+- Added VSCE packaging scripts and smoke test command.
+- Added Extension Development Host launch configuration and recommended workspace settings.
+- Added development guide for local build, run, compiler setup, fixtures, and VSIX packaging.
+- Polished extension metadata for VS Code presentation.
+
+## 0.2.1
+
+- Hardened source-range normalization and source reveal behavior.
+- Added explicit DCL Explorer empty and failure states.
+- Added mocked compiler-output fixtures for source-location edge cases.
+- Documented compiler source-location indexing semantics.
+
+## 0.2.0
+
+- Added the DCL Explorer Activity Bar view.
+- Added capability-first semantic navigation for contexts, capabilities, actors, policies, effects, events, and lifecycles.
+- Added source navigation for semantic items with compiler-provided locations.
+- Added explorer refresh and compile workspace actions.
+
+## 0.1.0
+
+- Added `.dcl` language association, syntax highlighting, snippets, and language configuration.
+- Added static hover help for DCL primitives.
+- Added compiler-backed diagnostics, semantic summary, and formatting delegation.
+- Added compiler path and compile-on-save settings.
