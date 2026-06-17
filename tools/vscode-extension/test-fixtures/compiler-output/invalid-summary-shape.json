@@ -1,0 +1,22 @@
+{
+  "capabilities": {
+    "not": "an array"
+  },
+  "contexts": "not an array",
+  "actors": [
+    null,
+    {
+      "name": "StillDefensive"
+    }
+  ],
+  "effective_policies": {
+    "not": "an array"
+  },
+  "symbols": [
+    {
+      "kind": "capability",
+      "name": "BadLocation",
+      "declared": "not-a-location"
+    }
+  ]
+}

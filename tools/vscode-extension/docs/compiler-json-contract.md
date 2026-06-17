@@ -49,6 +49,28 @@ Diagnostics are expected to use the compiler diagnostic shape:
 
 `severity` may be `error`, `warning`, or `info`.
 
+## Source Location Semantics
+
+The extension expects compiler source locations to use 1-based indexing:
+
+- `line: 1` means the first line in the file.
+- `column: 1` means the first character in the line.
+
+This applies to diagnostic `span` values, symbol `declared` strings, and semantic summary source locations such as `effective_policies[].source_locations[]`.
+
+The extension normalizes source locations before use and rejects malformed locations defensively. The following cases must not crash the extension:
+
+- missing `file`
+- missing or non-integer `line`
+- missing `column`, which is treated as column 1
+- line or column before the start of the file
+- line or column beyond the opened document
+- deleted files
+- relative file paths
+- absolute file paths
+
+The internal source-location utility can also normalize explicit 0-based locations for tests or future adapters, but compiler JSON produced by `dcl ir --format json` should remain 1-based unless this contract is revised.
+
 If the compiler exits non-zero, the extension falls back to parsing the current human diagnostic format:
 
 ```text

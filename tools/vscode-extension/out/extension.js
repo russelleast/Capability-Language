@@ -36,12 +36,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
 const DclCompilerAdapter_1 = require("./compiler/DclCompilerAdapter");
 const DclDiagnosticProvider_1 = require("./diagnostics/DclDiagnosticProvider");
 const DclFormattingProvider_1 = require("./formatting/DclFormattingProvider");
 const DclHoverProvider_1 = require("./hovers/DclHoverProvider");
+const DclSourceLocation_1 = require("./source/DclSourceLocation");
 const DclExplorerProvider_1 = require("./views/DclExplorerProvider");
 const DclSummaryProvider_1 = require("./views/DclSummaryProvider");
 const DCL_SELECTOR = { language: "dcl", scheme: "file" };
@@ -70,6 +69,9 @@ async function compileCurrentFile(diagnostics, summary, explorer, revealSummary)
 async function compileWorkspace(diagnostics, summary, explorer) {
     const files = await vscode.workspace.findFiles("**/*.dcl", "**/{node_modules,.git}/**");
     if (files.length === 0) {
+        diagnostics.clear();
+        summary.clear();
+        explorer.showNoDclFiles();
         void vscode.window.showInformationMessage("No .dcl files found in this workspace.");
         return;
     }
@@ -93,6 +95,10 @@ async function compileFiles(files, diagnostics, summary, explorer, revealSummary
             summary.refresh(result.ir);
             explorer.refresh(result.ir);
         }
+        else if (!result.ok) {
+            summary.clear();
+            explorer.showCompileFailed();
+        }
         else {
             summary.clear();
             explorer.clear();
@@ -112,49 +118,20 @@ async function compileFiles(files, diagnostics, summary, explorer, revealSummary
     catch (error) {
         diagnostics.clear();
         summary.clear();
-        explorer.clear();
         const message = error instanceof DclCompilerAdapter_1.DclCompilerError ? error.message : String(error);
+        if (error instanceof DclCompilerAdapter_1.DclCompilerError && /unable to run dcl compiler/i.test(error.message)) {
+            explorer.showCompilerUnavailable();
+        }
+        else {
+            explorer.showCompileFailed();
+        }
         void vscode.window.showErrorMessage(message);
     }
 }
 async function revealSemanticItemInSource(location) {
-    if (!location?.file || !Number.isInteger(location.line) || location.line <= 0)
-        return;
-    const uri = await resolveSourceUri(location.file);
-    if (!uri) {
-        void vscode.window.showWarningMessage(`Unable to locate DCL source file '${location.file}'.`);
-        return;
+    const result = await (0, DclSourceLocation_1.revealSourceLocation)(location, "oneBased");
+    if (!result.ok) {
+        void vscode.window.showWarningMessage(result.reason);
     }
-    const document = await vscode.workspace.openTextDocument(uri);
-    const editor = await vscode.window.showTextDocument(document, { preview: true });
-    const line = Math.max(location.line - 1, 0);
-    const column = Math.max((location.column ?? 1) - 1, 0);
-    const range = new vscode.Range(line, column, line, column + 1);
-    editor.selection = new vscode.Selection(range.start, range.end);
-    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-}
-async function resolveSourceUri(file) {
-    if (path.isAbsolute(file) && fs.existsSync(file))
-        return vscode.Uri.file(file);
-    for (const folder of vscode.workspace.workspaceFolders ?? []) {
-        const candidates = [
-            path.resolve(folder.uri.fsPath, file),
-            path.resolve(folder.uri.fsPath, "compiler", file),
-        ];
-        for (const candidate of candidates) {
-            if (fs.existsSync(candidate))
-                return vscode.Uri.file(candidate);
-        }
-    }
-    const basename = path.basename(file);
-    const matches = await vscode.workspace.findFiles(`**/${basename}`, "**/{node_modules,.git}/**", 25);
-    const comparable = comparableRelativePath(file);
-    return matches.find((match) => {
-        const matchPath = match.fsPath.replace(/\\/g, "/");
-        return matchPath.endsWith(file.replace(/\\/g, "/")) || matchPath.endsWith(comparable);
-    }) ?? matches[0];
-}
-function comparableRelativePath(file) {
-    return file.replace(/\\/g, "/").replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
 }
 //# sourceMappingURL=extension.js.map

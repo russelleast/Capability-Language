@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language",
   "description": "VS Code support for Declarative Capability Language files.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "engines": {
@@ -59,7 +59,8 @@
       {
         "command": "dcl.compileWorkspace",
         "title": "DCL: Compile Workspace",
-        "category": "DCL"
+        "category": "DCL",
+        "icon": "$(play)"
       },
       {
         "command": "dcl.showSemanticSummary",
@@ -152,6 +153,11 @@
           "command": "dcl.refreshExplorer",
           "when": "view == dclExplorer",
           "group": "navigation"
+        },
+        {
+          "command": "dcl.compileWorkspace",
+          "when": "view == dclExplorer",
+          "group": "navigation@1"
         }
       ],
       "editor/context": [

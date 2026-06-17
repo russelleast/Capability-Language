@@ -1,0 +1,18 @@
+{
+  "actors": [
+    {
+      "name": "UnlocatedActor"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "capability:MissingLocationCapability",
+      "name": "MissingLocationCapability",
+      "outcomes": [
+        {
+          "name": "DisplayedWithoutNavigation"
+        }
+      ]
+    }
+  ]
+}

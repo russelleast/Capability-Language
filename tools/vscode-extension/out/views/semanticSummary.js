@@ -1,13 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeCompilerOutput = summarizeCompilerOutput;
+const DclSourceLocation_1 = require("../source/DclSourceLocation");
 function summarizeCompilerOutput(output) {
     const program = isObject(output) ? output : {};
-    const effectivePolicies = Array.isArray(program.effective_policies) ? program.effective_policies : [];
+    const effectivePolicies = Array.isArray(program.effective_policies) ? program.effective_policies.filter(isObject) : [];
     const symbolLocations = symbolLocationIndex(program.symbols);
     return {
         capabilities: Array.isArray(program.capabilities)
-            ? program.capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations))
+            ? nonEmpty(program.capabilities.map((capability) => isObject(capability) ? summarizeCapability(capability, effectivePolicies, symbolLocations) : undefined)) ?? []
             : [],
         contexts: summarizeContexts(program.contexts, symbolLocations),
         actors: topLevelItems(program.actors, "actor", symbolLocations),
@@ -29,17 +30,17 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
         name,
         context,
         location: symbolLocation(symbolLocations, "capability", name, context),
-        intents: nonEmpty(capability.intents?.map(formatIntent)),
-        actors: nonEmpty(capability.actors?.map(formatActorRole)),
-        outcomes: nonEmpty(capability.outcomes?.map((outcome) => outcome.name)),
-        rules: nonEmpty(capability.invariants?.map((rule) => rule.name)),
-        effects: nonEmpty(capability.effects?.map(formatEffectUse)),
+        intents: nonEmpty(arrayItems(capability.intents).map(formatIntent)),
+        actors: nonEmpty(arrayItems(capability.actors).map(formatActorRole)),
+        outcomes: nonEmpty(arrayItems(capability.outcomes).map((outcome) => isObject(outcome) ? outcome.name : undefined)),
+        rules: nonEmpty(arrayItems(capability.invariants).map((rule) => isObject(rule) ? rule.name : undefined)),
+        effects: nonEmpty(arrayItems(capability.effects).map(formatEffectUse)),
         events: nonEmpty([
-            ...(capability.emitted_events?.map((event) => event.event) ?? []),
-            ...(capability.events?.map(formatEventEmission) ?? []),
+            ...arrayItems(capability.emitted_events).map((event) => isObject(event) ? event.event : undefined),
+            ...arrayItems(capability.events).map(formatEventEmission),
         ]),
         policies: nonEmpty([
-            ...(capability.policies?.map(formatPolicyUse) ?? []),
+            ...arrayItems(capability.policies).map(formatPolicyUse),
             ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
         ]),
         lifecycle: begin || ends || steps || transitions ? { begin, ends, steps, transitions } : undefined,
@@ -48,38 +49,40 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
 }
 function summarizeItemLocations(capability, effectivePolicies, symbolLocations, context) {
     const locations = {};
-    for (const intent of capability.intents ?? []) {
+    for (const intent of arrayItems(capability.intents)) {
         const label = formatIntent(intent);
         const location = intent?.input_shape ? symbolLocation(symbolLocations, "shape", intent.input_shape, context) : undefined;
         addItemLocation(locations, "intents", label, location);
     }
-    for (const actor of capability.actors ?? []) {
+    for (const actor of arrayItems(capability.actors)) {
         const label = formatActorRole(actor);
         const location = actor?.actor ? symbolLocation(symbolLocations, "actor", actor.actor, context) : undefined;
         addItemLocation(locations, "actors", label, location);
     }
-    for (const effect of capability.effects ?? []) {
+    for (const effect of arrayItems(capability.effects)) {
         const label = formatEffectUse(effect);
         const location = effect?.effect ? symbolLocation(symbolLocations, "effect", effect.effect, context) : undefined;
         addItemLocation(locations, "effects", label, location);
     }
-    for (const event of capability.emitted_events ?? []) {
+    for (const event of arrayItems(capability.emitted_events)) {
+        if (!isObject(event))
+            continue;
         const label = event.event;
         const location = event.event ? symbolLocation(symbolLocations, "event", event.event, context) : undefined;
         addItemLocation(locations, "events", label, location);
     }
-    for (const event of capability.events ?? []) {
+    for (const event of arrayItems(capability.events)) {
         const label = formatEventEmission(event);
         const location = event?.event ? symbolLocation(symbolLocations, "event", event.event, context) : undefined;
         addItemLocation(locations, "events", label, location);
     }
-    for (const policy of capability.policies ?? []) {
+    for (const policy of arrayItems(capability.policies)) {
         const label = formatPolicyUse(policy);
         const location = policy?.policy ? symbolLocation(symbolLocations, "policy", policy.policy, context) : undefined;
         addItemLocation(locations, "policies", label, location);
     }
     for (const policy of effectivePolicies.filter((item) => item.containing_capability === capability.name)) {
-        const sourceLocation = normalizeSourceLocation(policy.source_locations?.[0]);
+        const sourceLocation = normalizedCompilerLocation(policy.source_locations?.[0]);
         for (const label of formatEffectivePolicy(policy)) {
             addItemLocation(locations, "policies", label, sourceLocation);
         }
@@ -95,16 +98,18 @@ function addItemLocation(locations, kind, label, location) {
 function summarizeContexts(contexts, symbolLocations) {
     if (!Array.isArray(contexts))
         return undefined;
-    return nonEmpty(contexts.map((context) => ({
+    return nonEmpty(contexts.map((context) => isObject(context) ? ({
         name: context.name ?? "Unnamed context",
-        dependencies: nonEmpty(context.dependencies),
+        dependencies: nonEmpty(arrayItems(context.dependencies)),
         location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
-    })));
+    }) : undefined));
 }
 function topLevelItems(items, kind, symbolLocations) {
     if (!Array.isArray(items))
         return undefined;
     return nonEmpty(items.map((item) => {
+        if (!isObject(item))
+            return undefined;
         if (!item.name)
             return undefined;
         return { label: item.name, location: symbolLocation(symbolLocations, kind, item.name, undefined) };
@@ -130,6 +135,8 @@ function symbolLocationIndex(symbols) {
     if (!Array.isArray(symbols))
         return index;
     for (const symbol of symbols) {
+        if (!isObject(symbol))
+            continue;
         if (!symbol.kind || !symbol.name)
             continue;
         const location = parseDeclaredLocation(symbol.declared);
@@ -139,6 +146,9 @@ function symbolLocationIndex(symbols) {
         index.set(symbolKey(symbol.kind, symbol.name, undefined), location);
     }
     return index;
+}
+function arrayItems(items) {
+    return Array.isArray(items) ? items : [];
 }
 function symbolLocation(index, kind, name, context) {
     if (!name)
@@ -154,19 +164,21 @@ function parseDeclaredLocation(declared) {
     const match = /^(.*):(\d+):(\d+)$/.exec(declared);
     if (!match)
         return undefined;
-    return normalizeSourceLocation({
+    return normalizedCompilerLocation({
         file: match[1],
         line: Number(match[2]),
         column: Number(match[3]),
     });
 }
-function normalizeSourceLocation(location) {
-    if (!location || !Number.isInteger(location.line) || (location.line ?? 0) <= 0)
+function normalizedCompilerLocation(location) {
+    const normalized = (0, DclSourceLocation_1.normalizeSourceLocation)(location, "oneBased");
+    if (!normalized.ok)
         return undefined;
     return {
-        file: location.file,
-        line: location.line,
-        column: Number.isInteger(location.column) && (location.column ?? 0) > 0 ? location.column : undefined,
+        file: normalized.location.file,
+        line: normalized.location.line + 1,
+        column: normalized.location.column + 1,
+        indexBase: "oneBased",
     };
 }
 function formatIntent(intent) {
@@ -202,7 +214,7 @@ function formatPolicyUse(policy) {
 }
 function formatEffectivePolicy(policy) {
     const target = [policy.target_kind, policy.target_symbol].filter(Boolean).join(" ");
-    return (policy.applied_policies ?? []).map((name) => (target ? `${name} applies to ${target}` : name));
+    return arrayItems(policy.applied_policies).map((name) => (target ? `${name} applies to ${target}` : name));
 }
 function formatLifecycleStep(step) {
     if (!step?.name)

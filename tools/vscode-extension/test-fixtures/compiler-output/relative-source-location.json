@@ -1,0 +1,33 @@
+{
+  "symbols": [
+    {
+      "kind": "capability",
+      "name": "RelativeLocationCapability",
+      "context": "default",
+      "declared": "../tools/vscode-extension/test-fixtures/valid-summary.dcl:20:1"
+    },
+    {
+      "kind": "event",
+      "name": "BatchArchived",
+      "context": "default",
+      "declared": "../tools/vscode-extension/test-fixtures/valid-summary.dcl:9:1"
+    }
+  ],
+  "events": [
+    {
+      "name": "BatchArchived"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "capability:RelativeLocationCapability",
+      "name": "RelativeLocationCapability",
+      "emitted_events": [
+        {
+          "event": "BatchArchived",
+          "source": "RelativeLocationCapability"
+        }
+      ]
+    }
+  ]
+}

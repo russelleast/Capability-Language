@@ -1,13 +1,11 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
 import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdapter";
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
+import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
 import { DclExplorerProvider } from "./views/DclExplorerProvider";
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
-import { SourceLocation } from "./views/semanticSummary";
 
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
 
@@ -28,7 +26,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)),
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
-    vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: SourceLocation) => revealSemanticItemInSource(location)),
+    vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
     vscode.workspace.onDidSaveTextDocument((document) => {
       const compileOnSave = vscode.workspace.getConfiguration("dcl").get<boolean>("compileOnSave", true);
       if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
@@ -63,6 +61,9 @@ async function compileWorkspace(
 ): Promise<void> {
   const files = await vscode.workspace.findFiles("**/*.dcl", "**/{node_modules,.git}/**");
   if (files.length === 0) {
+    diagnostics.clear();
+    summary.clear();
+    explorer.showNoDclFiles();
     void vscode.window.showInformationMessage("No .dcl files found in this workspace.");
     return;
   }
@@ -104,6 +105,9 @@ async function compileFiles(
     if (result.ir) {
       summary.refresh(result.ir);
       explorer.refresh(result.ir);
+    } else if (!result.ok) {
+      summary.clear();
+      explorer.showCompileFailed();
     } else {
       summary.clear();
       explorer.clear();
@@ -124,52 +128,19 @@ async function compileFiles(
   } catch (error) {
     diagnostics.clear();
     summary.clear();
-    explorer.clear();
     const message = error instanceof DclCompilerError ? error.message : String(error);
+    if (error instanceof DclCompilerError && /unable to run dcl compiler/i.test(error.message)) {
+      explorer.showCompilerUnavailable();
+    } else {
+      explorer.showCompileFailed();
+    }
     void vscode.window.showErrorMessage(message);
   }
 }
 
-async function revealSemanticItemInSource(location: SourceLocation | undefined): Promise<void> {
-  if (!location?.file || !Number.isInteger(location.line) || location.line <= 0) return;
-
-  const uri = await resolveSourceUri(location.file);
-  if (!uri) {
-    void vscode.window.showWarningMessage(`Unable to locate DCL source file '${location.file}'.`);
-    return;
+async function revealSemanticItemInSource(location: DclSourceLocation | undefined): Promise<void> {
+  const result = await revealSourceLocation(location, "oneBased");
+  if (!result.ok) {
+    void vscode.window.showWarningMessage(result.reason);
   }
-
-  const document = await vscode.workspace.openTextDocument(uri);
-  const editor = await vscode.window.showTextDocument(document, { preview: true });
-  const line = Math.max(location.line - 1, 0);
-  const column = Math.max((location.column ?? 1) - 1, 0);
-  const range = new vscode.Range(line, column, line, column + 1);
-  editor.selection = new vscode.Selection(range.start, range.end);
-  editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-}
-
-async function resolveSourceUri(file: string): Promise<vscode.Uri | undefined> {
-  if (path.isAbsolute(file) && fs.existsSync(file)) return vscode.Uri.file(file);
-
-  for (const folder of vscode.workspace.workspaceFolders ?? []) {
-    const candidates = [
-      path.resolve(folder.uri.fsPath, file),
-      path.resolve(folder.uri.fsPath, "compiler", file),
-    ];
-    for (const candidate of candidates) {
-      if (fs.existsSync(candidate)) return vscode.Uri.file(candidate);
-    }
-  }
-
-  const basename = path.basename(file);
-  const matches = await vscode.workspace.findFiles(`**/${basename}`, "**/{node_modules,.git}/**", 25);
-  const comparable = comparableRelativePath(file);
-  return matches.find((match) => {
-    const matchPath = match.fsPath.replace(/\\/g, "/");
-    return matchPath.endsWith(file.replace(/\\/g, "/")) || matchPath.endsWith(comparable);
-  }) ?? matches[0];
-}
-
-function comparableRelativePath(file: string): string {
-  return file.replace(/\\/g, "/").replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
 }

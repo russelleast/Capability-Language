@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.2 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.2.1 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, run a language server, or render graphs. The DCL compiler CLI is the source of truth for diagnostics, formatting, and semantic summary data.
 
@@ -83,6 +83,21 @@ Capabilities expand into semantic child sections when available:
 
 Items with compiler-provided source locations open and reveal their source when selected. Items without source locations remain visible but do not perform navigation.
 
+The explorer distinguishes these empty and failure states:
+
+- no compiled summary yet
+- compile failed
+- no DCL files found
+- compiler unavailable
+
+The explorer title bar includes refresh and compile-workspace actions.
+
+## Source Navigation
+
+The extension expects DCL compiler source locations to use 1-based `line` and `column` values. Before opening source, locations are normalized and checked for missing paths, missing line values, deleted files, relative paths, absolute paths, and out-of-range lines or columns.
+
+Malformed or stale locations never crash the extension. If a location cannot be revealed, VS Code shows a friendly warning and the explorer remains usable.
+
 ## Settings
 
 - `dcl.compilerPath`: path or command prefix for the DCL compiler. Leave empty to use the repository compiler when available, otherwise `dcl` on `PATH`.
@@ -96,18 +111,19 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.2 includes:
+v0.2.1 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
 - compiler-backed summary tree
 - language basics for editing `.dcl`
 - DCL Explorer for compiler-backed architecture navigation
+- source-range hardening for explorer navigation
 
-Deferred beyond v0.2:
+Deferred beyond v0.2.1:
 
 - richer navigation and source linking
 - compiler-provided quick fixes
 - optional language server, if the project chooses that architecture later
 
-Graph visualisation, Cytoscape, WebViews, and service/workflow/BPMN-oriented views are not part of v0.2.
+Graph visualisation, Cytoscape, WebViews, and service/workflow/BPMN-oriented views are not part of v0.2.1.

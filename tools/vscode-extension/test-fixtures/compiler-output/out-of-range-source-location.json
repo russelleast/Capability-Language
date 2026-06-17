@@ -1,0 +1,16 @@
+{
+  "symbols": [
+    {
+      "kind": "capability",
+      "name": "OutOfRangeCapability",
+      "context": "default",
+      "declared": "../tools/vscode-extension/test-fixtures/valid-basic.dcl:9999:9999"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "capability:OutOfRangeCapability",
+      "name": "OutOfRangeCapability"
+    }
+  ]
+}

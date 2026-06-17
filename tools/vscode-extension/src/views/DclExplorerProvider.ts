@@ -10,6 +10,9 @@ import {
 
 type ExplorerNodeKind = "empty" | "group" | "capability" | "section" | "item";
 type CapabilityListKind = Exclude<CapabilityItemKind, "lifecycle">;
+type ExplorerState =
+  | { kind: "empty"; message: string }
+  | { kind: "summary"; summary: SemanticSummary };
 
 export class DclExplorerNode extends vscode.TreeItem {
   constructor(
@@ -37,15 +40,41 @@ export class DclExplorerNode extends vscode.TreeItem {
 export class DclExplorerProvider implements vscode.TreeDataProvider<DclExplorerNode> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<DclExplorerNode | undefined | null | void>();
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
-  private summary: SemanticSummary | undefined;
+  private state: ExplorerState = { kind: "empty", message: "No compiled summary yet. Run DCL: Compile Workspace or DCL: Refresh Explorer." };
 
   refresh(ir: unknown | undefined): void {
-    this.summary = ir ? summarizeCompilerOutput(ir) : undefined;
+    try {
+      this.state = ir
+        ? { kind: "summary", summary: summarizeCompilerOutput(ir) }
+        : { kind: "empty", message: "No semantic summary was returned by the compiler." };
+    } catch {
+      this.state = { kind: "empty", message: "Compiler summary could not be displayed." };
+    }
     this.onDidChangeTreeDataEmitter.fire();
   }
 
   clear(): void {
-    this.summary = undefined;
+    this.setEmpty("No compiled summary yet. Run DCL: Compile Workspace or DCL: Refresh Explorer.");
+  }
+
+  showCompileFailed(): void {
+    this.setEmpty("Compile failed. Fix compiler diagnostics and refresh the explorer.");
+  }
+
+  showNoDclFiles(): void {
+    this.setEmpty("No DCL files found in this workspace.");
+  }
+
+  showCompilerUnavailable(): void {
+    this.setEmpty("DCL compiler unavailable. Check dcl.compilerPath and refresh the explorer.");
+  }
+
+  showInvalidSummary(): void {
+    this.setEmpty("Compiler summary could not be displayed.");
+  }
+
+  private setEmpty(message: string): void {
+    this.state = { kind: "empty", message };
     this.onDidChangeTreeDataEmitter.fire();
   }
 
@@ -55,21 +84,22 @@ export class DclExplorerProvider implements vscode.TreeDataProvider<DclExplorerN
 
   getChildren(element?: DclExplorerNode): vscode.ProviderResult<DclExplorerNode[]> {
     if (element) return element.children;
-    if (!this.summary) {
-      return [new DclExplorerNode("Compile DCL to populate the explorer", [], undefined, "empty")];
+    if (this.state.kind === "empty") {
+      return [new DclExplorerNode(this.state.message, [], undefined, "empty")];
     }
+    const summary = this.state.summary;
 
     const roots = [
-      group("Contexts", this.summary.contexts?.map((context) => {
+      group("Contexts", summary.contexts?.map((context) => {
         const dependencies = section("Dependencies", context.dependencies?.map((item) => itemNode(item)));
         return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "item");
       })),
-      group("Capabilities", this.summary.capabilities.map(capabilityNode)),
-      group("Actors", semanticItems(this.summary.actors)),
-      group("Policies", semanticItems(this.summary.policies)),
-      group("Effects", semanticItems(this.summary.effects)),
-      group("Events", semanticItems(this.summary.events)),
-      group("Lifecycles", semanticItems(this.summary.lifecycles)),
+      group("Capabilities", summary.capabilities.map(capabilityNode)),
+      group("Actors", semanticItems(summary.actors)),
+      group("Policies", semanticItems(summary.policies)),
+      group("Effects", semanticItems(summary.effects)),
+      group("Events", semanticItems(summary.events)),
+      group("Lifecycles", semanticItems(summary.lifecycles)),
     ].filter((node): node is DclExplorerNode => Boolean(node && node.children.length > 0));
 
     return roots.length ? roots : [new DclExplorerNode("No semantic items in compiler output", [], undefined, "empty")];
