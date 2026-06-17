@@ -34,6 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DclDiagnosticProvider = void 0;
+exports.toVsCodeDiagnostic = toVsCodeDiagnostic;
+exports.uriForDiagnostic = uriForDiagnostic;
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 class DclDiagnosticProvider {

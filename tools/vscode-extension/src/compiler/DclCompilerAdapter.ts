@@ -31,6 +31,14 @@ interface CommandSpec {
   cwd?: string;
 }
 
+export type DclCompilerRunResult = { exitCode: number | null; stdout: string; stderr: string };
+export type DclCompilerRunner = (spec: CommandSpec, args: string[]) => Promise<DclCompilerRunResult>;
+
+export type DclCompilerAdapterOptions = {
+  compilerPath?: string;
+  runner?: DclCompilerRunner;
+};
+
 export class DclCompilerError extends Error {
   constructor(
     message: string,
@@ -42,7 +50,10 @@ export class DclCompilerError extends Error {
 }
 
 export class DclCompilerAdapter {
-  constructor(private readonly workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined) {}
+  constructor(
+    private readonly workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined,
+    private readonly options: DclCompilerAdapterOptions = {},
+  ) {}
 
   async compileFiles(files: vscode.Uri[]): Promise<CompileResult> {
     if (files.length === 0) {
@@ -105,8 +116,11 @@ export class DclCompilerAdapter {
     );
   }
 
-  private runCompiler(args: string[]): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+  private runCompiler(args: string[]): Promise<DclCompilerRunResult> {
     const spec = this.compilerCommand();
+    if (this.options.runner) {
+      return this.options.runner(spec, args);
+    }
     return new Promise((resolve, reject) => {
       const child = childProcess.execFile(spec.command, [...spec.args, ...args], { cwd: spec.cwd }, (error, stdout, stderr) => {
         const exitCode = typeof (error as childProcess.ExecFileException | null)?.code === "number"
@@ -124,7 +138,7 @@ export class DclCompilerAdapter {
   }
 
   private compilerCommand(): CommandSpec {
-    const configured = vscode.workspace.getConfiguration("dcl").get<string>("compilerPath", "").trim();
+    const configured = (this.options.compilerPath ?? vscode.workspace.getConfiguration("dcl").get<string>("compilerPath", "")).trim();
     if (configured) {
       const [command, ...args] = splitCommand(configured);
       if (!command) {
@@ -159,7 +173,7 @@ export class DclCompilerAdapter {
   }
 }
 
-function diagnosticsFromIr(ir: unknown): DclDiagnostic[] {
+export function diagnosticsFromIr(ir: unknown): DclDiagnostic[] {
   if (!isRecord(ir) || !Array.isArray(ir.diagnostics)) return [];
   return ir.diagnostics.flatMap((item) => normalizeDiagnostic(item));
 }
@@ -185,7 +199,7 @@ function normalizeDiagnostic(item: unknown): DclDiagnostic[] {
   }];
 }
 
-function parseHumanDiagnostics(output: string): DclDiagnostic[] {
+export function parseHumanDiagnostics(output: string): DclDiagnostic[] {
   return output
     .split(/\r?\n/)
     .map((line) => line.trim())

@@ -6,16 +6,15 @@ function summarizeCompilerOutput(output) {
     const program = isObject(output) ? output : {};
     const effectivePolicies = Array.isArray(program.effective_policies) ? program.effective_policies.filter(isObject) : [];
     const symbolLocations = symbolLocationIndex(program.symbols);
+    const capabilities = Array.isArray(program.capabilities) ? program.capabilities.filter(isObject) : [];
     return {
-        capabilities: Array.isArray(program.capabilities)
-            ? nonEmpty(program.capabilities.map((capability) => isObject(capability) ? summarizeCapability(capability, effectivePolicies, symbolLocations) : undefined)) ?? []
-            : [],
+        capabilities: capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations)),
         contexts: summarizeContexts(program.contexts, symbolLocations),
         actors: topLevelItems(program.actors, "actor", symbolLocations),
         policies: topLevelItems(program.policies, "policy", symbolLocations),
         effects: topLevelItems(program.effects, "effect", symbolLocations),
         events: topLevelItems(program.events, "event", symbolLocations),
-        lifecycles: nonEmpty(program.capabilities?.map(formatLifecycleItem)),
+        lifecycles: nonEmpty(capabilities.map(formatLifecycleItem)),
     };
 }
 function summarizeCapability(capability, effectivePolicies, symbolLocations) {

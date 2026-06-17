@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.2.2 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.2.3 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, run a language server, or render graphs. The DCL compiler CLI is the source of truth for diagnostics, formatting, and semantic summary data.
 
@@ -58,6 +58,7 @@ cd tools/vscode-extension
 npm install
 npm run compile
 npm run lint
+npm test
 ```
 
 Open this folder in VS Code and launch `Run DCL Extension` to start an Extension Development Host.
@@ -152,7 +153,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.2.2 includes:
+v0.2.3 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -161,11 +162,12 @@ v0.2.2 includes:
 - DCL Explorer for compiler-backed architecture navigation
 - source-range hardening for explorer navigation
 - packaging and contributor development hardening
+- automated unit test foundation
 
-Deferred beyond v0.2.2:
+Deferred beyond v0.2.3:
 
 - richer navigation and source linking
 - compiler-provided quick fixes
 - optional language server, if the project chooses that architecture later
 
-Graph visualisation, Cytoscape, WebViews, and service/workflow/BPMN-oriented views are not part of v0.2.2.
+Graph visualisation, Cytoscape, WebViews, and service/workflow/BPMN-oriented views are not part of v0.2.3.

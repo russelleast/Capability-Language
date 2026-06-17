@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3
+
+- Added Vitest unit test foundation with a mocked VS Code API.
+- Added tests for compiler adapter behavior, diagnostics mapping, source-location normalization, semantic summary normalization, and explorer tree construction.
+- Added `test` and `test:watch` npm scripts.
+- Excluded test-only files from extension builds and VSIX packaging.
+
 ## 0.2.2
 
 - Added packaging and contributor development hardening.

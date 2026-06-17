@@ -27,6 +27,20 @@ The extension does not currently use a separate ESLint configuration. The `lint`
 npm run lint
 ```
 
+## Test
+
+Unit tests use Vitest with a small mocked `vscode` module. They do not require the real DCL compiler binary.
+
+```bash
+npm test
+```
+
+For watch mode:
+
+```bash
+npm run test:watch
+```
+
 ## Run Locally
 
 Open `tools/vscode-extension` in VS Code, then use the `Run DCL Extension` launch configuration. This starts an Extension Development Host with the local extension loaded.

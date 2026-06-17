@@ -34,6 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DclCompilerAdapter = exports.DclCompilerError = void 0;
+exports.diagnosticsFromIr = diagnosticsFromIr;
+exports.parseHumanDiagnostics = parseHumanDiagnostics;
 const childProcess = __importStar(require("child_process"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -47,8 +49,9 @@ class DclCompilerError extends Error {
 }
 exports.DclCompilerError = DclCompilerError;
 class DclCompilerAdapter {
-    constructor(workspaceFolders) {
+    constructor(workspaceFolders, options = {}) {
         this.workspaceFolders = workspaceFolders;
+        this.options = options;
     }
     async compileFiles(files) {
         if (files.length === 0) {
@@ -94,6 +97,9 @@ class DclCompilerAdapter {
     }
     runCompiler(args) {
         const spec = this.compilerCommand();
+        if (this.options.runner) {
+            return this.options.runner(spec, args);
+        }
         return new Promise((resolve, reject) => {
             const child = childProcess.execFile(spec.command, [...spec.args, ...args], { cwd: spec.cwd }, (error, stdout, stderr) => {
                 const exitCode = typeof error?.code === "number"
@@ -109,7 +115,7 @@ class DclCompilerAdapter {
         });
     }
     compilerCommand() {
-        const configured = vscode.workspace.getConfiguration("dcl").get("compilerPath", "").trim();
+        const configured = (this.options.compilerPath ?? vscode.workspace.getConfiguration("dcl").get("compilerPath", "")).trim();
         if (configured) {
             const [command, ...args] = splitCommand(configured);
             if (!command) {

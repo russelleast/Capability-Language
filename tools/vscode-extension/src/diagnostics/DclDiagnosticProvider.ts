@@ -46,7 +46,7 @@ export class DclDiagnosticProvider implements vscode.Disposable {
   }
 }
 
-function toVsCodeDiagnostic(item: DclDiagnostic): vscode.Diagnostic {
+export function toVsCodeDiagnostic(item: DclDiagnostic): vscode.Diagnostic {
   const line = Math.max((item.span?.line ?? 1) - 1, 0);
   const column = Math.max((item.span?.column ?? 1) - 1, 0);
   const range = new vscode.Range(line, column, line, column + 1);
@@ -68,7 +68,7 @@ function severity(value: DclDiagnostic["severity"]): vscode.DiagnosticSeverity {
   }
 }
 
-function uriForDiagnostic(diagnostic: DclDiagnostic, knownFiles: Map<string, vscode.Uri>, fallbackFiles: vscode.Uri[]): vscode.Uri | undefined {
+export function uriForDiagnostic(diagnostic: DclDiagnostic, knownFiles: Map<string, vscode.Uri>, fallbackFiles: vscode.Uri[]): vscode.Uri | undefined {
   const file = diagnostic.span?.file;
   if (!file) return fallbackFiles.length === 1 ? fallbackFiles[0] : undefined;
 

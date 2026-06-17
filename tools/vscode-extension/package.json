@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -202,12 +202,15 @@
     "lint": "tsc -p ./ --noEmit",
     "package": "vsce package",
     "package:smoke": "npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
     "@types/vscode": "^1.86.0",
     "@vscode/vsce": "^3.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.9"
   }
 }
