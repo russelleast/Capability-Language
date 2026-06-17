@@ -1,0 +1,113 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "DCL",
+  "scopeName": "source.dcl",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#blocks"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.dcl",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.dcl",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.dcl",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.dcl",
+          "match": "\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.declaration.dcl",
+          "match": "\\b(language|context|capability|actor|shape|event|effect|policy|rule|outcome|intent|lifecycle)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.dcl"
+            },
+            "2": {
+              "name": "entity.name.type.dcl"
+            }
+          }
+        },
+        {
+          "name": "meta.lifecycle-step.dcl",
+          "match": "\\b(step|begin|end|move)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.dcl"
+            },
+            "2": {
+              "name": "entity.name.function.dcl"
+            }
+          }
+        }
+      ]
+    },
+    "blocks": {
+      "patterns": [
+        {
+          "name": "keyword.control.block.dcl",
+          "match": "\\b(actors|outcomes|rules|effects|events|policies|observe|when|contributors|supervises)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.dcl",
+          "match": "\\b(is|from|human|system|required|private|depends|on|emits|governs|violated|unresolved|otherwise|always|then|after|before|waits|for|requires|decision|identity|to|causing|recovery|duration|count|failures|as|family|retry|attempts|backoff|idempotency|timeout|latency|throughput|budget|authentication|authorization|encryption|audit|retention|approval|evidence|sensitivity|deletion|minimization|fallback|dependency_tolerance|allowed|required|under|above|per|minute|minutes|hour|hours|day|days|second|seconds)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.dcl",
+          "match": "\\b(Text|Number|Boolean|Uuid|Email|Date|DateTime)\\b"
+        }
+      ]
+    }
+  }
+}
