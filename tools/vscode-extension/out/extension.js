@@ -36,42 +36,54 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 const DclCompilerAdapter_1 = require("./compiler/DclCompilerAdapter");
 const DclDiagnosticProvider_1 = require("./diagnostics/DclDiagnosticProvider");
 const DclFormattingProvider_1 = require("./formatting/DclFormattingProvider");
 const DclHoverProvider_1 = require("./hovers/DclHoverProvider");
+const DclExplorerProvider_1 = require("./views/DclExplorerProvider");
 const DclSummaryProvider_1 = require("./views/DclSummaryProvider");
 const DCL_SELECTOR = { language: "dcl", scheme: "file" };
 function activate(context) {
     const compiler = new DclCompilerAdapter_1.DclCompilerAdapter(vscode.workspace.workspaceFolders);
     const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler);
     const summary = new DclSummaryProvider_1.DclSummaryProvider();
-    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.workspace.onDidSaveTextDocument((document) => {
+    const explorer = new DclExplorerProvider_1.DclExplorerProvider();
+    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.workspace.onDidSaveTextDocument((document) => {
         const compileOnSave = vscode.workspace.getConfiguration("dcl").get("compileOnSave", true);
         if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
-            void compileFiles([document.uri], diagnostics, summary, false, false);
+            void compileFiles([document.uri], diagnostics, summary, explorer, false, false);
         }
     }));
 }
 function deactivate() { }
-async function compileCurrentFile(diagnostics, summary, revealSummary) {
+async function compileCurrentFile(diagnostics, summary, explorer, revealSummary) {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== "dcl") {
         void vscode.window.showWarningMessage("Open a .dcl file before running this DCL command.");
         return;
     }
     await editor.document.save();
-    await compileFiles([editor.document.uri], diagnostics, summary, revealSummary, true);
+    await compileFiles([editor.document.uri], diagnostics, summary, explorer, revealSummary, true);
 }
-async function compileWorkspace(diagnostics, summary) {
+async function compileWorkspace(diagnostics, summary, explorer) {
     const files = await vscode.workspace.findFiles("**/*.dcl", "**/{node_modules,.git}/**");
     if (files.length === 0) {
         void vscode.window.showInformationMessage("No .dcl files found in this workspace.");
         return;
     }
-    await compileFiles(files, diagnostics, summary, false, true);
+    await compileFiles(files, diagnostics, summary, explorer, false, true);
 }
-async function compileFiles(files, diagnostics, summary, revealSummary, showStatus) {
+async function refreshExplorer(diagnostics, summary, explorer) {
+    const editor = vscode.window.activeTextEditor;
+    if (editor?.document.languageId === "dcl" && editor.document.uri.scheme === "file") {
+        await compileCurrentFile(diagnostics, summary, explorer, false);
+        return;
+    }
+    await compileWorkspace(diagnostics, summary, explorer);
+}
+async function compileFiles(files, diagnostics, summary, explorer, revealSummary, showStatus) {
     try {
         const result = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Window,
@@ -79,9 +91,11 @@ async function compileFiles(files, diagnostics, summary, revealSummary, showStat
         }, () => diagnostics.compileFiles(files));
         if (result.ir) {
             summary.refresh(result.ir);
+            explorer.refresh(result.ir);
         }
         else {
             summary.clear();
+            explorer.clear();
         }
         if (revealSummary) {
             await vscode.commands.executeCommand("dclSemanticSummary.focus");
@@ -98,8 +112,49 @@ async function compileFiles(files, diagnostics, summary, revealSummary, showStat
     catch (error) {
         diagnostics.clear();
         summary.clear();
+        explorer.clear();
         const message = error instanceof DclCompilerAdapter_1.DclCompilerError ? error.message : String(error);
         void vscode.window.showErrorMessage(message);
     }
+}
+async function revealSemanticItemInSource(location) {
+    if (!location?.file || !Number.isInteger(location.line) || location.line <= 0)
+        return;
+    const uri = await resolveSourceUri(location.file);
+    if (!uri) {
+        void vscode.window.showWarningMessage(`Unable to locate DCL source file '${location.file}'.`);
+        return;
+    }
+    const document = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(document, { preview: true });
+    const line = Math.max(location.line - 1, 0);
+    const column = Math.max((location.column ?? 1) - 1, 0);
+    const range = new vscode.Range(line, column, line, column + 1);
+    editor.selection = new vscode.Selection(range.start, range.end);
+    editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+}
+async function resolveSourceUri(file) {
+    if (path.isAbsolute(file) && fs.existsSync(file))
+        return vscode.Uri.file(file);
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        const candidates = [
+            path.resolve(folder.uri.fsPath, file),
+            path.resolve(folder.uri.fsPath, "compiler", file),
+        ];
+        for (const candidate of candidates) {
+            if (fs.existsSync(candidate))
+                return vscode.Uri.file(candidate);
+        }
+    }
+    const basename = path.basename(file);
+    const matches = await vscode.workspace.findFiles(`**/${basename}`, "**/{node_modules,.git}/**", 25);
+    const comparable = comparableRelativePath(file);
+    return matches.find((match) => {
+        const matchPath = match.fsPath.replace(/\\/g, "/");
+        return matchPath.endsWith(file.replace(/\\/g, "/")) || matchPath.endsWith(comparable);
+    }) ?? matches[0];
+}
+function comparableRelativePath(file) {
+    return file.replace(/\\/g, "/").replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
 }
 //# sourceMappingURL=extension.js.map

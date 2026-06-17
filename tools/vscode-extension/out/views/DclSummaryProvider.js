@@ -87,11 +87,11 @@ class DclSummaryProvider {
                 ].filter((node) => node.children.length > 0);
                 return new SummaryNode(capability.name, children, "item", capability.context);
             })),
-            group("Actors", labels(this.summary.actors)),
-            group("Policies", labels(this.summary.policies)),
-            group("Effects", labels(this.summary.effects)),
-            group("Events", labels(this.summary.events)),
-            group("Lifecycles", labels(this.summary.lifecycles)),
+            group("Actors", labels(this.summary.actors?.map((item) => item.label))),
+            group("Policies", labels(this.summary.policies?.map((item) => item.label))),
+            group("Effects", labels(this.summary.effects?.map((item) => item.label))),
+            group("Events", labels(this.summary.events?.map((item) => item.label))),
+            group("Lifecycles", labels(this.summary.lifecycles?.map((item) => item.label))),
         ].filter((node) => node.children.length > 0);
     }
 }
