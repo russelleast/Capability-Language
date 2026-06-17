@@ -1,4 +1,5 @@
 import * as childProcess from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -60,7 +61,26 @@ export class DclCompilerAdapter {
       };
     }
 
-    const diagnostics = parseHumanDiagnostics(irRun.stderr || irRun.stdout);
+    if (irRun.exitCode === 0) {
+      throw new DclCompilerError(
+        "DCL compiler returned invalid JSON for 'ir --format json'. Check that dcl.compilerPath points to a compatible DCL compiler.",
+        irRun.stdout,
+        irRun.stderr,
+      );
+    }
+
+    const diagnostics = parseHumanDiagnostics(`${irRun.stderr}\n${irRun.stdout}`);
+    if (diagnostics.length === 0) {
+      const detail = (irRun.stderr || irRun.stdout).trim();
+      throw new DclCompilerError(
+        detail
+          ? `DCL compiler failed without parseable diagnostics: ${detail}`
+          : "DCL compiler failed without returning diagnostics.",
+        irRun.stdout,
+        irRun.stderr,
+      );
+    }
+
     return {
       ok: false,
       diagnostics,
@@ -107,6 +127,9 @@ export class DclCompilerAdapter {
     const configured = vscode.workspace.getConfiguration("dcl").get<string>("compilerPath", "").trim();
     if (configured) {
       const [command, ...args] = splitCommand(configured);
+      if (!command) {
+        throw new DclCompilerError("dcl.compilerPath is empty. Configure a DCL compiler path or leave the setting unset.");
+      }
       return { command, args, cwd: this.workspaceRoot() };
     }
 
@@ -122,7 +145,7 @@ export class DclCompilerAdapter {
     for (const folder of this.workspaceFolders ?? []) {
       const candidate = path.join(folder.uri.fsPath, "compiler");
       try {
-        const stat = require("fs").statSync(path.join(candidate, "cmd", "dcl", "main.go"));
+        const stat = fs.statSync(path.join(candidate, "cmd", "dcl", "main.go"));
         if (stat.isFile()) return candidate;
       } catch {
         // Keep looking; absence just means this is not the source workspace.

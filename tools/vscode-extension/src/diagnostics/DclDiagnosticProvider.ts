@@ -76,10 +76,18 @@ function uriForDiagnostic(diagnostic: DclDiagnostic, knownFiles: Map<string, vsc
   if (knownFiles.has(normalized)) return knownFiles.get(normalized);
   if (path.isAbsolute(file)) return vscode.Uri.file(file);
 
-  const match = fallbackFiles.find((candidate) => candidate.fsPath.endsWith(file));
+  const comparable = comparableRelativePath(file);
+  const match = fallbackFiles.find((candidate) => {
+    const candidatePath = candidate.fsPath.replace(/\\/g, "/");
+    return candidatePath.endsWith(file.replace(/\\/g, "/")) || candidatePath.endsWith(comparable);
+  });
   return match ?? vscode.Uri.file(file);
 }
 
 function normalizePath(file: string): string {
   return path.resolve(file);
+}
+
+function comparableRelativePath(file: string): string {
+  return file.replace(/\\/g, "/").replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
 }

@@ -92,6 +92,8 @@ async function compileFiles(
       void vscode.window.showInformationMessage(message);
     }
   } catch (error) {
+    diagnostics.clear();
+    summary.clear();
     const message = error instanceof DclCompilerError ? error.message : String(error);
     void vscode.window.showErrorMessage(message);
   }

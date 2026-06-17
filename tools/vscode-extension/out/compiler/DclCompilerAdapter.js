@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DclCompilerAdapter = exports.DclCompilerError = void 0;
 const childProcess = __importStar(require("child_process"));
+const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 class DclCompilerError extends Error {
@@ -64,7 +65,16 @@ class DclCompilerAdapter {
                 stderr: irRun.stderr,
             };
         }
-        const diagnostics = parseHumanDiagnostics(irRun.stderr || irRun.stdout);
+        if (irRun.exitCode === 0) {
+            throw new DclCompilerError("DCL compiler returned invalid JSON for 'ir --format json'. Check that dcl.compilerPath points to a compatible DCL compiler.", irRun.stdout, irRun.stderr);
+        }
+        const diagnostics = parseHumanDiagnostics(`${irRun.stderr}\n${irRun.stdout}`);
+        if (diagnostics.length === 0) {
+            const detail = (irRun.stderr || irRun.stdout).trim();
+            throw new DclCompilerError(detail
+                ? `DCL compiler failed without parseable diagnostics: ${detail}`
+                : "DCL compiler failed without returning diagnostics.", irRun.stdout, irRun.stderr);
+        }
         return {
             ok: false,
             diagnostics,
@@ -102,6 +112,9 @@ class DclCompilerAdapter {
         const configured = vscode.workspace.getConfiguration("dcl").get("compilerPath", "").trim();
         if (configured) {
             const [command, ...args] = splitCommand(configured);
+            if (!command) {
+                throw new DclCompilerError("dcl.compilerPath is empty. Configure a DCL compiler path or leave the setting unset.");
+            }
             return { command, args, cwd: this.workspaceRoot() };
         }
         const compilerRoot = this.defaultCompilerRoot();
@@ -114,7 +127,7 @@ class DclCompilerAdapter {
         for (const folder of this.workspaceFolders ?? []) {
             const candidate = path.join(folder.uri.fsPath, "compiler");
             try {
-                const stat = require("fs").statSync(path.join(candidate, "cmd", "dcl", "main.go"));
+                const stat = fs.statSync(path.join(candidate, "cmd", "dcl", "main.go"));
                 if (stat.isFile())
                     return candidate;
             }

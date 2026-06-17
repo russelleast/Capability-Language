@@ -1,30 +1,85 @@
-# Declarative Capability Language VS Code Extension
+# Declarative Capability Language for VS Code
 
-VS Code support for `.dcl` files.
+This extension provides v0.1 editor support for Declarative Capability Language (`.dcl`) files.
+
+The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, run a language server, or render graphs. The DCL compiler CLI is the source of truth for diagnostics, formatting, and semantic summary data.
 
 ## Features
 
-- `.dcl` language association
-- TextMate syntax highlighting
-- language configuration for comments, braces, and indentation
-- snippets for core DCL declarations
-- static hover help for core primitives
-- compiler-backed diagnostics
-- compiler-backed semantic summary tree
-- commands for compiling files, compiling workspaces, showing summaries, and formatting
+- `.dcl` file association and activation
+- TextMate syntax highlighting for DCL declarations, keywords, blocks, comments, strings, numbers, and common scalar types
+- Language configuration for braces, comments, folding markers, and indentation
+- Snippets for `capability`, `actor`, `shape`, `event`, `effect`, `policy`, `when`, and `lifecycle`
+- Static hover help for core DCL primitives
+- Compiler-backed diagnostics in VS Code Problems
+- Compiler-backed semantic summary tree
+- Commands for compiling files, compiling workspaces, showing summaries, and formatting documents
 
-The extension does not implement a parser and does not duplicate compiler semantics. Diagnostics, formatting, and semantic summary data are delegated to the configured DCL compiler.
+## Setup
 
-## Settings
+From this folder:
 
-- `dcl.compilerPath`: path to the DCL compiler executable. Leave empty to use the repository compiler through `go run ./cmd/dcl` when available, otherwise `dcl` on PATH.
-- `dcl.compileOnSave`: compile saved `.dcl` files and update Problems.
+```bash
+npm install
+npm run compile
+```
+
+Then open the extension in VS Code and run the extension host.
+
+By default, when the repository layout is available, the extension runs the local compiler with:
+
+```bash
+go run ./cmd/dcl
+```
+
+from the repository `compiler` directory. Outside this repository, set `dcl.compilerPath` to a compiler executable or fixed command prefix.
+
+Examples:
+
+```json
+{
+  "dcl.compilerPath": "dcl"
+}
+```
+
+```json
+{
+  "dcl.compilerPath": "go run ./cmd/dcl"
+}
+```
 
 ## Commands
 
-- `DCL: Compile Current File`
-- `DCL: Compile Workspace`
-- `DCL: Show Semantic Summary`
-- `DCL: Format Document`
+- `DCL: Compile Current File`: runs the compiler for the active `.dcl` file and publishes diagnostics.
+- `DCL: Compile Workspace`: finds workspace `.dcl` files and compiles them together.
+- `DCL: Show Semantic Summary`: compiles the active `.dcl` file and focuses the semantic summary tree.
+- `DCL: Format Document`: delegates formatting to the compiler.
 
-Formatting requires a compiler command that supports `format <file>`. If the configured compiler does not provide that command, the extension reports that clearly and leaves the document unchanged.
+## Settings
+
+- `dcl.compilerPath`: path or command prefix for the DCL compiler. Leave empty to use the repository compiler when available, otherwise `dcl` on `PATH`.
+- `dcl.compileOnSave`: when enabled, saved `.dcl` files are compiled and Problems are refreshed. Non-DCL files are ignored.
+
+## Error Handling
+
+If the compiler is missing, exits unexpectedly, returns invalid JSON for `ir --format json`, or does not support formatting, the extension reports a clear VS Code message and leaves the document unchanged.
+
+Diagnostics are cleared for files that become valid after a successful compile.
+
+## Roadmap
+
+v0.1 is the foundation release:
+
+- compiler-backed diagnostics
+- compiler-backed formatting hook
+- compiler-backed summary tree
+- language basics for editing `.dcl`
+
+Deferred beyond v0.1:
+
+- v0.2 Capability Explorer
+- richer navigation and source linking
+- compiler-provided quick fixes
+- optional language server, if the project chooses that architecture later
+
+Graph visualisation, Cytoscape, WebViews, and service/workflow/BPMN-oriented views are not part of v0.1.
