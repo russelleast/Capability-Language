@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4
+
+- Added capability graph controls for fit, reset layout, center capability, and switch capability.
+- Added a graph legend and simple policy, lifecycle, and rule visibility filters.
+- Shortened graph edge labels for readability while keeping relationship kinds stable.
+- Added friendly empty states for missing summaries, missing selections, and capabilities without child semantic items.
+- Added graph model tests for stable edge labels and optional node categories.
+
 ## 0.3.3
 
 - Added graph node selection in the capability graph WebView.

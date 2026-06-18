@@ -47,15 +47,25 @@ describe("DclCapabilityGraphBuilder", () => {
       "lifecycle",
     ]);
     expect(graph.edges.map((edge) => edge.label)).toEqual([
-      "accepts intent",
-      "produces outcome",
-      "enforces rule",
-      "causes effect",
-      "emits event",
-      "governed by policy",
-      "owns lifecycle",
+      "accepts",
+      "produces",
+      "enforces",
+      "causes",
+      "emits",
+      "governed by",
+      "owns",
     ]);
     expect(graph.nodes.find((node) => node.label === "RegistrationAccepted")?.source?.line).toBe(10);
+  });
+
+  it("keeps optional node categories out of the graph when absent", () => {
+    const graph = buildCapabilityGraphFromCapability({
+      name: "MinimalCapability",
+      outcomes: ["Accepted"],
+    });
+
+    expect(graph.nodes.map((node) => node.kind)).toEqual(["capability", "outcome"]);
+    expect(graph.edges.map((edge) => edge.label)).toEqual(["produces"]);
   });
 
   it("adds source metadata to graph nodes when the semantic summary provides it", () => {

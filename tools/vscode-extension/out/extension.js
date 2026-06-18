@@ -61,25 +61,50 @@ function activate(context) {
 async function showCapabilityGraph(extensionUri, explorer, node) {
     const summary = explorer.getSummary();
     if (!summary?.capabilities.length) {
-        void vscode.window.showWarningMessage("Compile DCL before opening a capability graph.");
+        DclCapabilityGraphPanel_1.DclCapabilityGraphPanel.showEmpty(extensionUri, "No Compiled Semantic Summary", "Compile DCL before opening a capability graph.");
         return;
     }
     let capabilityName = node?.kind === "capability" ? node.capabilityName : undefined;
     if (!capabilityName) {
-        const picked = await vscode.window.showQuickPick(summary.capabilities.map((capability) => ({
-            label: capability.name,
-            description: capability.context,
-        })), { title: "Select DCL Capability" });
-        capabilityName = picked?.label;
+        capabilityName = await pickCapability(summary);
     }
+    if (!capabilityName) {
+        DclCapabilityGraphPanel_1.DclCapabilityGraphPanel.showEmpty(extensionUri, "No Capability Selected", "Select a compiled capability to render its capability graph.", graphCapabilityPicks(summary), () => switchCapabilityGraph(extensionUri, explorer));
+        return;
+    }
+    showGraphForCapability(extensionUri, explorer, summary, capabilityName);
+}
+async function switchCapabilityGraph(extensionUri, explorer) {
+    const summary = explorer.getSummary();
+    if (!summary?.capabilities.length) {
+        DclCapabilityGraphPanel_1.DclCapabilityGraphPanel.showEmpty(extensionUri, "No Compiled Semantic Summary", "Compile DCL before switching capability graphs.");
+        return;
+    }
+    const capabilityName = await pickCapability(summary);
     if (!capabilityName)
         return;
+    showGraphForCapability(extensionUri, explorer, summary, capabilityName);
+}
+function showGraphForCapability(extensionUri, explorer, summary, capabilityName) {
     const graph = (0, DclCapabilityGraphBuilder_1.buildCapabilityGraph)(summary, capabilityName);
     if (!graph) {
         void vscode.window.showWarningMessage(`No compiler summary found for capability '${capabilityName}'.`);
         return;
     }
-    DclCapabilityGraphPanel_1.DclCapabilityGraphPanel.show(extensionUri, graph);
+    DclCapabilityGraphPanel_1.DclCapabilityGraphPanel.show(extensionUri, graph, graphCapabilityPicks(summary), () => switchCapabilityGraph(extensionUri, explorer));
+}
+async function pickCapability(summary) {
+    const picked = await vscode.window.showQuickPick(summary.capabilities.map((capability) => ({
+        label: capability.name,
+        description: capability.context,
+    })), { title: "Select DCL Capability" });
+    return picked?.label;
+}
+function graphCapabilityPicks(summary) {
+    return summary.capabilities.map((capability) => ({
+        name: capability.name,
+        context: capability.context,
+    }));
 }
 function deactivate() { }
 async function compileCurrentFile(diagnostics, summary, explorer, revealSummary) {

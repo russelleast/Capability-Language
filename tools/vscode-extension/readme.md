@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3.3 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.4 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -140,11 +140,22 @@ The v0.3 graph includes available compiler-provided capability relationships:
 - capability governed by policy
 - capability owns lifecycle
 
+Graph controls:
+
+- `Fit`: fits the visible graph to the panel.
+- `Reset Layout`: reruns the capability-centered layout.
+- `Center Capability`: centers and selects the capability node.
+- `Switch Capability`: opens a VS Code quick pick for another compiled capability.
+
+The side panel includes node details, a legend for capability, intent, outcome, rule, effect, event, policy, and lifecycle nodes, and simple visibility filters for policies, lifecycle, and rules.
+
 Selecting a graph node updates the node details panel with its label, kind, and relationship summary. If the compiler semantic summary includes a source location for that node, selection also reveals the DCL source in VS Code. Nodes without compiler-provided source locations remain selectable and never crash navigation.
 
 Graph-to-source navigation is resolved by the extension host from the trusted graph model. The WebView sends only the selected node id; it does not send source file paths back to the extension.
 
-The graph remains intentionally narrow in v0.3.3. It does not provide source-to-graph navigation, event flow graphs, context graphs, dependency graphs, lifecycle-specific graphs, or full bidirectional syncing yet.
+Empty graph states are explicit: no compiled semantic summary, no capability selected, and selected capabilities with no child semantic items all show friendly guidance.
+
+The graph remains intentionally narrow in v0.3.4. It does not provide source-to-graph navigation, event flow graphs, context graphs, dependency graphs, lifecycle-specific graphs, or full bidirectional syncing yet.
 
 ## Source Navigation
 
@@ -168,7 +179,7 @@ Screenshot placeholder: DCL Semantic Summary tree generated from compiler IR.
 
 ### Capability Graph
 
-Screenshot placeholder: interactive capability graph with a selected node and node details panel.
+Screenshot placeholder: interactive capability graph with controls, legend, filters, and a selected node details panel.
 
 ## Settings
 
@@ -183,7 +194,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3.3 includes:
+v0.3.4 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -193,10 +204,10 @@ v0.3.3 includes:
 - source-range hardening for explorer navigation
 - packaging and contributor development hardening
 - automated unit test foundation
-- first capability graph visualisation with node selection and graph-to-source navigation
+- first capability graph visualisation with node selection, graph-to-source navigation, controls, legend, filters, and capability switching
 - CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3.3:
+Deferred beyond v0.3.4:
 
 - richer navigation and source linking
 - source-to-graph navigation and full bidirectional graph syncing

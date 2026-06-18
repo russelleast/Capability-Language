@@ -4,12 +4,12 @@ import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 type CapabilityListKind = Exclude<CapabilityItemKind, "lifecycle" | "actors">;
 
 const RELATION_BY_KIND: Record<CapabilityListKind, { label: string; kind: string }> = {
-  intents: { label: "accepts intent", kind: "accepts-intent" },
-  outcomes: { label: "produces outcome", kind: "produces-outcome" },
-  rules: { label: "enforces rule", kind: "enforces-rule" },
-  effects: { label: "causes effect", kind: "causes-effect" },
-  events: { label: "emits event", kind: "emits-event" },
-  policies: { label: "governed by policy", kind: "governed-by-policy" },
+  intents: { label: "accepts", kind: "accepts-intent" },
+  outcomes: { label: "produces", kind: "produces-outcome" },
+  rules: { label: "enforces", kind: "enforces-rule" },
+  effects: { label: "causes", kind: "causes-effect" },
+  events: { label: "emits", kind: "emits-event" },
+  policies: { label: "governed by", kind: "governed-by-policy" },
 };
 
 export function buildCapabilityGraph(summary: SemanticSummary, capabilityName: string): DclGraphModel | undefined {
@@ -52,7 +52,7 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
       kind: "lifecycle",
       source: firstLifecycleLocation(capability),
     });
-    edges.push(edge(capabilityId, id, { label: "owns lifecycle", kind: "owns-lifecycle" }));
+    edges.push(edge(capabilityId, id, { label: "owns", kind: "owns-lifecycle" }));
   }
 
   return {
