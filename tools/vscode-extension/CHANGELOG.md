@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.12
+
+- Added `DCL: Open Graph Workspace` as a unified graph workbench.
+- Added graph type and subject selection inside one WebView for architecture overview, capability, lifecycle, event flow, and context map graphs.
+- Routed existing graph commands into the Graph Workspace as pre-selected shortcuts.
+- Preserved graph controls, legends, node details, source navigation, architecture detail levels, and capability layout choices in the workspace.
+- Added refresh and compile-workspace actions inside the graph workspace.
+- Cleared the workspace graph on compile failure to avoid showing stale graph data.
+- Added graph workspace state selection tests.
+
 ## 0.3.11
 
 - Added bundled DCL compiler binary support for macOS arm64, macOS x64, Linux x64, and Windows x64.

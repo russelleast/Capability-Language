@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.11",
+  "version": "0.3.12",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -35,6 +35,7 @@
     "onCommand:dcl.compileWorkspace",
     "onCommand:dcl.showSemanticSummary",
     "onCommand:dcl.showCompilerInfo",
+    "onCommand:dcl.openGraphWorkspace",
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
@@ -101,6 +102,11 @@
       {
         "command": "dcl.showCompilerInfo",
         "title": "DCL: Show Compiler Info",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.openGraphWorkspace",
+        "title": "DCL: Open Graph Workspace",
         "category": "DCL"
       },
       {
@@ -208,6 +214,9 @@
           "command": "dcl.refreshExplorer"
         },
         {
+          "command": "dcl.openGraphWorkspace"
+        },
+        {
           "command": "dcl.showArchitectureOverview"
         },
         {
@@ -239,7 +248,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "dcl.showArchitectureOverview",
+          "command": "dcl.openGraphWorkspace",
           "when": "view == dclExplorer",
           "group": "navigation@2"
         }

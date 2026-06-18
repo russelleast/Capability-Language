@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.11`
+Current extension version: `0.3.12`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -33,6 +33,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Show Compiler Info`: show which compiler the extension will run.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
+- `DCL: Open Graph Workspace`: open the unified graph workbench for switching graph type and graph subject.
 - `DCL: Show Architecture Overview`: open a workspace-level graph for contexts, capabilities, events, and lifecycle indicators.
 - `DCL: Show Capability Graph`: open a capability-centered graph.
 - `DCL: Show Lifecycle Graph`: open a lifecycle progression graph.
@@ -59,11 +60,26 @@ The explorer can show contexts, capabilities, actors, policies, effects, events,
 
 Explorer context actions can open the relevant graph directly, including capability, lifecycle, event flow, context map, and architecture overview graphs.
 
-## Graphs
+## Graph Workspace
 
 All graphs are built from the compiler semantic summary. The extension does not infer relationships from folders, parse DCL source in TypeScript, or invent missing dependencies.
 
 Graph nodes use human-readable display labels for diagram readability while retaining the exact DCL source name in the details panel.
+
+`DCL: Open Graph Workspace` opens a single graph workbench where you can switch between graph types without opening new panels.
+
+The workspace includes:
+
+- graph type selector
+- subject selector for capability, lifecycle, event flow, and context map graphs
+- architecture detail selector for overview, detailed, and full modes
+- capability layout selector for default, layered, and radial layouts
+- fit, reset layout, and center selection controls
+- refresh from the latest compiled semantic summary
+- compile workspace action when no compiled summary is available
+- legend, node details, relationship summary, zoom limits, and source navigation
+
+Existing graph commands still work as shortcuts into the Graph Workspace with the relevant graph type pre-selected.
 
 ### Architecture Overview
 
