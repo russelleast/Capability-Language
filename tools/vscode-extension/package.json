@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -168,7 +168,17 @@
         "dcl.compileOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run the DCL compiler and refresh diagnostics when a .dcl file is saved."
+          "markdownDescription": "Legacy compile-on-save toggle. If `dcl.compileOnSaveMode` is not explicitly configured, `true` maps to `workspace` and `false` maps to `off`."
+        },
+        "dcl.compileOnSaveMode": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "file",
+            "off"
+          ],
+          "default": "workspace",
+          "markdownDescription": "Controls compile-on-save for `.dcl` files. `workspace` compiles all workspace DCL files, `file` compiles only the saved file, and `off` disables compile-on-save."
         }
       }
     },

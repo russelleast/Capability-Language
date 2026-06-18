@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.14
+
+- Changed compile-on-save to compile the DCL workspace by default so multi-file models resolve cross-file contexts and dependencies correctly.
+- Added `dcl.compileOnSaveMode` with `workspace`, `file`, and `off` modes.
+- Kept legacy `dcl.compileOnSave` compatibility when the new mode is not explicitly configured.
+- Debounced workspace compile-on-save to avoid redundant compiles during rapid saves.
+- Added status-bar feedback for workspace compile-on-save.
+- Refreshed an open Graph Workspace after successful workspace compiles and cleared it on compile failure.
+- Added compile-on-save mode and debounce tests.
+
 ## 0.3.13
 
 - Added graph export controls to the Graph Workspace for SVG and PNG.

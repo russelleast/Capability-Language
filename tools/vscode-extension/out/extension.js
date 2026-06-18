@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const DclCompileOnSave_1 = require("./DclCompileOnSave");
 const DclCompilerAdapter_1 = require("./compiler/DclCompilerAdapter");
 const DclDiagnosticProvider_1 = require("./diagnostics/DclDiagnosticProvider");
 const DclFormattingProvider_1 = require("./formatting/DclFormattingProvider");
@@ -63,11 +64,12 @@ function activate(context) {
     const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler);
     const summary = new DclSummaryProvider_1.DclSummaryProvider();
     const explorer = new DclExplorerProvider_1.DclExplorerProvider();
-    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.showCompilerInfo", () => showCompilerInfo(compiler)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.openGraphWorkspace", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.exportCurrentGraph", () => DclGraphWorkspacePanel_1.DclGraphWorkspacePanel.exportCurrentGraph()), vscode.commands.registerCommand("dcl.showArchitectureOverview", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "architecture" })), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "capability", subject: node?.capabilityName })), vscode.commands.registerCommand("dcl.showContextMap", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "context-map", subject: node?.kind === "context" ? String(node.label) : undefined })), vscode.commands.registerCommand("dcl.showEventFlowGraph", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "event-flow", subject: node?.eventName })), vscode.commands.registerCommand("dcl.showLifecycleGraph", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "lifecycle", subject: node?.capabilityName })), vscode.workspace.onDidSaveTextDocument((document) => {
-        const compileOnSave = vscode.workspace.getConfiguration("dcl").get("compileOnSave", true);
-        if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
-            void compileFiles([document.uri], diagnostics, summary, explorer, false, false);
-        }
+    const compileOnSave = new DclCompileOnSave_1.DclCompileOnSaveScheduler({
+        compileWorkspace: () => compileWorkspace(diagnostics, summary, explorer, { showCompletionNotification: false }),
+        compileFile: (uri) => compileFiles([uri], diagnostics, summary, explorer, false, false),
+    });
+    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.showCompilerInfo", () => showCompilerInfo(compiler)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.openGraphWorkspace", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.exportCurrentGraph", () => DclGraphWorkspacePanel_1.DclGraphWorkspacePanel.exportCurrentGraph()), vscode.commands.registerCommand("dcl.showArchitectureOverview", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "architecture" })), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "capability", subject: node?.capabilityName })), vscode.commands.registerCommand("dcl.showContextMap", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "context-map", subject: node?.kind === "context" ? String(node.label) : undefined })), vscode.commands.registerCommand("dcl.showEventFlowGraph", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "event-flow", subject: node?.eventName })), vscode.commands.registerCommand("dcl.showLifecycleGraph", (node) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "lifecycle", subject: node?.capabilityName })), compileOnSave, vscode.workspace.onDidSaveTextDocument((document) => {
+        compileOnSave.handleSavedDocument(document, (0, DclCompileOnSave_1.resolveCompileOnSaveMode)(vscode.workspace.getConfiguration("dcl")));
     }));
 }
 function openGraphWorkspace(extensionUri, diagnostics, summaryProvider, explorer, selection = {}) {
@@ -303,16 +305,27 @@ async function compileCurrentFile(diagnostics, summary, explorer, revealSummary)
     await editor.document.save();
     await compileFiles([editor.document.uri], diagnostics, summary, explorer, revealSummary, true);
 }
-async function compileWorkspace(diagnostics, summary, explorer) {
+async function compileWorkspace(diagnostics, summary, explorer, options = {}) {
     const files = await vscode.workspace.findFiles("**/*.dcl", "**/{node_modules,.git}/**");
     if (files.length === 0) {
         diagnostics.clear();
         summary.clear();
         explorer.showNoDclFiles();
         void vscode.window.showInformationMessage("No .dcl files found in this workspace.");
-        return;
+        return true;
     }
-    await compileFiles(files, diagnostics, summary, explorer, false, true);
+    const status = setStatusBarMessage("DCL: compiling workspace...");
+    try {
+        const ok = await compileFiles(files, diagnostics, summary, explorer, false, options.showCompletionNotification ?? true);
+        if (ok) {
+            DclGraphWorkspacePanel_1.DclGraphWorkspacePanel.refreshCurrent();
+        }
+        setStatusBarMessage(ok ? "DCL: workspace compile completed" : "DCL: workspace compile failed", 3000);
+        return ok;
+    }
+    finally {
+        status?.dispose();
+    }
 }
 async function refreshExplorer(diagnostics, summary, explorer) {
     const editor = vscode.window.activeTextEditor;
@@ -354,6 +367,7 @@ async function compileFiles(files, diagnostics, summary, explorer, revealSummary
                 : `DCL compile failed: ${errors} error${errors === 1 ? "" : "s"}, ${warnings} warning${warnings === 1 ? "" : "s"}.`;
             void vscode.window.showInformationMessage(message);
         }
+        return result.ok;
     }
     catch (error) {
         diagnostics.clear();
@@ -367,7 +381,13 @@ async function compileFiles(files, diagnostics, summary, explorer, revealSummary
         }
         DclGraphWorkspacePanel_1.DclGraphWorkspacePanel.showCompileFailed(message);
         void vscode.window.showErrorMessage(message);
+        return false;
     }
+}
+function setStatusBarMessage(message, hideAfterTimeout) {
+    return hideAfterTimeout === undefined
+        ? vscode.window.setStatusBarMessage?.(message)
+        : vscode.window.setStatusBarMessage?.(message, hideAfterTimeout);
 }
 async function revealSemanticItemInSource(location) {
     const result = await (0, DclSourceLocation_1.revealSourceLocation)(location, "oneBased");

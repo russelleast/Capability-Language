@@ -95,6 +95,11 @@ export class DclGraphWorkspacePanel {
     DclGraphWorkspacePanel.currentPanel.webview.html = renderEmptyHtml("Compile Failed", message, true);
   }
 
+  static refreshCurrent(): void {
+    if (!DclGraphWorkspacePanel.currentPanel) return;
+    DclGraphWorkspacePanel.callbacks?.onRefresh();
+  }
+
   static async exportCurrentGraph(format?: DclGraphExportFormat): Promise<void> {
     if (!DclGraphWorkspacePanel.currentPanel || !DclGraphWorkspacePanel.currentGraph) {
       void vscode.window.showWarningMessage("Open a DCL graph before exporting.");

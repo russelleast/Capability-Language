@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.13`
+Current extension version: `0.3.14`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -51,7 +51,17 @@ The VSIX includes bundled compiler binaries for supported platforms. `dcl.compil
 
 `dcl.compileOnSave`
 
-Run the DCL compiler and refresh diagnostics when a `.dcl` file is saved. Enabled by default.
+Legacy compile-on-save toggle. If `dcl.compileOnSaveMode` is not explicitly configured, `true` maps to `workspace` and `false` maps to `off`.
+
+`dcl.compileOnSaveMode`
+
+Controls compile-on-save for `.dcl` files. The default is `workspace`, which compiles all workspace DCL files together when any `.dcl` file is saved. This is the recommended mode for multi-file models where contexts, capabilities, events, or lifecycle data are split across files.
+
+Available values:
+
+- `workspace`: compile all workspace `.dcl` files together.
+- `file`: compile only the saved `.dcl` file.
+- `off`: disable compile-on-save.
 
 ## DCL Explorer
 

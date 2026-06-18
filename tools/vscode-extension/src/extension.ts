@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { DclCompileOnSaveScheduler, resolveCompileOnSaveMode } from "./DclCompileOnSave";
 import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdapter";
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
@@ -29,6 +30,10 @@ export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = new DclDiagnosticProvider(compiler);
   const summary = new DclSummaryProvider();
   const explorer = new DclExplorerProvider();
+  const compileOnSave = new DclCompileOnSaveScheduler({
+    compileWorkspace: () => compileWorkspace(diagnostics, summary, explorer, { showCompletionNotification: false }),
+    compileFile: (uri) => compileFiles([uri], diagnostics, summary, explorer, false, false),
+  });
 
   context.subscriptions.push(
     diagnostics,
@@ -50,11 +55,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.showContextMap", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "context-map", subject: node?.kind === "context" ? String(node.label) : undefined })),
     vscode.commands.registerCommand("dcl.showEventFlowGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "event-flow", subject: node?.eventName })),
     vscode.commands.registerCommand("dcl.showLifecycleGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "lifecycle", subject: node?.capabilityName })),
+    compileOnSave,
     vscode.workspace.onDidSaveTextDocument((document) => {
-      const compileOnSave = vscode.workspace.getConfiguration("dcl").get<boolean>("compileOnSave", true);
-      if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
-        void compileFiles([document.uri], diagnostics, summary, explorer, false, false);
-      }
+      compileOnSave.handleSavedDocument(document, resolveCompileOnSaveMode(vscode.workspace.getConfiguration("dcl")));
     }),
   );
 }
@@ -430,17 +433,28 @@ async function compileWorkspace(
   diagnostics: DclDiagnosticProvider,
   summary: DclSummaryProvider,
   explorer: DclExplorerProvider,
-): Promise<void> {
+  options: { showCompletionNotification?: boolean } = {},
+): Promise<boolean> {
   const files = await vscode.workspace.findFiles("**/*.dcl", "**/{node_modules,.git}/**");
   if (files.length === 0) {
     diagnostics.clear();
     summary.clear();
     explorer.showNoDclFiles();
     void vscode.window.showInformationMessage("No .dcl files found in this workspace.");
-    return;
+    return true;
   }
 
-  await compileFiles(files, diagnostics, summary, explorer, false, true);
+  const status = setStatusBarMessage("DCL: compiling workspace...");
+  try {
+    const ok = await compileFiles(files, diagnostics, summary, explorer, false, options.showCompletionNotification ?? true);
+    if (ok) {
+      DclGraphWorkspacePanel.refreshCurrent();
+    }
+    setStatusBarMessage(ok ? "DCL: workspace compile completed" : "DCL: workspace compile failed", 3000);
+    return ok;
+  } finally {
+    status?.dispose();
+  }
 }
 
 async function refreshExplorer(
@@ -464,7 +478,7 @@ async function compileFiles(
   explorer: DclExplorerProvider,
   revealSummary: boolean,
   showStatus: boolean,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const result = await vscode.window.withProgress(
       {
@@ -502,6 +516,7 @@ async function compileFiles(
         : `DCL compile failed: ${errors} error${errors === 1 ? "" : "s"}, ${warnings} warning${warnings === 1 ? "" : "s"}.`;
       void vscode.window.showInformationMessage(message);
     }
+    return result.ok;
   } catch (error) {
     diagnostics.clear();
     summary.clear();
@@ -513,7 +528,14 @@ async function compileFiles(
     }
     DclGraphWorkspacePanel.showCompileFailed(message);
     void vscode.window.showErrorMessage(message);
+    return false;
   }
+}
+
+function setStatusBarMessage(message: string, hideAfterTimeout?: number): vscode.Disposable | undefined {
+  return hideAfterTimeout === undefined
+    ? vscode.window.setStatusBarMessage?.(message)
+    : vscode.window.setStatusBarMessage?.(message, hideAfterTimeout);
 }
 
 async function revealSemanticItemInSource(location: DclSourceLocation | undefined): Promise<void> {
