@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.11
+
+- Added bundled DCL compiler binary support for macOS arm64, macOS x64, Linux x64, and Windows x64.
+- Updated compiler resolution to prefer `dcl.compilerPath`, then the matching bundled compiler, then `dcl` from PATH.
+- Added `DCL: Show Compiler Info` for inspecting resolved compiler path, source, platform, architecture, and bundle availability.
+- Improved compiler failure messages with attempted path, source, exit code, stderr/stdout detail, missing compiler handling, and invalid JSON handling.
+- Updated package and release workflows to build and include platform-specific compiler binaries in the VSIX.
+- Added compiler resolver unit tests.
+
 ## 0.3.10
 
 - Added the current extension version near the top of the packaged README.

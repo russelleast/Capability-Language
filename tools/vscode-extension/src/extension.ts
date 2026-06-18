@@ -21,7 +21,9 @@ import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
 
 export function activate(context: vscode.ExtensionContext): void {
-  const compiler = new DclCompilerAdapter(vscode.workspace.workspaceFolders);
+  const compiler = new DclCompilerAdapter(vscode.workspace.workspaceFolders, {
+    extensionPath: context.extensionUri.fsPath,
+  });
   const diagnostics = new DclDiagnosticProvider(compiler);
   const summary = new DclSummaryProvider();
   const explorer = new DclExplorerProvider();
@@ -35,6 +37,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)),
     vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)),
+    vscode.commands.registerCommand("dcl.showCompilerInfo", () => showCompilerInfo(compiler)),
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
@@ -50,6 +53,22 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+}
+
+function showCompilerInfo(compiler: DclCompilerAdapter): void {
+  const info = compiler.compilerInfo();
+  const lines = [
+    `Resolved compiler: ${info.command}${info.args.length ? ` ${info.args.join(" ")}` : ""}`,
+    `Source: ${info.source}`,
+    `Platform: ${info.platform}`,
+    `Architecture: ${info.arch}`,
+    info.cwd ? `Working directory: ${info.cwd}` : undefined,
+    info.supportedBundleName ? `Bundled compiler for this platform: ${info.supportedBundleName}` : "Bundled DCL compiler is not available for this platform.",
+    info.bundledPath ? `Bundled compiler path: ${info.bundledPath}` : undefined,
+    `Bundled compiler available: ${info.bundledAvailable ? "yes" : "no"}`,
+  ].filter(Boolean).join("\n");
+
+  void vscode.window.showInformationMessage(lines, { modal: true });
 }
 
 function showArchitectureOverview(extensionUri: vscode.Uri, explorer: DclExplorerProvider): void {

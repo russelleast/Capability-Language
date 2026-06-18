@@ -83,6 +83,12 @@ jobs:
           cache: npm
           cache-dependency-path: tools/vscode-extension/package-lock.json
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: compiler/go.mod
+          cache-dependency-path: compiler/go.mod
+
       - name: Install extension dependencies
         run: npm ci
         working-directory: tools/vscode-extension
@@ -98,6 +104,7 @@ jobs:
       - name: Package extension
         run: |
           VERSION="$(node -p "require('./package.json').version")"
+          npm run build:compiler-binaries
           npm run copy:vendor
           npx vsce package --out "dcl-vscode-extension-v${VERSION}.vsix"
           echo "VSIX_PATH=tools/vscode-extension/dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"

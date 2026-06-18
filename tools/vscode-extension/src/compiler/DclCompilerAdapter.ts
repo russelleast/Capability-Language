@@ -1,7 +1,7 @@
 import * as childProcess from "child_process";
 import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
+import { DclCompilerCommand, DclCompilerInfo, getDclCompilerInfo, resolveDclCompiler } from "./DclCompilerResolver";
 
 export type DclDiagnosticSeverity = "error" | "warning" | "info";
 
@@ -25,17 +25,12 @@ export interface CompileResult {
   stderr: string;
 }
 
-interface CommandSpec {
-  command: string;
-  args: string[];
-  cwd?: string;
-}
-
 export type DclCompilerRunResult = { exitCode: number | null; stdout: string; stderr: string };
-export type DclCompilerRunner = (spec: CommandSpec, args: string[]) => Promise<DclCompilerRunResult>;
+export type DclCompilerRunner = (spec: DclCompilerCommand, args: string[]) => Promise<DclCompilerRunResult>;
 
 export type DclCompilerAdapterOptions = {
   compilerPath?: string;
+  extensionPath?: string;
   runner?: DclCompilerRunner;
 };
 
@@ -44,6 +39,8 @@ export class DclCompilerError extends Error {
     message: string,
     readonly stdout = "",
     readonly stderr = "",
+    readonly compilerPath?: string,
+    readonly exitCode?: number | null,
   ) {
     super(message);
   }
@@ -74,9 +71,11 @@ export class DclCompilerAdapter {
 
     if (irRun.exitCode === 0) {
       throw new DclCompilerError(
-        "DCL compiler returned invalid JSON for 'ir --format json'. Check that dcl.compilerPath points to a compatible DCL compiler.",
+        compilerRunMessage("DCL compiler returned invalid JSON", this.compilerCommand(), irRun),
         irRun.stdout,
         irRun.stderr,
+        this.compilerCommand().command,
+        irRun.exitCode,
       );
     }
 
@@ -84,11 +83,11 @@ export class DclCompilerAdapter {
     if (diagnostics.length === 0) {
       const detail = (irRun.stderr || irRun.stdout).trim();
       throw new DclCompilerError(
-        detail
-          ? `DCL compiler failed without parseable diagnostics: ${detail}`
-          : "DCL compiler failed without returning diagnostics.",
+        compilerRunMessage("DCL compiler failed before producing diagnostics", this.compilerCommand(), irRun, detail),
         irRun.stdout,
         irRun.stderr,
+        this.compilerCommand().command,
+        irRun.exitCode,
       );
     }
 
@@ -109,10 +108,12 @@ export class DclCompilerAdapter {
     const detail = (run.stderr || run.stdout).trim();
     throw new DclCompilerError(
       detail
-        ? `DCL formatter failed: ${detail}`
-        : "DCL formatter is not available from the configured compiler.",
+        ? compilerRunMessage("DCL formatter failed", this.compilerCommand(), run, detail)
+        : compilerRunMessage("DCL formatter failed before producing output", this.compilerCommand(), run),
       run.stdout,
       run.stderr,
+      this.compilerCommand().command,
+      run.exitCode,
     );
   }
 
@@ -121,10 +122,22 @@ export class DclCompilerAdapter {
     if (this.options.runner) {
       return this.options.runner(spec, args);
     }
+    ensureExecutable(spec);
     return new Promise((resolve, reject) => {
       const child = childProcess.execFile(spec.command, [...spec.args, ...args], { cwd: spec.cwd }, (error, stdout, stderr) => {
-        const exitCode = typeof (error as childProcess.ExecFileException | null)?.code === "number"
-          ? ((error as childProcess.ExecFileException).code as number)
+        const execError = error as childProcess.ExecFileException | null;
+        if (execError?.code === "ENOENT") {
+          reject(new DclCompilerError(
+            compilerMissingMessage(spec),
+            stdout,
+            stderr,
+            spec.command,
+            null,
+          ));
+          return;
+        }
+        const exitCode = typeof execError?.code === "number"
+          ? (execError.code as number)
           : error
             ? 1
             : 0;
@@ -132,45 +145,72 @@ export class DclCompilerAdapter {
       });
 
       child.on("error", (error) => {
-        reject(new DclCompilerError(`Unable to run DCL compiler '${spec.command}': ${error.message}`));
+        reject(new DclCompilerError(
+          `DCL compiler was not found or could not be started.\nCompiler: ${spec.command}\nSource: ${spec.source}\nError: ${error.message}`,
+          "",
+          "",
+          spec.command,
+          null,
+        ));
       });
     });
   }
 
-  private compilerCommand(): CommandSpec {
-    const configured = (this.options.compilerPath ?? vscode.workspace.getConfiguration("dcl").get<string>("compilerPath", "")).trim();
-    if (configured) {
-      const [command, ...args] = splitCommand(configured);
-      if (!command) {
-        throw new DclCompilerError("dcl.compilerPath is empty. Configure a DCL compiler path or leave the setting unset.");
-      }
-      return { command, args, cwd: this.workspaceRoot() };
-    }
-
-    const compilerRoot = this.defaultCompilerRoot();
-    if (compilerRoot) {
-      return { command: "go", args: ["run", "./cmd/dcl"], cwd: compilerRoot };
-    }
-
-    return { command: "dcl", args: [], cwd: this.workspaceRoot() };
+  compilerInfo(): DclCompilerInfo {
+    return getDclCompilerInfo({
+      configuredCompilerPath: this.options.compilerPath ?? vscode.workspace.getConfiguration("dcl").get<string>("compilerPath", ""),
+      extensionPath: this.options.extensionPath,
+      workspaceFolders: this.workspaceFolders?.map((folder) => folder.uri.fsPath),
+    });
   }
 
-  private defaultCompilerRoot(): string | undefined {
-    for (const folder of this.workspaceFolders ?? []) {
-      const candidate = path.join(folder.uri.fsPath, "compiler");
-      try {
-        const stat = fs.statSync(path.join(candidate, "cmd", "dcl", "main.go"));
-        if (stat.isFile()) return candidate;
-      } catch {
-        // Keep looking; absence just means this is not the source workspace.
-      }
+  private compilerCommand(): DclCompilerCommand {
+    const configured = (this.options.compilerPath ?? vscode.workspace.getConfiguration("dcl").get<string>("compilerPath", "")).trim();
+    if (configured.length === 0 && this.options.compilerPath !== undefined && this.options.compilerPath.trim() === "") {
+      throw new DclCompilerError("dcl.compilerPath is empty. Configure a DCL compiler path or leave the setting unset.");
     }
-    return undefined;
+    return resolveDclCompiler({
+      configuredCompilerPath: configured,
+      extensionPath: this.options.extensionPath,
+      workspaceFolders: this.workspaceFolders?.map((folder) => folder.uri.fsPath),
+    });
   }
 
   private workspaceRoot(): string | undefined {
     return this.workspaceFolders?.[0]?.uri.fsPath;
   }
+}
+
+function ensureExecutable(spec: DclCompilerCommand): void {
+  if (spec.source !== "bundled" || process.platform === "win32") return;
+  try {
+    fs.chmodSync(spec.command, 0o755);
+  } catch {
+    // Let execFile surface the actionable failure with the attempted path.
+  }
+}
+
+function compilerMissingMessage(spec: DclCompilerCommand): string {
+  if (spec.source === "path") {
+    const bundleDetail = spec.supportedBundleName
+      ? `Expected bundled compiler: ${spec.bundledPath ?? spec.supportedBundleName}\nBundled compiler available: ${spec.bundledAvailable ? "yes" : "no"}`
+      : `Bundled DCL compiler is not available for this platform.\nPlatform: ${spec.platform}\nArchitecture: ${spec.arch}`;
+    return `DCL compiler was not found.\nCompiler: ${spec.command}\nSource: PATH\n${bundleDetail}\nSet dcl.compilerPath or install a VSIX that includes a bundled compiler for this platform.`;
+  }
+  return `DCL compiler was not found.\nCompiler: ${spec.command}\nSource: ${spec.source}`;
+}
+
+function compilerRunMessage(prefix: string, spec: DclCompilerCommand, run: DclCompilerRunResult, detail?: string): string {
+  return [
+    prefix,
+    `Compiler: ${spec.command}`,
+    spec.args.length ? `Compiler arguments: ${spec.args.join(" ")}` : undefined,
+    `Source: ${spec.source}`,
+    `Exit code: ${run.exitCode ?? "unknown"}`,
+    run.stderr.trim() ? `stderr: ${run.stderr.trim()}` : undefined,
+    !run.stderr.trim() && run.stdout.trim() ? `stdout: ${run.stdout.trim()}` : undefined,
+    detail && detail !== run.stderr.trim() && detail !== run.stdout.trim() ? `Details: ${detail}` : undefined,
+  ].filter(Boolean).join("\n");
 }
 
 export function diagnosticsFromIr(ir: unknown): DclDiagnostic[] {
@@ -228,11 +268,6 @@ function parseJson(output: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-function splitCommand(commandLine: string): string[] {
-  const parts = commandLine.match(/"[^"]+"|'[^']+'|\S+/g) ?? [];
-  return parts.map((part) => part.replace(/^["']|["']$/g, ""));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
