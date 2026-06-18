@@ -24,6 +24,10 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
     const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
     const stepDetails = nonEmpty(capability.lifecycle?.steps?.map(summarizeLifecycleStep));
     const transitionDetails = nonEmpty(capability.lifecycle?.transitions?.map(summarizeLifecycleTransition));
+    const eventDetails = nonEmpty([
+        ...arrayItems(capability.emitted_events).map(summarizeEmittedEvent),
+        ...arrayItems(capability.events).map(summarizeEventEmission),
+    ]);
     const begin = capability.lifecycle?.initial_state;
     const ends = nonEmpty(capability.lifecycle?.terminal_states);
     return {
@@ -40,6 +44,7 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
             ...arrayItems(capability.emitted_events).map((event) => isObject(event) ? event.event : undefined),
             ...arrayItems(capability.events).map(formatEventEmission),
         ]),
+        eventDetails,
         policies: nonEmpty([
             ...arrayItems(capability.policies).map(formatPolicyUse),
             ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
@@ -250,6 +255,26 @@ function summarizeLifecycleTransition(transition) {
         triggerKind: transition.trigger_kind,
         triggerName: transition.trigger_name,
         sourceCapability: transition.source_capability,
+    };
+}
+function summarizeEmittedEvent(event) {
+    if (!isObject(event) || !event.event)
+        return undefined;
+    return {
+        event: event.event,
+        label: event.event,
+    };
+}
+function summarizeEventEmission(event) {
+    if (!event?.event)
+        return undefined;
+    const label = formatEventEmission(event);
+    if (!label)
+        return undefined;
+    return {
+        event: event.event,
+        label,
+        sourceOutcome: event.outcome,
     };
 }
 function nonEmpty(items) {

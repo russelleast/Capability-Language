@@ -4,12 +4,14 @@ import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
 import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
+import { buildEventFlowGraph } from "./graphs/DclEventFlowGraphBuilder";
 import { buildLifecycleGraph } from "./graphs/DclLifecycleGraphBuilder";
 import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
 import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvider";
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
 import { SemanticSummary } from "./views/semanticSummary";
 import { DclCapabilityGraphPanel } from "./webviews/DclCapabilityGraphPanel";
+import { DclEventFlowGraphPanel } from "./webviews/DclEventFlowGraphPanel";
 import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
@@ -33,6 +35,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
     vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => showCapabilityGraph(context.extensionUri, explorer, node)),
+    vscode.commands.registerCommand("dcl.showEventFlowGraph", (node?: DclExplorerNode) => showEventFlowGraph(context.extensionUri, explorer, node)),
     vscode.commands.registerCommand("dcl.showLifecycleGraph", (node?: DclExplorerNode) => showLifecycleGraph(context.extensionUri, explorer, node)),
     vscode.workspace.onDidSaveTextDocument((document) => {
       const compileOnSave = vscode.workspace.getConfiguration("dcl").get<boolean>("compileOnSave", true);
@@ -203,6 +206,69 @@ function lifecyclePickDetail(capability: SemanticSummary["capabilities"][number]
     ? `${capability.lifecycle.transitionDetails.length} transition${capability.lifecycle.transitionDetails.length === 1 ? "" : "s"}`
     : undefined;
   return [begin, transitions].filter(Boolean).join(", ") || undefined;
+}
+
+async function showEventFlowGraph(
+  extensionUri: vscode.Uri,
+  explorer: DclExplorerProvider,
+  node: DclExplorerNode | undefined,
+): Promise<void> {
+  const summary = explorer.getSummary();
+  if (!summary?.capabilities.length) {
+    DclEventFlowGraphPanel.showEmpty(
+      extensionUri,
+      "No Compiled Semantic Summary",
+      "Compile DCL before opening an event flow graph.",
+    );
+    return;
+  }
+
+  const eventName = node?.kind === "event" ? node.eventName : undefined;
+  const selected = eventName ?? await pickEventFlow(summary);
+  if (selected === undefined) return;
+
+  const graph = buildEventFlowGraph(summary, selected === ALL_EVENT_FLOWS ? undefined : selected);
+  if (!graph) {
+    DclEventFlowGraphPanel.showEmpty(
+      extensionUri,
+      "No Events Declared",
+      "The compiled semantic summary does not include declared or referenced events.",
+    );
+    return;
+  }
+
+  DclEventFlowGraphPanel.show(extensionUri, graph, selected === ALL_EVENT_FLOWS ? undefined : selected);
+}
+
+const ALL_EVENT_FLOWS = "__all_event_flows__";
+
+async function pickEventFlow(summary: SemanticSummary): Promise<string | undefined> {
+  const events = eventFlowNames(summary);
+  if (!events.length) {
+    void vscode.window.showWarningMessage("No compiled events are available for an event flow graph.");
+    return undefined;
+  }
+
+  const picked = await vscode.window.showQuickPick(
+    [
+      { label: "All event flows", eventName: ALL_EVENT_FLOWS, description: `${events.length} event${events.length === 1 ? "" : "s"}` },
+      ...events.map((event) => ({ label: event, eventName: event })),
+    ],
+    { title: "Select DCL Event Flow" },
+  );
+  return picked?.eventName;
+}
+
+function eventFlowNames(summary: SemanticSummary): string[] {
+  const names = new Set<string>();
+  for (const event of summary.events ?? []) names.add(event.label);
+  for (const capability of summary.capabilities) {
+    for (const event of capability.eventDetails ?? []) names.add(event.event);
+    for (const transition of capability.lifecycle?.transitionDetails ?? []) {
+      if (transition.triggerKind === "event" && transition.triggerName) names.add(transition.triggerName);
+    }
+  }
+  return Array.from(names).sort();
 }
 
 export function deactivate(): void {}

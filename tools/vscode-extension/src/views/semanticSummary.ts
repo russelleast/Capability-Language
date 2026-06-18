@@ -34,6 +34,7 @@ export type CapabilitySummary = {
   rules?: string[];
   effects?: string[];
   events?: string[];
+  eventDetails?: EventFlowSummary[];
   policies?: string[];
   lifecycle?: {
     begin?: string;
@@ -60,6 +61,12 @@ export type LifecycleTransitionSummary = {
   triggerKind?: string;
   triggerName?: string;
   sourceCapability?: string;
+};
+
+export type EventFlowSummary = {
+  event: string;
+  label: string;
+  sourceOutcome?: string;
 };
 
 type ProgramOutput = {
@@ -204,6 +211,10 @@ function summarizeCapability(
   const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
   const stepDetails = nonEmpty(capability.lifecycle?.steps?.map(summarizeLifecycleStep));
   const transitionDetails = nonEmpty(capability.lifecycle?.transitions?.map(summarizeLifecycleTransition));
+  const eventDetails = nonEmpty([
+    ...arrayItems(capability.emitted_events).map(summarizeEmittedEvent),
+    ...arrayItems(capability.events).map(summarizeEventEmission),
+  ]);
   const begin = capability.lifecycle?.initial_state;
   const ends = nonEmpty(capability.lifecycle?.terminal_states);
 
@@ -221,6 +232,7 @@ function summarizeCapability(
       ...arrayItems(capability.emitted_events).map((event) => isObject(event) ? event.event : undefined),
       ...arrayItems(capability.events).map(formatEventEmission),
     ]),
+    eventDetails,
     policies: nonEmpty([
       ...arrayItems(capability.policies).map(formatPolicyUse),
       ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
@@ -449,6 +461,25 @@ function summarizeLifecycleTransition(transition: TransitionOutput | undefined):
     triggerKind: transition.trigger_kind,
     triggerName: transition.trigger_name,
     sourceCapability: transition.source_capability,
+  };
+}
+
+function summarizeEmittedEvent(event: EmittedEventOutput | undefined): EventFlowSummary | undefined {
+  if (!isObject(event) || !event.event) return undefined;
+  return {
+    event: event.event,
+    label: event.event,
+  };
+}
+
+function summarizeEventEmission(event: EmitOutput | undefined): EventFlowSummary | undefined {
+  if (!event?.event) return undefined;
+  const label = formatEventEmission(event);
+  if (!label) return undefined;
+  return {
+    event: event.event,
+    label,
+    sourceOutcome: event.outcome,
   };
 }
 

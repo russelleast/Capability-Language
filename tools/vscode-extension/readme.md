@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3.5 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.6 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -14,7 +14,7 @@ The extension is intentionally thin. It does not implement a parser, duplicate c
 - Compiler-backed diagnostics in VS Code Problems
 - Compiler-backed semantic summary tree
 - DCL Explorer Activity Bar view for architecture navigation
-- Interactive capability and lifecycle graph WebViews
+- Interactive capability, lifecycle, and event flow graph WebViews
 - Commands for compiling files, compiling workspaces, showing summaries, and formatting documents
 
 ## Setup
@@ -88,6 +88,7 @@ See `DEVELOPMENT.md` for fixture-based testing notes and handoff details.
 - `DCL: Format Document`: delegates formatting to the compiler.
 - `DCL: Refresh Explorer`: recompiles the active DCL file when one is open, otherwise compiles the workspace and refreshes the DCL Explorer.
 - `DCL: Show Capability Graph`: opens an interactive Cytoscape graph for one selected capability.
+- `DCL: Show Event Flow Graph`: opens an interactive Cytoscape graph for one selected event or all event flows.
 - `DCL: Show Lifecycle Graph`: opens an interactive Cytoscape graph for one selected capability lifecycle.
 
 ## DCL Explorer
@@ -185,7 +186,39 @@ Selecting a lifecycle graph node updates the node details panel with its name, k
 
 Lifecycle graph empty states are explicit: no compiled semantic summary, selected capability has no lifecycle, and lifecycle has no transitions.
 
-The graph feature remains intentionally narrow in v0.3.5. It does not provide source-to-graph navigation, event flow graphs, context graphs, dependency graphs, or full bidirectional syncing yet.
+## Event Flow Graph
+
+`DCL: Show Event Flow Graph` visualises immutable facts emitted by capabilities and the compiler-known places where those events are referenced. It is built from the normalized compiler semantic summary and does not infer consumers by scanning source text.
+
+When launched from an event in the DCL Explorer, the command opens that event directly. When launched from the Command Palette or Events section, it prompts for one event or `All event flows`.
+
+Event flow graph nodes distinguish:
+
+- capability
+- event
+- lifecycle
+- lifecycle transition
+- external/unknown reference, reserved for compiler-provided references that cannot be resolved to a capability
+
+Event flow edges use conservative labels:
+
+- `emits`
+- `triggers transition`
+- `references`
+
+The graph uses `references` rather than `consumes` unless the compiler summary explicitly models consume or subscribe semantics.
+
+Event flow graph controls:
+
+- `Fit`: fits the visible graph to the panel.
+- `Reset Layout`: reruns the event-flow layout.
+- `Center Selected Event`: centers and selects the chosen event node.
+
+Selecting an event flow graph node updates the details panel with label, kind, emitters, and known references or triggered transitions. If the compiler semantic summary includes a source location for that node, selection also reveals the DCL source in VS Code.
+
+Event flow graph empty states are explicit: no compiled semantic summary, no declared events, selected event has no known emitters, and selected event has no known references or consumers.
+
+The graph feature remains intentionally narrow in v0.3.6. It does not provide source-to-graph navigation, context graphs, dependency graphs, or full bidirectional syncing yet.
 
 ## Source Navigation
 
@@ -215,6 +248,10 @@ Screenshot placeholder: interactive capability graph with controls, legend, filt
 
 Screenshot placeholder: lifecycle graph showing initial, ordinary, and terminal steps with transition labels.
 
+### Event Flow Graph
+
+Screenshot placeholder: event flow graph showing emitting capabilities, event nodes, and compiler-known lifecycle transition references.
+
 ## Settings
 
 - `dcl.compilerPath`: path or command prefix for the DCL compiler. Leave empty to use the repository compiler when available, otherwise `dcl` on `PATH`.
@@ -228,7 +265,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3.5 includes:
+v0.3.6 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -240,13 +277,14 @@ v0.3.5 includes:
 - automated unit test foundation
 - first capability graph visualisation with node selection, graph-to-source navigation, controls, legend, filters, and capability switching
 - lifecycle graph visualisation for compiler-provided lifecycle steps and transitions
+- event flow graph visualisation for compiler-provided event emissions and lifecycle event references
 - CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3.5:
+Deferred beyond v0.3.6:
 
 - richer navigation and source linking
 - source-to-graph navigation and full bidirectional graph syncing
-- event flow, context, and dependency graphs
+- context and dependency graphs
 - compiler-provided quick fixes
 - optional language server, if the project chooses that architecture later
 

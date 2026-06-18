@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.6
+
+- Added `DCL: Show Event Flow Graph` for compiler-provided event emissions and references.
+- Added event flow graph model generation for emitting capabilities, event nodes, lifecycle transitions, and lifecycle references.
+- Added event flow WebView controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer event flow entries for event nodes, event sections, and capabilities that emit events.
+- Added event flow graph model tests for emitters, lifecycle event triggers, references, missing consumers, multiple events, missing sources, and incomplete summaries.
+
 ## 0.3.5
 
 - Added `DCL: Show Lifecycle Graph` for compiler-provided capability lifecycles.

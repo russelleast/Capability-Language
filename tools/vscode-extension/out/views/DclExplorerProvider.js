@@ -37,12 +37,13 @@ exports.DclExplorerProvider = exports.DclExplorerNode = void 0;
 const vscode = __importStar(require("vscode"));
 const semanticSummary_1 = require("./semanticSummary");
 class DclExplorerNode extends vscode.TreeItem {
-    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName, contextValue) {
+    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName, eventName, contextValue) {
         super(label, children.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
         this.children = children;
         this.sourceLocation = sourceLocation;
         this.kind = kind;
         this.capabilityName = capabilityName;
+        this.eventName = eventName;
         this.description = description;
         this.contextValue = contextValue ?? `dclExplorer.${kind}${sourceLocation ? ".located" : ""}`;
         this.tooltip = sourceLocation?.file ? `${label}\n${sourceLocation.file}:${sourceLocation.line}:${sourceLocation.column ?? 1}` : label;
@@ -115,7 +116,7 @@ class DclExplorerProvider {
             group("Actors", semanticItems(summary.actors)),
             group("Policies", semanticItems(summary.policies)),
             group("Effects", semanticItems(summary.effects)),
-            group("Events", semanticItems(summary.events)),
+            group("Events", semanticItems(summary.events, "event"), "dclExplorer.events"),
             group("Lifecycles", semanticItems(summary.lifecycles)),
         ].filter((node) => Boolean(node && node.children.length > 0));
         return roots.length ? roots : [new DclExplorerNode("No semantic items in compiler output", [], undefined, "empty")];
@@ -129,12 +130,12 @@ function capabilityNode(capability) {
         sectionFromCapability("Outcomes", "outcomes", capability),
         sectionFromCapability("Rules", "rules", capability),
         sectionFromCapability("Effects", "effects", capability),
-        sectionFromCapability("Events", "events", capability),
+        eventsSection(capability),
         sectionFromCapability("Policies", "policies", capability),
         lifecycleSection(capability),
     ].filter((node) => Boolean(node));
-    const contextValue = `dclExplorer.capability${capability.location ? ".located" : ""}${capability.lifecycle ? ".lifecycle" : ""}`;
-    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, contextValue);
+    const contextValue = `dclExplorer.capability${capability.location ? ".located" : ""}${capability.lifecycle ? ".lifecycle" : ""}${capability.eventDetails?.length ? ".events" : ""}`;
+    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, undefined, contextValue);
 }
 function sectionFromCapability(label, kind, capability) {
     const values = capability[kind];
@@ -153,16 +154,23 @@ function lifecycleSection(capability) {
     ];
     return new DclExplorerNode("Lifecycle", items, undefined, "lifecycle", undefined, capability.name);
 }
+function eventsSection(capability) {
+    const details = capability.eventDetails;
+    const children = details?.map((event) => eventNode(event.label, capability.itemLocations?.events?.[event.label] ?? capability.itemLocations?.events?.[event.event], capability.name, event.event));
+    if (children?.length)
+        return section("Events", children);
+    return sectionFromCapability("Events", "events", capability);
+}
 function labelItems(items, locations) {
     return (items ?? []).map((item) => itemNode(item, locations?.[item]));
 }
-function semanticItems(items) {
-    return items?.map((item) => itemNode(item.label, item.location));
+function semanticItems(items, kind = "item") {
+    return items?.map((item) => kind === "event" ? eventNode(item.label, item.location, undefined, item.label) : itemNode(item.label, item.location));
 }
-function group(label, children) {
+function group(label, children, contextValue) {
     if (!children?.length)
         return undefined;
-    return new DclExplorerNode(label, children, undefined, "group");
+    return new DclExplorerNode(label, children, undefined, "group", undefined, undefined, undefined, contextValue);
 }
 function section(label, children) {
     if (!children?.length)
@@ -171,6 +179,9 @@ function section(label, children) {
 }
 function itemNode(label, location) {
     return new DclExplorerNode(label, [], location, "item");
+}
+function eventNode(label, location, capabilityName, eventName) {
+    return new DclExplorerNode(label, [], location, "event", capabilityName, capabilityName, eventName);
 }
 function iconFor(kind, label) {
     if (kind === "empty")
@@ -181,6 +192,8 @@ function iconFor(kind, label) {
         return new vscode.ThemeIcon("symbol-class");
     if (kind === "lifecycle")
         return new vscode.ThemeIcon("git-branch");
+    if (kind === "event")
+        return new vscode.ThemeIcon("symbol-event");
     if (kind === "section")
         return new vscode.ThemeIcon(sectionIcon(label));
     return new vscode.ThemeIcon("symbol-field");
