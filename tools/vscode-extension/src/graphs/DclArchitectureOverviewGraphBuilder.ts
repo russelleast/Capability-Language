@@ -40,7 +40,7 @@ export function buildArchitectureOverviewGraph(
 
   for (const capability of summary.capabilities) {
     nodes.push(capabilityNode(capability));
-    const parentContext = capability.context ?? (contexts.length ? "Uncontexted" : "Workspace");
+    const parentContext = capability.context ?? fallbackContextName(knownContexts);
     ensureContextNode(nodes, knownContexts, parentContext, capability.context ? "external-context" : "context");
     edges.push(edge(contextId(parentContext), capabilityId(capability.name), "contains", "contains-capability"));
 
@@ -60,6 +60,10 @@ export function buildArchitectureOverviewGraph(
     nodes: dedupeNodes(nodes),
     edges: dedupeEdges(edges),
   };
+}
+
+function fallbackContextName(knownContexts: Map<string, ContextSummary>): string {
+  return knownContexts.has("default") ? "default" : "Workspace";
 }
 
 function addEventFlow(

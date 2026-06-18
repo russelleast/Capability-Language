@@ -209,6 +209,8 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
         { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'line-color': '#6e7681', 'target-arrow-color': '#6e7681', 'font-size': 9, 'color': '#9da7b3', 'text-background-color': editorBackground, 'text-background-opacity': 1, 'text-background-padding': 2, 'width': 1.4 } },
         { selector: 'edge[kind = "contains"]', style: { 'line-style': 'dashed' } }
       ],
+      minZoom: 0.25,
+      maxZoom: 2.5,
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.9
+
+- Cleaned the packaged README so the VS Code extension page is end-user focused.
+- Moved contributor setup, development, packaging, and release notes into `DEVELOPMENT.md`.
+- Added an extension icon and a minimal DCL file icon theme.
+- Fixed architecture overview fallback grouping so explicit `default` contexts are respected and missing context data uses `Workspace`.
+- Added min and max zoom limits across all graph WebViews.
+- Added capability graph layout choices for default, layered, and radial views.
+- Added architecture overview fallback context tests.
+- Documented VSIX artifact distribution and noted that Marketplace publishing is planned later.
+
 ## 0.3.8
 
 - Added `DCL: Show Architecture Overview` as the workspace-level starting graph.

@@ -1,0 +1,13 @@
+{
+  "iconDefinitions": {
+    "_dcl_file": {
+      "iconPath": "./dcl-file.svg"
+    }
+  },
+  "fileExtensions": {
+    "dcl": "_dcl_file"
+  },
+  "languageIds": {
+    "dcl": "_dcl_file"
+  }
+}

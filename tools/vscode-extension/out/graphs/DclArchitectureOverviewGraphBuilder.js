@@ -31,7 +31,7 @@ function buildArchitectureOverviewGraph(summary, detailLevel) {
     }
     for (const capability of summary.capabilities) {
         nodes.push(capabilityNode(capability));
-        const parentContext = capability.context ?? (contexts.length ? "Uncontexted" : "Workspace");
+        const parentContext = capability.context ?? fallbackContextName(knownContexts);
         ensureContextNode(nodes, knownContexts, parentContext, capability.context ? "external-context" : "context");
         edges.push(edge(contextId(parentContext), capabilityId(capability.name), "contains", "contains-capability"));
         if (detailLevel !== "overview") {
@@ -48,6 +48,9 @@ function buildArchitectureOverviewGraph(summary, detailLevel) {
         nodes: dedupeNodes(nodes),
         edges: dedupeEdges(edges),
     };
+}
+function fallbackContextName(knownContexts) {
+    return knownContexts.has("default") ? "default" : "Workspace";
 }
 function addEventFlow(nodes, edges, summary, capability) {
     for (const event of capability.eventDetails ?? []) {

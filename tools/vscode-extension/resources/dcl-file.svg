@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="DCL file">
+  <path d="M8 3h11l6 6v20H8z" fill="#1f9d8a"/>
+  <path d="M19 3v6h6" fill="#64d8cb"/>
+  <path d="M11 14h10M11 19h10M14 11v12M18 11v12" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="14" cy="19" r="2.2" fill="#f2cc60"/>
+  <circle cx="18" cy="14" r="2" fill="#7ee787"/>
+  <circle cx="18" cy="23" r="2" fill="#d2a8ff"/>
+</svg>

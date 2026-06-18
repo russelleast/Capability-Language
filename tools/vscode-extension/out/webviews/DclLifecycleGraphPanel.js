@@ -441,6 +441,8 @@ function renderHtml(webview, extensionUri, graph) {
           }
         }
       ],
+      minZoom: 0.25,
+      maxZoom: 2.5,
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false

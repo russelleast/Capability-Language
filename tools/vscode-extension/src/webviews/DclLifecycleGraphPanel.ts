@@ -437,6 +437,8 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
           }
         }
       ],
+      minZoom: 0.25,
+      maxZoom: 2.5,
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false
