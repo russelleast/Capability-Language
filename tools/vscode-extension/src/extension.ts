@@ -44,6 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
     vscode.commands.registerCommand("dcl.openGraphWorkspace", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer)),
+    vscode.commands.registerCommand("dcl.exportCurrentGraph", () => DclGraphWorkspacePanel.exportCurrentGraph()),
     vscode.commands.registerCommand("dcl.showArchitectureOverview", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "architecture" })),
     vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "capability", subject: node?.capabilityName })),
     vscode.commands.registerCommand("dcl.showContextMap", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "context-map", subject: node?.kind === "context" ? String(node.label) : undefined })),

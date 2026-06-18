@@ -12,6 +12,7 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.graphType).toBe("architecture");
     expect(state.subject).toBeUndefined();
     expect(state.graph?.title).toBe("DCL Architecture Overview");
+    expect(state.exportBaseName).toBe("dcl-architecture-overview");
   });
 
   it("selects the first capability when capability graph has no subject", () => {
@@ -20,6 +21,7 @@ describe("DclGraphWorkspaceState", () => {
     }), { graphType: "capability" });
 
     expect(state.subject).toBe("AcceptOrder");
+    expect(state.exportBaseName).toBe("dcl-capability-accept-order");
     expect(state.subjects.map((subject) => subject.value)).toEqual(["AcceptOrder", "ShipOrder"]);
     expect(state.graph?.nodes[0]).toMatchObject({ id: "capability:acceptorder" });
   });

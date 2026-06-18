@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.13
+
+- Added graph export controls to the Graph Workspace for SVG and PNG.
+- Added `DCL: Export Current Graph` as a command-palette export entry point.
+- Routed graph exports through the extension host and VS Code save dialog.
+- Added client-side SVG serialization from current Cytoscape positions and PNG export from the current graph viewport.
+- Added deterministic lowercase kebab-case export filenames based on graph type and subject.
+- Added export filename and command contribution tests.
+
 ## 0.3.12
 
 - Added `DCL: Open Graph Workspace` as a unified graph workbench.

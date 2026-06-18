@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.12`
+Current extension version: `0.3.13`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -34,6 +34,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
 - `DCL: Open Graph Workspace`: open the unified graph workbench for switching graph type and graph subject.
+- `DCL: Export Current Graph`: export the currently visible graph from the Graph Workspace.
 - `DCL: Show Architecture Overview`: open a workspace-level graph for contexts, capabilities, events, and lifecycle indicators.
 - `DCL: Show Capability Graph`: open a capability-centered graph.
 - `DCL: Show Lifecycle Graph`: open a lifecycle progression graph.
@@ -75,11 +76,27 @@ The workspace includes:
 - architecture detail selector for overview, detailed, and full modes
 - capability layout selector for default, layered, and radial layouts
 - fit, reset layout, and center selection controls
+- SVG and PNG export controls
 - refresh from the latest compiled semantic summary
 - compile workspace action when no compiled summary is available
 - legend, node details, relationship summary, zoom limits, and source navigation
 
 Existing graph commands still work as shortcuts into the Graph Workspace with the relevant graph type pre-selected.
+
+### Exporting Graphs
+
+Use `Export SVG` or `Export PNG` in the Graph Workspace toolbar, or run `DCL: Export Current Graph` from the Command Palette while a graph is open.
+
+Exports use the current graph type, subject, detail level, layout, zoom, and node positions. VS Code always opens a save dialog before writing the file.
+
+SVG is recommended for documentation and website screenshots because labels remain crisp. PNG is available for quick sharing.
+
+Suggested filenames are generated from the graph type and subject, for example:
+
+- `dcl-architecture-overview.svg`
+- `dcl-capability-place-order.svg`
+- `dcl-lifecycle-order-fulfilment.svg`
+- `dcl-event-flow-order-submitted.svg`
 
 ### Architecture Overview
 

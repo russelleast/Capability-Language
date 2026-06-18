@@ -2,6 +2,7 @@ import { buildArchitectureOverviewGraph, ArchitectureOverviewDetailLevel } from 
 import { buildCapabilityGraph } from "./DclCapabilityGraphBuilder";
 import { buildContextMapGraph } from "./DclContextMapGraphBuilder";
 import { buildEventFlowGraph } from "./DclEventFlowGraphBuilder";
+import { graphExportBaseName } from "./DclGraphExport";
 import { buildLifecycleGraph } from "./DclLifecycleGraphBuilder";
 import { DclGraphModel } from "./DclGraphModel";
 import { SemanticSummary } from "../views/semanticSummary";
@@ -30,6 +31,7 @@ export type DclGraphWorkspaceState = {
   subjects: DclGraphWorkspaceOption[];
   architectureDetailLevel: ArchitectureOverviewDetailLevel;
   graph?: DclGraphModel;
+  exportBaseName: string;
   emptyTitle?: string;
   emptyMessage?: string;
 };
@@ -52,6 +54,7 @@ export function buildGraphWorkspaceState(
     subjects,
     architectureDetailLevel,
     graph,
+    exportBaseName: graphExportBaseName(graphType, subject),
     emptyTitle: empty?.title,
     emptyMessage: empty?.message,
   };

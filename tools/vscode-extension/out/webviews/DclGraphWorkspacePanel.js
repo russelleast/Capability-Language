@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DclGraphWorkspacePanel = void 0;
+const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 const DclSourceLocation_1 = require("../source/DclSourceLocation");
 class DclGraphWorkspacePanel {
@@ -69,6 +70,19 @@ class DclGraphWorkspacePanel {
             return;
         DclGraphWorkspacePanel.currentGraph = undefined;
         DclGraphWorkspacePanel.currentPanel.webview.html = renderEmptyHtml("Compile Failed", message, true);
+    }
+    static async exportCurrentGraph(format) {
+        if (!DclGraphWorkspacePanel.currentPanel || !DclGraphWorkspacePanel.currentGraph) {
+            void vscode.window.showWarningMessage("Open a DCL graph before exporting.");
+            return;
+        }
+        const selected = format ?? await vscode.window.showQuickPick([
+            { label: "SVG", description: "Best for documentation", format: "svg" },
+            { label: "PNG", description: "Best for quick sharing", format: "png" },
+        ], { title: "Export DCL Graph" }).then((item) => item?.format);
+        if (!selected)
+            return;
+        await DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "requestExport", format: selected });
     }
     static showEmpty(extensionUri, title, message, callbacks) {
         DclGraphWorkspacePanel.callbacks = callbacks;
@@ -109,6 +123,14 @@ class DclGraphWorkspacePanel {
             DclGraphWorkspacePanel.callbacks?.onCompileWorkspace();
             return;
         }
+        if (message.type === "graphExportFailed") {
+            void vscode.window.showErrorMessage(`DCL graph export failed: ${message.reason}`);
+            return;
+        }
+        if (message.type === "graphExported") {
+            await saveGraphExport(message);
+            return;
+        }
         const node = DclGraphWorkspacePanel.currentGraph?.nodes.find((item) => item.id === message.nodeId);
         if (!node)
             return;
@@ -123,6 +145,43 @@ class DclGraphWorkspacePanel {
     }
 }
 exports.DclGraphWorkspacePanel = DclGraphWorkspacePanel;
+async function saveGraphExport(message) {
+    try {
+        const filename = safeExportFilename(message.filename, message.format);
+        const target = await vscode.window.showSaveDialog({
+            defaultUri: defaultExportUri(filename),
+            filters: message.format === "svg" ? { SVG: ["svg"] } : { PNG: ["png"] },
+            saveLabel: `Export ${message.format.toUpperCase()}`,
+        });
+        if (!target)
+            return;
+        const bytes = message.format === "svg"
+            ? Buffer.from(message.text ?? "", "utf8")
+            : pngBytes(message.dataUri ?? "");
+        if (!bytes.length) {
+            throw new Error("Export payload was empty.");
+        }
+        await vscode.workspace.fs.writeFile(target, bytes);
+        void vscode.window.showInformationMessage(`DCL graph exported to ${target.fsPath}`);
+    }
+    catch (error) {
+        void vscode.window.showErrorMessage(`DCL graph export failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+function safeExportFilename(filename, format) {
+    const basename = path.basename(filename).replace(/[^a-z0-9_.-]+/gi, "-");
+    return basename.toLowerCase().endsWith(`.${format}`) ? basename : `${basename}.${format}`;
+}
+function defaultExportUri(filename) {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    return root ? vscode.Uri.file(path.join(root, filename)) : undefined;
+}
+function pngBytes(dataUri) {
+    const match = /^data:image\/png;base64,(.+)$/i.exec(dataUri);
+    if (!match)
+        throw new Error("PNG export payload was not a valid data URI.");
+    return Buffer.from(match[1], "base64");
+}
 function renderHtml(webview, extensionUri, state) {
     const nonce = nonceValue();
     const cytoscapeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "cytoscape.min.js"));
@@ -204,6 +263,8 @@ function renderHtml(webview, extensionUri, state) {
     <span class="toolbar-spacer"></span>
     <button id="refresh" type="button">Refresh</button>
     <button id="compile-workspace" class="primary" type="button">Compile Workspace</button>
+    <button id="export-svg" type="button"${graph ? "" : " disabled"}>Export SVG</button>
+    <button id="export-png" type="button"${graph ? "" : " disabled"}>Export PNG</button>
     <button id="fit-graph" type="button"${graph ? "" : " disabled"}>Fit</button>
     <button id="reset-layout" type="button"${graph ? "" : " disabled"}>Reset Layout</button>
     <button id="center-selection" type="button"${graph ? "" : " disabled"}>Center Selection</button>
@@ -260,7 +321,15 @@ function renderHtml(webview, extensionUri, state) {
     });
     document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
     document.getElementById('compile-workspace').addEventListener('click', () => vscode.postMessage({ type: 'compileWorkspace' }));
+    document.getElementById('export-svg').addEventListener('click', () => exportGraph('svg'));
+    document.getElementById('export-png').addEventListener('click', () => exportGraph('png'));
     document.getElementById('empty-compile')?.addEventListener('click', () => vscode.postMessage({ type: 'compileWorkspace' }));
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (message?.type === 'requestExport' && (message.format === 'svg' || message.format === 'png')) {
+        exportGraph(message.format);
+      }
+    });
 
     if (graph) {
       const elements = [
@@ -353,6 +422,138 @@ function renderHtml(webview, extensionUri, state) {
       }
     }
 
+    function exportGraph(format) {
+      if (!cy || !graph) {
+        vscode.postMessage({ type: 'graphExportFailed', reason: 'No graph is currently visible.' });
+        return;
+      }
+
+      try {
+        if (format === 'png') {
+          vscode.postMessage({
+            type: 'graphExported',
+            format,
+            filename: workspaceState.exportBaseName + '.png',
+            dataUri: cy.png({ full: false, bg: '#ffffff', scale: 2 })
+          });
+          return;
+        }
+
+        vscode.postMessage({
+          type: 'graphExported',
+          format: 'svg',
+          filename: workspaceState.exportBaseName + '.svg',
+          text: serializeSvg()
+        });
+      } catch (error) {
+        vscode.postMessage({
+          type: 'graphExportFailed',
+          reason: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    function serializeSvg() {
+      const width = Math.max(320, cy.width());
+      const height = Math.max(220, cy.height());
+      const edgeSvg = cy.edges().map((edge) => edgeSvgFor(edge)).join('');
+      const nodeSvg = cy.nodes().map((node) => nodeSvgFor(node)).join('');
+      return [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.ceil(width) + '" height="' + Math.ceil(height) + '" viewBox="0 0 ' + Math.ceil(width) + ' ' + Math.ceil(height) + '">',
+        '<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#6e7681"/></marker></defs>',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        '<g font-family="Inter, Segoe UI, Arial, sans-serif">',
+        edgeSvg,
+        nodeSvg,
+        '</g>',
+        '</svg>'
+      ].join('');
+    }
+
+    function edgeSvgFor(edge) {
+      const source = edge.source().renderedPosition();
+      const target = edge.target().renderedPosition();
+      const x1 = source.x;
+      const y1 = source.y;
+      const x2 = target.x;
+      const y2 = target.y;
+      const labelX = (x1 + x2) / 2;
+      const labelY = (y1 + y2) / 2 - 6;
+      return '<g>' +
+        '<line x1="' + round(x1) + '" y1="' + round(y1) + '" x2="' + round(x2) + '" y2="' + round(y2) + '" stroke="#6e7681" stroke-width="1.6" marker-end="url(#arrow)"/>' +
+        '<rect x="' + round(labelX - textWidth(edge.data('label'), 9) / 2 - 4) + '" y="' + round(labelY - 12) + '" width="' + round(textWidth(edge.data('label'), 9) + 8) + '" height="16" fill="#ffffff" opacity="0.9"/>' +
+        '<text x="' + round(labelX) + '" y="' + round(labelY) + '" text-anchor="middle" font-size="9" fill="#57606a">' + xml(edge.data('label')) + '</text>' +
+        '</g>';
+    }
+
+    function nodeSvgFor(node) {
+      const position = node.renderedPosition();
+      const width = node.renderedWidth() || Number(node.style('width')) || 122;
+      const height = node.renderedHeight() || Number(node.style('height')) || 68;
+      const x = position.x - width / 2;
+      const y = position.y - height / 2;
+      const colors = colorsFor(node.data('kind'));
+      const rx = node.data('kind') === 'event' ? Math.min(width, height) / 2 : 8;
+      const shape = node.data('kind') === 'event'
+        ? '<ellipse cx="' + round(x + width / 2) + '" cy="' + round(y + height / 2) + '" rx="' + round(width / 2) + '" ry="' + round(height / 2) + '" fill="' + colors.fill + '" stroke="' + colors.stroke + '" stroke-width="1.4"/>'
+        : '<rect x="' + round(x) + '" y="' + round(y) + '" width="' + round(width) + '" height="' + round(height) + '" rx="' + round(rx) + '" fill="' + colors.fill + '" stroke="' + colors.stroke + '" stroke-width="1.4"/>';
+      return '<g>' + shape + wrappedText(node.data('label'), x + width / 2, y + height / 2) + '</g>';
+    }
+
+    function wrappedText(label, centerX, centerY) {
+      const words = String(label || '').split(/\\s+/).filter(Boolean);
+      const lines = [];
+      let current = '';
+      for (const word of words) {
+        const next = current ? current + ' ' + word : word;
+        if (next.length > 16 && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = next;
+        }
+      }
+      if (current) lines.push(current);
+      const visible = lines.slice(0, 4);
+      const lineHeight = 13;
+      const startY = centerY - ((visible.length - 1) * lineHeight) / 2 + 4;
+      return '<text text-anchor="middle" font-size="11" font-weight="600" fill="#f6f8fa">' +
+        visible.map((line, index) => '<tspan x="' + round(centerX) + '" y="' + round(startY + index * lineHeight) + '">' + xml(line) + '</tspan>').join('') +
+        '</text>';
+    }
+
+    function colorsFor(kind) {
+      const colors = {
+        capability: ['#2ea043', '#7ee787'],
+        context: ['#2ea043', '#7ee787'],
+        'child-context': ['#1f9d8a', '#64d8cb'],
+        event: ['#1f9d8a', '#64d8cb'],
+        lifecycle: ['#8957e5', '#d2a8ff'],
+        rule: ['#d29922', '#f2cc60'],
+        effect: ['#db6d28', '#ffa657'],
+        policy: ['#bf4b8a', '#ff9ece'],
+        'lifecycle-transition': ['#bf4b8a', '#ff9ece'],
+        'terminal-step': ['#bf4b8a', '#ff9ece'],
+        'initial-step': ['#2ea043', '#7ee787'],
+        'external-context': ['#6e7681', '#9da7b3']
+      };
+      const [fill, stroke] = colors[kind] || ['#4f6bed', '#9db0ff'];
+      return { fill, stroke };
+    }
+
+    function textWidth(text, fontSize) {
+      return String(text || '').length * fontSize * 0.56;
+    }
+
+    function round(value) {
+      return Math.round(value * 100) / 100;
+    }
+
+    function xml(value) {
+      return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function updateDetails(nodeId) {
       const node = nodeById.get(nodeId);
       if (!node) return;
@@ -407,6 +608,13 @@ function isGraphWorkspaceMessage(message) {
     const candidate = message;
     if (candidate.type === "refresh" || candidate.type === "compileWorkspace")
         return true;
+    if (candidate.type === "graphExportFailed")
+        return typeof candidate.reason === "string";
+    if (candidate.type === "graphExported") {
+        return (candidate.format === "svg" || candidate.format === "png")
+            && typeof candidate.filename === "string"
+            && (typeof candidate.text === "string" || typeof candidate.dataUri === "string");
+    }
     if (candidate.type === "nodeSelected")
         return typeof candidate.nodeId === "string" && candidate.nodeId.trim() !== "";
     if (candidate.type !== "selectionChanged")

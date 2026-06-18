@@ -6,6 +6,7 @@ const DclArchitectureOverviewGraphBuilder_1 = require("./DclArchitectureOverview
 const DclCapabilityGraphBuilder_1 = require("./DclCapabilityGraphBuilder");
 const DclContextMapGraphBuilder_1 = require("./DclContextMapGraphBuilder");
 const DclEventFlowGraphBuilder_1 = require("./DclEventFlowGraphBuilder");
+const DclGraphExport_1 = require("./DclGraphExport");
 const DclLifecycleGraphBuilder_1 = require("./DclLifecycleGraphBuilder");
 exports.ALL_EVENT_FLOWS = "__all_event_flows__";
 exports.ALL_CONTEXTS = "__all_contexts__";
@@ -23,6 +24,7 @@ function buildGraphWorkspaceState(summary, selection = {}) {
         subjects,
         architectureDetailLevel,
         graph,
+        exportBaseName: (0, DclGraphExport_1.graphExportBaseName)(graphType, subject),
         emptyTitle: empty?.title,
         emptyMessage: empty?.message,
     };
