@@ -40,11 +40,27 @@ export type CapabilitySummary = {
     ends?: string[];
     steps?: string[];
     transitions?: string[];
+    stepDetails?: LifecycleStepSummary[];
+    transitionDetails?: LifecycleTransitionSummary[];
   };
   itemLocations?: Partial<Record<CapabilityItemKind, Record<string, SourceLocation>>>;
 };
 
 export type CapabilityItemKind = "intents" | "actors" | "outcomes" | "rules" | "effects" | "events" | "policies" | "lifecycle";
+
+export type LifecycleStepSummary = {
+  name: string;
+  kind?: string;
+  isTerminal?: boolean;
+};
+
+export type LifecycleTransitionSummary = {
+  from: string;
+  to: string;
+  triggerKind?: string;
+  triggerName?: string;
+  sourceCapability?: string;
+};
 
 type ProgramOutput = {
   capabilities?: CapabilityOutput[];
@@ -186,6 +202,8 @@ function summarizeCapability(
   const context = capability.context ?? contextFromCapabilityId(capability.id ?? capability.fully_qualified_name, name);
   const steps = nonEmpty(capability.lifecycle?.steps?.map(formatLifecycleStep));
   const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
+  const stepDetails = nonEmpty(capability.lifecycle?.steps?.map(summarizeLifecycleStep));
+  const transitionDetails = nonEmpty(capability.lifecycle?.transitions?.map(summarizeLifecycleTransition));
   const begin = capability.lifecycle?.initial_state;
   const ends = nonEmpty(capability.lifecycle?.terminal_states);
 
@@ -207,7 +225,9 @@ function summarizeCapability(
       ...arrayItems(capability.policies).map(formatPolicyUse),
       ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
     ]),
-    lifecycle: begin || ends || steps || transitions ? { begin, ends, steps, transitions } : undefined,
+    lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails
+      ? { begin, ends, steps, transitions, stepDetails, transitionDetails }
+      : undefined,
     itemLocations: summarizeItemLocations(capability, effectivePolicies, symbolLocations, context),
   };
 }
@@ -410,6 +430,26 @@ function formatTransition(transition: TransitionOutput | undefined): string | un
   const trigger = [transition.trigger_kind, transition.trigger_name].filter(Boolean).join(" ");
   const source = transition.source_capability ? ` from ${transition.source_capability}` : "";
   return trigger ? `${transition.from} -> ${transition.to} on ${trigger}${source}` : `${transition.from} -> ${transition.to}`;
+}
+
+function summarizeLifecycleStep(step: LifecycleStepOutput | undefined): LifecycleStepSummary | undefined {
+  if (!step?.name) return undefined;
+  return {
+    name: step.name,
+    kind: step.kind,
+    isTerminal: step.is_terminal,
+  };
+}
+
+function summarizeLifecycleTransition(transition: TransitionOutput | undefined): LifecycleTransitionSummary | undefined {
+  if (!transition?.from || !transition.to) return undefined;
+  return {
+    from: transition.from,
+    to: transition.to,
+    triggerKind: transition.trigger_kind,
+    triggerName: transition.trigger_name,
+    sourceCapability: transition.source_capability,
+  };
 }
 
 function nonEmpty<T>(items: (T | undefined)[] | undefined): T[] | undefined {

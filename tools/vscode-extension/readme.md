@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3.4 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.5 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -14,7 +14,7 @@ The extension is intentionally thin. It does not implement a parser, duplicate c
 - Compiler-backed diagnostics in VS Code Problems
 - Compiler-backed semantic summary tree
 - DCL Explorer Activity Bar view for architecture navigation
-- Interactive capability graph WebView for one selected capability at a time
+- Interactive capability and lifecycle graph WebViews
 - Commands for compiling files, compiling workspaces, showing summaries, and formatting documents
 
 ## Setup
@@ -88,6 +88,7 @@ See `DEVELOPMENT.md` for fixture-based testing notes and handoff details.
 - `DCL: Format Document`: delegates formatting to the compiler.
 - `DCL: Refresh Explorer`: recompiles the active DCL file when one is open, otherwise compiles the workspace and refreshes the DCL Explorer.
 - `DCL: Show Capability Graph`: opens an interactive Cytoscape graph for one selected capability.
+- `DCL: Show Lifecycle Graph`: opens an interactive Cytoscape graph for one selected capability lifecycle.
 
 ## DCL Explorer
 
@@ -155,7 +156,36 @@ Graph-to-source navigation is resolved by the extension host from the trusted gr
 
 Empty graph states are explicit: no compiled semantic summary, no capability selected, and selected capabilities with no child semantic items all show friendly guidance.
 
-The graph remains intentionally narrow in v0.3.4. It does not provide source-to-graph navigation, event flow graphs, context graphs, dependency graphs, lifecycle-specific graphs, or full bidirectional syncing yet.
+## Lifecycle Graph
+
+`DCL: Show Lifecycle Graph` visualises business progression over time for one compiled capability lifecycle. It is built from the normalized compiler semantic summary and uses compiler-provided lifecycle steps, terminal states, and transitions.
+
+When launched from a lifecycle section in the DCL Explorer, the command opens that lifecycle directly. When launched from a capability with lifecycle data, it opens that capability lifecycle. When launched from the Command Palette, it prompts for one of the compiled capabilities that has lifecycle data.
+
+Lifecycle graph nodes distinguish:
+
+- lifecycle
+- initial step
+- step
+- terminal step
+
+Transition labels prefer compiler trigger data:
+
+- `on outcome Accepted`
+- `on event CustomerRegistered`
+- `on outcome JobStarted from StartJob`
+
+Lifecycle graph controls:
+
+- `Fit`: fits the visible graph to the panel.
+- `Reset Layout`: reruns the lifecycle-centered layout.
+- `Center Lifecycle`: centers and selects the lifecycle node.
+
+Selecting a lifecycle graph node updates the node details panel with its name, kind, incoming transition count, and outgoing transition count. If the compiler semantic summary includes a source location for that node, selection also reveals the DCL source in VS Code.
+
+Lifecycle graph empty states are explicit: no compiled semantic summary, selected capability has no lifecycle, and lifecycle has no transitions.
+
+The graph feature remains intentionally narrow in v0.3.5. It does not provide source-to-graph navigation, event flow graphs, context graphs, dependency graphs, or full bidirectional syncing yet.
 
 ## Source Navigation
 
@@ -181,6 +211,10 @@ Screenshot placeholder: DCL Semantic Summary tree generated from compiler IR.
 
 Screenshot placeholder: interactive capability graph with controls, legend, filters, and a selected node details panel.
 
+### Lifecycle Graph
+
+Screenshot placeholder: lifecycle graph showing initial, ordinary, and terminal steps with transition labels.
+
 ## Settings
 
 - `dcl.compilerPath`: path or command prefix for the DCL compiler. Leave empty to use the repository compiler when available, otherwise `dcl` on `PATH`.
@@ -194,7 +228,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3.4 includes:
+v0.3.5 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -205,13 +239,14 @@ v0.3.4 includes:
 - packaging and contributor development hardening
 - automated unit test foundation
 - first capability graph visualisation with node selection, graph-to-source navigation, controls, legend, filters, and capability switching
+- lifecycle graph visualisation for compiler-provided lifecycle steps and transitions
 - CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3.4:
+Deferred beyond v0.3.5:
 
 - richer navigation and source linking
 - source-to-graph navigation and full bidirectional graph syncing
-- event flow, context, dependency, and lifecycle-specific graphs
+- event flow, context, and dependency graphs
 - compiler-provided quick fixes
 - optional language server, if the project chooses that architecture later
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.5
+
+- Added `DCL: Show Lifecycle Graph` for compiler-provided capability lifecycles.
+- Added lifecycle graph model generation for lifecycle roots, initial steps, ordinary steps, terminal steps, and transitions.
+- Added lifecycle transition labels for outcome and event triggers, including source capability labels when available.
+- Added lifecycle graph WebView controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer lifecycle graph entries for lifecycle sections and lifecycle-capable capabilities.
+- Added lifecycle graph model tests.
+
 ## 0.3.4
 
 - Added capability graph controls for fit, reset layout, center capability, and switch capability.

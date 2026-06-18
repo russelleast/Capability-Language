@@ -37,14 +37,14 @@ exports.DclExplorerProvider = exports.DclExplorerNode = void 0;
 const vscode = __importStar(require("vscode"));
 const semanticSummary_1 = require("./semanticSummary");
 class DclExplorerNode extends vscode.TreeItem {
-    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName) {
+    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName, contextValue) {
         super(label, children.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
         this.children = children;
         this.sourceLocation = sourceLocation;
         this.kind = kind;
         this.capabilityName = capabilityName;
         this.description = description;
-        this.contextValue = `dclExplorer.${kind}${sourceLocation ? ".located" : ""}`;
+        this.contextValue = contextValue ?? `dclExplorer.${kind}${sourceLocation ? ".located" : ""}`;
         this.tooltip = sourceLocation?.file ? `${label}\n${sourceLocation.file}:${sourceLocation.line}:${sourceLocation.column ?? 1}` : label;
         this.iconPath = iconFor(kind, label);
         if (sourceLocation) {
@@ -133,7 +133,8 @@ function capabilityNode(capability) {
         sectionFromCapability("Policies", "policies", capability),
         lifecycleSection(capability),
     ].filter((node) => Boolean(node));
-    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name);
+    const contextValue = `dclExplorer.capability${capability.location ? ".located" : ""}${capability.lifecycle ? ".lifecycle" : ""}`;
+    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, contextValue);
 }
 function sectionFromCapability(label, kind, capability) {
     const values = capability[kind];
@@ -150,7 +151,7 @@ function lifecycleSection(capability) {
         ...labelItems(lifecycle.steps, capability.itemLocations?.lifecycle),
         ...labelItems(lifecycle.transitions, capability.itemLocations?.lifecycle),
     ];
-    return section("Lifecycle", items);
+    return new DclExplorerNode("Lifecycle", items, undefined, "lifecycle", undefined, capability.name);
 }
 function labelItems(items, locations) {
     return (items ?? []).map((item) => itemNode(item, locations?.[item]));
@@ -178,6 +179,8 @@ function iconFor(kind, label) {
         return new vscode.ThemeIcon("folder");
     if (kind === "capability")
         return new vscode.ThemeIcon("symbol-class");
+    if (kind === "lifecycle")
+        return new vscode.ThemeIcon("git-branch");
     if (kind === "section")
         return new vscode.ThemeIcon(sectionIcon(label));
     return new vscode.ThemeIcon("symbol-field");

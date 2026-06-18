@@ -41,17 +41,19 @@ const DclDiagnosticProvider_1 = require("./diagnostics/DclDiagnosticProvider");
 const DclFormattingProvider_1 = require("./formatting/DclFormattingProvider");
 const DclHoverProvider_1 = require("./hovers/DclHoverProvider");
 const DclCapabilityGraphBuilder_1 = require("./graphs/DclCapabilityGraphBuilder");
+const DclLifecycleGraphBuilder_1 = require("./graphs/DclLifecycleGraphBuilder");
 const DclSourceLocation_1 = require("./source/DclSourceLocation");
 const DclExplorerProvider_1 = require("./views/DclExplorerProvider");
 const DclSummaryProvider_1 = require("./views/DclSummaryProvider");
 const DclCapabilityGraphPanel_1 = require("./webviews/DclCapabilityGraphPanel");
+const DclLifecycleGraphPanel_1 = require("./webviews/DclLifecycleGraphPanel");
 const DCL_SELECTOR = { language: "dcl", scheme: "file" };
 function activate(context) {
     const compiler = new DclCompilerAdapter_1.DclCompilerAdapter(vscode.workspace.workspaceFolders);
     const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler);
     const summary = new DclSummaryProvider_1.DclSummaryProvider();
     const explorer = new DclExplorerProvider_1.DclExplorerProvider();
-    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => showCapabilityGraph(context.extensionUri, explorer, node)), vscode.workspace.onDidSaveTextDocument((document) => {
+    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => showCapabilityGraph(context.extensionUri, explorer, node)), vscode.commands.registerCommand("dcl.showLifecycleGraph", (node) => showLifecycleGraph(context.extensionUri, explorer, node)), vscode.workspace.onDidSaveTextDocument((document) => {
         const compileOnSave = vscode.workspace.getConfiguration("dcl").get("compileOnSave", true);
         if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
             void compileFiles([document.uri], diagnostics, summary, explorer, false, false);
@@ -105,6 +107,55 @@ function graphCapabilityPicks(summary) {
         name: capability.name,
         context: capability.context,
     }));
+}
+async function showLifecycleGraph(extensionUri, explorer, node) {
+    const summary = explorer.getSummary();
+    if (!summary?.capabilities.length) {
+        DclLifecycleGraphPanel_1.DclLifecycleGraphPanel.showEmpty(extensionUri, "No Compiled Semantic Summary", "Compile DCL before opening a lifecycle graph.");
+        return;
+    }
+    let capabilityName = node?.kind === "capability" || node?.kind === "lifecycle" ? node.capabilityName : undefined;
+    if (!capabilityName) {
+        capabilityName = await pickLifecycleCapability(summary);
+    }
+    if (!capabilityName)
+        return;
+    showLifecycleGraphForCapability(extensionUri, summary, capabilityName);
+}
+function showLifecycleGraphForCapability(extensionUri, summary, capabilityName) {
+    const capability = summary.capabilities.find((item) => item.name === capabilityName);
+    if (!capability?.lifecycle) {
+        DclLifecycleGraphPanel_1.DclLifecycleGraphPanel.showEmpty(extensionUri, "No Lifecycle Available", `Capability '${capabilityName}' does not have lifecycle data in the compiled semantic summary.`);
+        return;
+    }
+    const graph = (0, DclLifecycleGraphBuilder_1.buildLifecycleGraph)(summary, capabilityName);
+    if (!graph) {
+        DclLifecycleGraphPanel_1.DclLifecycleGraphPanel.showEmpty(extensionUri, "No Lifecycle Available", `Capability '${capabilityName}' does not have lifecycle data in the compiled semantic summary.`);
+        return;
+    }
+    DclLifecycleGraphPanel_1.DclLifecycleGraphPanel.show(extensionUri, graph);
+}
+async function pickLifecycleCapability(summary) {
+    const choices = summary.capabilities
+        .filter((capability) => capability.lifecycle)
+        .map((capability) => ({
+        label: capability.name,
+        description: capability.context,
+        detail: lifecyclePickDetail(capability),
+    }));
+    if (!choices.length) {
+        void vscode.window.showWarningMessage("No compiled capabilities include lifecycle data.");
+        return undefined;
+    }
+    const picked = await vscode.window.showQuickPick(choices, { title: "Select DCL Lifecycle" });
+    return picked?.label;
+}
+function lifecyclePickDetail(capability) {
+    const begin = capability.lifecycle?.begin ? `begin ${capability.lifecycle.begin}` : undefined;
+    const transitions = capability.lifecycle?.transitionDetails?.length
+        ? `${capability.lifecycle.transitionDetails.length} transition${capability.lifecycle.transitionDetails.length === 1 ? "" : "s"}`
+        : undefined;
+    return [begin, transitions].filter(Boolean).join(", ") || undefined;
 }
 function deactivate() { }
 async function compileCurrentFile(diagnostics, summary, explorer, revealSummary) {

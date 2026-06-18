@@ -4,11 +4,13 @@ import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
 import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
+import { buildLifecycleGraph } from "./graphs/DclLifecycleGraphBuilder";
 import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
 import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvider";
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
 import { SemanticSummary } from "./views/semanticSummary";
 import { DclCapabilityGraphPanel } from "./webviews/DclCapabilityGraphPanel";
+import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
 
@@ -31,6 +33,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
     vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => showCapabilityGraph(context.extensionUri, explorer, node)),
+    vscode.commands.registerCommand("dcl.showLifecycleGraph", (node?: DclExplorerNode) => showLifecycleGraph(context.extensionUri, explorer, node)),
     vscode.workspace.onDidSaveTextDocument((document) => {
       const compileOnSave = vscode.workspace.getConfiguration("dcl").get<boolean>("compileOnSave", true);
       if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
@@ -126,6 +129,80 @@ function graphCapabilityPicks(summary: SemanticSummary): Array<{ name: string; c
     name: capability.name,
     context: capability.context,
   }));
+}
+
+async function showLifecycleGraph(
+  extensionUri: vscode.Uri,
+  explorer: DclExplorerProvider,
+  node: DclExplorerNode | undefined,
+): Promise<void> {
+  const summary = explorer.getSummary();
+  if (!summary?.capabilities.length) {
+    DclLifecycleGraphPanel.showEmpty(
+      extensionUri,
+      "No Compiled Semantic Summary",
+      "Compile DCL before opening a lifecycle graph.",
+    );
+    return;
+  }
+
+  let capabilityName = node?.kind === "capability" || node?.kind === "lifecycle" ? node.capabilityName : undefined;
+  if (!capabilityName) {
+    capabilityName = await pickLifecycleCapability(summary);
+  }
+
+  if (!capabilityName) return;
+  showLifecycleGraphForCapability(extensionUri, summary, capabilityName);
+}
+
+function showLifecycleGraphForCapability(extensionUri: vscode.Uri, summary: SemanticSummary, capabilityName: string): void {
+  const capability = summary.capabilities.find((item) => item.name === capabilityName);
+  if (!capability?.lifecycle) {
+    DclLifecycleGraphPanel.showEmpty(
+      extensionUri,
+      "No Lifecycle Available",
+      `Capability '${capabilityName}' does not have lifecycle data in the compiled semantic summary.`,
+    );
+    return;
+  }
+
+  const graph = buildLifecycleGraph(summary, capabilityName);
+  if (!graph) {
+    DclLifecycleGraphPanel.showEmpty(
+      extensionUri,
+      "No Lifecycle Available",
+      `Capability '${capabilityName}' does not have lifecycle data in the compiled semantic summary.`,
+    );
+    return;
+  }
+
+  DclLifecycleGraphPanel.show(extensionUri, graph);
+}
+
+async function pickLifecycleCapability(summary: SemanticSummary): Promise<string | undefined> {
+  const choices = summary.capabilities
+    .filter((capability) => capability.lifecycle)
+    .map((capability) => ({
+      label: capability.name,
+      description: capability.context,
+      detail: lifecyclePickDetail(capability),
+    }));
+
+  if (!choices.length) {
+    void vscode.window.showWarningMessage("No compiled capabilities include lifecycle data.");
+    return undefined;
+  }
+
+  const picked = await vscode.window.showQuickPick(choices, { title: "Select DCL Lifecycle" });
+  return picked?.label;
+}
+
+function lifecyclePickDetail(capability: SemanticSummary["capabilities"][number]): string | undefined {
+  const begin = capability.lifecycle?.begin ? `begin ${capability.lifecycle.begin}` : undefined;
+  const transitions = capability.lifecycle?.transitionDetails?.length
+    ? `${capability.lifecycle.transitionDetails.length} transition${capability.lifecycle.transitionDetails.length === 1 ? "" : "s"}`
+    : undefined;
+  return [begin, transitions].filter(Boolean).join(", ") || undefined;
 }
 
 export function deactivate(): void {}
