@@ -33,77 +33,69 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DclCapabilityGraphPanel = void 0;
+exports.DclLifecycleGraphPanel = void 0;
 const vscode = __importStar(require("vscode"));
 const DclSourceLocation_1 = require("../source/DclSourceLocation");
-class DclCapabilityGraphPanel {
-    static show(extensionUri, graph, capabilities = [], onSwitchCapability) {
-        const title = graph.title || "DCL Capability Graph";
-        DclCapabilityGraphPanel.switchCapability = onSwitchCapability;
-        if (DclCapabilityGraphPanel.currentPanel) {
-            DclCapabilityGraphPanel.currentGraph = graph;
-            DclCapabilityGraphPanel.currentPanel.title = title;
-            DclCapabilityGraphPanel.currentPanel.webview.html = renderHtml(DclCapabilityGraphPanel.currentPanel.webview, extensionUri, graph, capabilities);
-            DclCapabilityGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+class DclLifecycleGraphPanel {
+    static show(extensionUri, graph) {
+        const title = graph.title || "DCL Lifecycle Graph";
+        if (DclLifecycleGraphPanel.currentPanel) {
+            DclLifecycleGraphPanel.currentGraph = graph;
+            DclLifecycleGraphPanel.currentPanel.title = title;
+            DclLifecycleGraphPanel.currentPanel.webview.html = renderHtml(DclLifecycleGraphPanel.currentPanel.webview, extensionUri, graph);
+            DclLifecycleGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
             return;
         }
-        const panel = vscode.window.createWebviewPanel("dclCapabilityGraph", title, vscode.ViewColumn.Beside, {
+        const panel = vscode.window.createWebviewPanel("dclLifecycleGraph", title, vscode.ViewColumn.Beside, {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(extensionUri, "media"),
             ],
         });
-        DclCapabilityGraphPanel.currentPanel = panel;
-        DclCapabilityGraphPanel.currentGraph = graph;
-        panel.webview.html = renderHtml(panel.webview, extensionUri, graph, capabilities);
+        DclLifecycleGraphPanel.currentPanel = panel;
+        DclLifecycleGraphPanel.currentGraph = graph;
+        panel.webview.html = renderHtml(panel.webview, extensionUri, graph);
         panel.webview.onDidReceiveMessage((message) => {
-            void DclCapabilityGraphPanel.handleMessage(message);
+            void DclLifecycleGraphPanel.handleMessage(message);
         });
         panel.onDidDispose(() => {
-            DclCapabilityGraphPanel.currentPanel = undefined;
-            DclCapabilityGraphPanel.currentGraph = undefined;
-            DclCapabilityGraphPanel.switchCapability = undefined;
+            DclLifecycleGraphPanel.currentPanel = undefined;
+            DclLifecycleGraphPanel.currentGraph = undefined;
         });
     }
-    static showEmpty(extensionUri, title, message, capabilities = [], onSwitchCapability) {
-        DclCapabilityGraphPanel.switchCapability = onSwitchCapability;
-        if (DclCapabilityGraphPanel.currentPanel) {
-            DclCapabilityGraphPanel.currentGraph = undefined;
-            DclCapabilityGraphPanel.currentPanel.title = title;
-            DclCapabilityGraphPanel.currentPanel.webview.html = renderEmptyHtml(DclCapabilityGraphPanel.currentPanel.webview, title, message, capabilities);
-            DclCapabilityGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+    static showEmpty(extensionUri, title, message) {
+        if (DclLifecycleGraphPanel.currentPanel) {
+            DclLifecycleGraphPanel.currentGraph = undefined;
+            DclLifecycleGraphPanel.currentPanel.title = title;
+            DclLifecycleGraphPanel.currentPanel.webview.html = renderEmptyHtml(title, message);
+            DclLifecycleGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
             return;
         }
-        const panel = vscode.window.createWebviewPanel("dclCapabilityGraph", title, vscode.ViewColumn.Beside, {
+        const panel = vscode.window.createWebviewPanel("dclLifecycleGraph", title, vscode.ViewColumn.Beside, {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(extensionUri, "media"),
             ],
         });
-        DclCapabilityGraphPanel.currentPanel = panel;
-        DclCapabilityGraphPanel.currentGraph = undefined;
-        panel.webview.html = renderEmptyHtml(panel.webview, title, message, capabilities);
+        DclLifecycleGraphPanel.currentPanel = panel;
+        DclLifecycleGraphPanel.currentGraph = undefined;
+        panel.webview.html = renderEmptyHtml(title, message);
         panel.webview.onDidReceiveMessage((message) => {
-            void DclCapabilityGraphPanel.handleMessage(message);
+            void DclLifecycleGraphPanel.handleMessage(message);
         });
         panel.onDidDispose(() => {
-            DclCapabilityGraphPanel.currentPanel = undefined;
-            DclCapabilityGraphPanel.currentGraph = undefined;
-            DclCapabilityGraphPanel.switchCapability = undefined;
+            DclLifecycleGraphPanel.currentPanel = undefined;
+            DclLifecycleGraphPanel.currentGraph = undefined;
         });
     }
     static async handleMessage(message) {
-        if (!isGraphWebviewMessage(message))
+        if (!isLifecycleGraphMessage(message))
             return;
-        if (message.type === "switchCapability") {
-            await DclCapabilityGraphPanel.switchCapability?.();
-            return;
-        }
-        const node = DclCapabilityGraphPanel.currentGraph?.nodes.find((item) => item.id === message.nodeId);
+        const node = DclLifecycleGraphPanel.currentGraph?.nodes.find((item) => item.id === message.nodeId);
         if (!node)
             return;
         if (!node.source) {
-            void vscode.window.showWarningMessage(`No source location is available for graph node '${node.label}'.`);
+            void vscode.window.showWarningMessage(`No source location is available for lifecycle node '${node.label}'.`);
             return;
         }
         const result = await (0, DclSourceLocation_1.revealSourceLocation)(node.source, "oneBased");
@@ -112,13 +104,12 @@ class DclCapabilityGraphPanel {
         }
     }
 }
-exports.DclCapabilityGraphPanel = DclCapabilityGraphPanel;
-function renderHtml(webview, extensionUri, graph, capabilities) {
+exports.DclLifecycleGraphPanel = DclLifecycleGraphPanel;
+function renderHtml(webview, extensionUri, graph) {
     const nonce = nonceValue();
     const cytoscapeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "cytoscape.min.js"));
     const graphJson = escapeScriptJson(toWebviewGraph(graph));
-    const showCapabilitySwitch = capabilities.length > 1;
-    const hasChildSemanticItems = graph.nodes.some((node) => node.kind !== "capability");
+    const hasTransitions = graph.edges.some((edge) => edge.kind === "transition");
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -178,20 +169,6 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       background: var(--vscode-button-secondaryHoverBackground);
     }
 
-    .toolbar button.primary {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-    }
-
-    .toolbar button.primary:hover {
-      background: var(--vscode-button-hoverBackground);
-    }
-
-    .toolbar button:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-
     .content {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 260px;
@@ -201,11 +178,11 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     }
 
     #graph {
+      position: relative;
       width: 100%;
       height: 100%;
       min-width: 0;
       min-height: 0;
-      position: relative;
     }
 
     .graph-empty {
@@ -213,7 +190,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       left: 16px;
       bottom: 16px;
       z-index: 2;
-      max-width: min(420px, calc(100% - 32px));
+      max-width: min(460px, calc(100% - 32px));
       box-sizing: border-box;
       border: 1px solid var(--vscode-panel-border);
       border-radius: 4px;
@@ -261,31 +238,17 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       color: var(--vscode-descriptionForeground);
     }
 
-    .filters,
     .legend {
       margin-top: 16px;
       padding-top: 12px;
       border-top: 1px solid var(--vscode-panel-border);
     }
 
-    .filter {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin: 8px 0;
-      color: var(--vscode-sideBar-foreground);
-    }
-
-    .legend-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 10px;
-    }
-
     .legend-item {
       display: flex;
       align-items: center;
       gap: 6px;
+      margin: 8px 0;
       min-width: 0;
     }
 
@@ -298,14 +261,14 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       border: 1px solid #9db0ff;
     }
 
-    .swatch.capability { background: #2ea043; border-color: #7ee787; }
-    .swatch.intent { background: #4f6bed; border-color: #9db0ff; }
-    .swatch.outcome { background: #3b82f6; border-color: #93c5fd; }
-    .swatch.rule { background: #d29922; border-color: #f2cc60; }
-    .swatch.effect { background: #db6d28; border-color: #ffa657; }
-    .swatch.event { background: #1f9d8a; border-color: #64d8cb; }
-    .swatch.policy { background: #bf4b8a; border-color: #ff9ece; }
     .swatch.lifecycle { background: #8957e5; border-color: #d2a8ff; }
+    .swatch.initial-step { background: #2ea043; border-color: #7ee787; }
+    .swatch.step { background: #4f6bed; border-color: #9db0ff; }
+    .swatch.terminal-step { background: #bf4b8a; border-color: #ff9ece; }
+
+    .hidden {
+      display: none;
+    }
 
     @media (max-width: 720px) {
       .content {
@@ -318,11 +281,6 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
         border-top: 1px solid var(--vscode-panel-border);
       }
     }
-
-    .hidden {
-      display: none;
-    }
-
   </style>
 </head>
 <body>
@@ -332,19 +290,18 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     <span class="toolbar-spacer"></span>
     <button id="fit-graph" type="button">Fit</button>
     <button id="reset-layout" type="button">Reset Layout</button>
-    <button id="center-capability" type="button">Center Capability</button>
-    <button id="switch-capability" class="primary" type="button"${showCapabilitySwitch ? "" : " disabled"}>Switch Capability</button>
+    <button id="center-lifecycle" type="button">Center Lifecycle</button>
   </header>
   <main class="content">
-    <section id="graph" aria-label="DCL capability graph">
-      <div id="graph-empty" class="graph-empty${hasChildSemanticItems ? " hidden" : ""}">This capability has no child semantic items in the compiled summary yet.</div>
+    <section id="graph" aria-label="DCL lifecycle graph">
+      <div id="graph-empty" class="graph-empty${hasTransitions ? " hidden" : ""}">This lifecycle has no transitions in the compiled summary yet. Known lifecycle steps are still shown.</div>
     </section>
     <aside class="details" aria-live="polite">
       <h2 class="details-title">Node Details</h2>
-      <p id="details-empty" class="empty-detail">Select a node to inspect it.</p>
+      <p id="details-empty" class="empty-detail">Select a lifecycle node to inspect it.</p>
       <div id="details-content" class="hidden">
         <p class="detail-row">
-          <span class="detail-label">Label</span>
+          <span class="detail-label">Name</span>
           <span id="detail-label" class="detail-value"></span>
         </p>
         <p class="detail-row">
@@ -352,21 +309,20 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
           <span id="detail-kind" class="detail-value"></span>
         </p>
         <p class="detail-row">
-          <span class="detail-label">Relationships</span>
-          <span id="detail-relationships" class="detail-value"></span>
+          <span class="detail-label">Incoming Transitions</span>
+          <span id="detail-incoming" class="detail-value"></span>
+        </p>
+        <p class="detail-row">
+          <span class="detail-label">Outgoing Transitions</span>
+          <span id="detail-outgoing" class="detail-value"></span>
         </p>
       </div>
-      <section class="filters">
-        <h2 class="details-title">Filters</h2>
-        <label class="filter"><input data-filter-kind="policy" type="checkbox" checked> Policies</label>
-        <label class="filter"><input data-filter-kind="lifecycle" type="checkbox" checked> Lifecycle</label>
-        <label class="filter"><input data-filter-kind="rule" type="checkbox" checked> Rules</label>
-      </section>
       <section class="legend">
         <h2 class="details-title">Legend</h2>
-        <div class="legend-grid">
-          ${legendItemsHtml()}
-        </div>
+        <span class="legend-item"><span class="swatch lifecycle"></span>lifecycle</span>
+        <span class="legend-item"><span class="swatch initial-step"></span>initial step</span>
+        <span class="legend-item"><span class="swatch step"></span>step</span>
+        <span class="legend-item"><span class="swatch terminal-step"></span>terminal step</span>
       </section>
     </aside>
   </main>
@@ -376,15 +332,16 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     const graph = ${graphJson};
     const editorBackground = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
     const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
-    const capabilityNodeId = graph.nodes.find((node) => node.kind === 'capability')?.id;
-    const hiddenKinds = new Set();
-    const incomingByNode = new Map();
-    const outgoingByNode = new Map();
+    const lifecycleNodeId = graph.nodes.find((node) => node.kind === 'lifecycle')?.id;
+    const incomingTransitionsByNode = new Map();
+    const outgoingTransitionsByNode = new Map();
+
     for (const edge of graph.edges) {
-      if (!outgoingByNode.has(edge.source)) outgoingByNode.set(edge.source, []);
-      if (!incomingByNode.has(edge.target)) incomingByNode.set(edge.target, []);
-      outgoingByNode.get(edge.source).push(edge);
-      incomingByNode.get(edge.target).push(edge);
+      if (edge.kind !== 'transition') continue;
+      if (!outgoingTransitionsByNode.has(edge.source)) outgoingTransitionsByNode.set(edge.source, []);
+      if (!incomingTransitionsByNode.has(edge.target)) incomingTransitionsByNode.set(edge.target, []);
+      outgoingTransitionsByNode.get(edge.source).push(edge);
+      incomingTransitionsByNode.get(edge.target).push(edge);
     }
 
     const elements = [
@@ -403,9 +360,9 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       layout: {
         name: 'breadthfirst',
         directed: true,
-        roots: graph.nodes.filter((node) => node.kind === 'capability').map((node) => node.id),
-        spacingFactor: 1.15,
-        padding: 28
+        roots: lifecycleNodeId ? [lifecycleNodeId] : undefined,
+        spacingFactor: 1.2,
+        padding: 30
       },
       style: [
         {
@@ -413,7 +370,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
           style: {
             'label': 'data(label)',
             'text-wrap': 'wrap',
-            'text-max-width': 140,
+            'text-max-width': 150,
             'font-size': 11,
             'color': '#d4d4d4',
             'text-valign': 'center',
@@ -421,62 +378,34 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
             'background-color': '#4f6bed',
             'border-width': 1,
             'border-color': '#9db0ff',
-            'width': 88,
+            'width': 92,
             'height': 44,
             'shape': 'round-rectangle'
-          }
-        },
-        {
-          selector: 'node.capability',
-          style: {
-            'background-color': '#2ea043',
-            'border-color': '#7ee787',
-            'width': 132,
-            'height': 58,
-            'font-size': 13,
-            'font-weight': 700
           }
         },
         {
           selector: 'node.lifecycle',
           style: {
             'background-color': '#8957e5',
-            'border-color': '#d2a8ff'
+            'border-color': '#d2a8ff',
+            'width': 138,
+            'height': 58,
+            'font-weight': 700
           }
         },
         {
-          selector: 'node.rule',
+          selector: 'node.initial-step',
           style: {
-            'background-color': '#d29922',
-            'border-color': '#f2cc60'
+            'background-color': '#2ea043',
+            'border-color': '#7ee787'
           }
         },
         {
-          selector: 'node.outcome',
-          style: {
-            'background-color': '#3b82f6',
-            'border-color': '#93c5fd'
-          }
-        },
-        {
-          selector: 'node.effect',
-          style: {
-            'background-color': '#db6d28',
-            'border-color': '#ffa657'
-          }
-        },
-        {
-          selector: 'node.event',
-          style: {
-            'background-color': '#1f9d8a',
-            'border-color': '#64d8cb'
-          }
-        },
-        {
-          selector: 'node.policy',
+          selector: 'node.terminal-step',
           style: {
             'background-color': '#bf4b8a',
-            'border-color': '#ff9ece'
+            'border-color': '#ff9ece',
+            'shape': 'round-octagon'
           }
         },
         {
@@ -503,6 +432,13 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
             'text-background-padding': 2,
             'width': 1.4
           }
+        },
+        {
+          selector: 'edge[kind = "begins"]',
+          style: {
+            'line-style': 'dashed',
+            'label': ''
+          }
         }
       ],
       userZoomingEnabled: true,
@@ -512,20 +448,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
 
     document.getElementById('fit-graph').addEventListener('click', () => fitVisible());
     document.getElementById('reset-layout').addEventListener('click', () => runLayout(true));
-    document.getElementById('center-capability').addEventListener('click', () => centerCapability());
-    document.getElementById('switch-capability').addEventListener('click', () => {
-      vscode.postMessage({ type: 'switchCapability' });
-    });
-
-    document.querySelectorAll('[data-filter-kind]').forEach((input) => {
-      input.addEventListener('change', () => {
-        const kind = input.getAttribute('data-filter-kind');
-        if (!kind) return;
-        if (input.checked) hiddenKinds.delete(kind);
-        else hiddenKinds.add(kind);
-        updateFilters();
-      });
-    });
+    document.getElementById('center-lifecycle').addEventListener('click', () => centerLifecycle());
 
     cy.on('tap', 'node', (event) => {
       const node = event.target;
@@ -540,9 +463,9 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       cy.layout({
         name: 'breadthfirst',
         directed: true,
-        roots: capabilityNodeId ? [capabilityNodeId] : undefined,
-        spacingFactor: 1.15,
-        padding: 28
+        roots: lifecycleNodeId ? [lifecycleNodeId] : undefined,
+        spacingFactor: 1.2,
+        padding: 30
       }).run();
       if (fitAfter) window.setTimeout(() => fitVisible(), 80);
     }
@@ -552,27 +475,14 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       if (visible.length) cy.fit(visible, 32);
     }
 
-    function centerCapability() {
-      if (!capabilityNodeId) return;
-      const node = cy.getElementById(capabilityNodeId);
+    function centerLifecycle() {
+      if (!lifecycleNodeId) return;
+      const node = cy.getElementById(lifecycleNodeId);
       if (node.length) {
         cy.center(node);
         node.select();
-        updateDetails(capabilityNodeId);
+        updateDetails(lifecycleNodeId);
       }
-    }
-
-    function updateFilters() {
-      cy.nodes().forEach((node) => {
-        const kind = node.data('kind');
-        node.style('display', hiddenKinds.has(kind) ? 'none' : 'element');
-      });
-      cy.edges().forEach((edge) => {
-        const sourceHidden = !edge.source().visible();
-        const targetHidden = !edge.target().visible();
-        edge.style('display', sourceHidden || targetHidden ? 'none' : 'element');
-      });
-      fitVisible();
     }
 
     function updateDetails(nodeId) {
@@ -583,34 +493,20 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       document.getElementById('details-content').classList.remove('hidden');
       document.getElementById('detail-label').textContent = node.label;
       document.getElementById('detail-kind').textContent = node.kind;
-      document.getElementById('detail-relationships').textContent = relationshipSummary(nodeId);
-    }
-
-    function relationshipSummary(nodeId) {
-      const outgoing = outgoingByNode.get(nodeId) || [];
-      const incoming = incomingByNode.get(nodeId) || [];
-      const parts = [
-        ...outgoing.map((edge) => edge.label + ' ' + labelFor(edge.target)),
-        ...incoming.map((edge) => labelFor(edge.source) + ' ' + edge.label)
-      ];
-      return parts.length ? parts.join('; ') : 'No relationships';
-    }
-
-    function labelFor(nodeId) {
-      return nodeById.get(nodeId)?.label || nodeId;
+      document.getElementById('detail-incoming').textContent = String((incomingTransitionsByNode.get(nodeId) || []).length);
+      document.getElementById('detail-outgoing').textContent = String((outgoingTransitionsByNode.get(nodeId) || []).length);
     }
   </script>
 </body>
 </html>`;
 }
-function renderEmptyHtml(_webview, title, message, capabilities) {
+function renderEmptyHtml(title, message) {
     const nonce = nonceValue();
-    const canSwitch = capabilities.length > 0;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
   <style nonce="${nonce}">
@@ -622,49 +518,22 @@ function renderEmptyHtml(_webview, title, message, capabilities) {
       font-family: var(--vscode-font-family);
     }
 
-    .toolbar {
-      box-sizing: border-box;
-      height: 44px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 14px;
-      border-bottom: 1px solid var(--vscode-panel-border);
-      font-size: 13px;
-    }
-
-    .title { font-weight: 600; }
-    .toolbar-spacer { flex: 1 1 auto; }
-
-    button {
-      border: 1px solid var(--vscode-button-border, transparent);
-      border-radius: 3px;
-      padding: 4px 8px;
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      font: inherit;
-      cursor: pointer;
-    }
-
-    button:hover { background: var(--vscode-button-hoverBackground); }
-    button:disabled { opacity: 0.5; cursor: default; }
-
     .empty-state {
       display: grid;
       place-items: center;
-      height: calc(100vh - 44px);
+      height: 100%;
       padding: 24px;
       box-sizing: border-box;
       text-align: center;
     }
 
-    .empty-state h1 {
+    h1 {
       margin: 0 0 8px;
       font-size: 18px;
       font-weight: 600;
     }
 
-    .empty-state p {
+    p {
       max-width: 520px;
       margin: 0;
       color: var(--vscode-descriptionForeground);
@@ -673,32 +542,19 @@ function renderEmptyHtml(_webview, title, message, capabilities) {
   </style>
 </head>
 <body>
-  <header class="toolbar">
-    <span class="title">${escapeHtml(title)}</span>
-    <span class="toolbar-spacer"></span>
-    <button id="switch-capability" type="button"${canSwitch ? "" : " disabled"}>Select Capability</button>
-  </header>
   <main class="empty-state">
     <div>
       <h1>${escapeHtml(title)}</h1>
       <p>${escapeHtml(message)}</p>
     </div>
   </main>
-  <script nonce="${nonce}">
-    const vscode = acquireVsCodeApi();
-    document.getElementById('switch-capability').addEventListener('click', () => {
-      vscode.postMessage({ type: 'switchCapability' });
-    });
-  </script>
 </body>
 </html>`;
 }
-function isGraphWebviewMessage(message) {
+function isLifecycleGraphMessage(message) {
     if (!message || typeof message !== "object")
         return false;
     const candidate = message;
-    if (candidate.type === "switchCapability")
-        return true;
     return candidate.type === "nodeSelected" && typeof candidate.nodeId === "string" && candidate.nodeId.trim() !== "";
 }
 function toWebviewGraph(graph) {
@@ -706,11 +562,6 @@ function toWebviewGraph(graph) {
         ...graph,
         nodes: graph.nodes.map(({ source: _source, ...node }) => node),
     };
-}
-function legendItemsHtml() {
-    return ["capability", "intent", "outcome", "rule", "effect", "event", "policy", "lifecycle"]
-        .map((kind) => `<span class="legend-item"><span class="swatch ${kind}"></span>${kind}</span>`)
-        .join("");
 }
 function escapeScriptJson(value) {
     return JSON.stringify(value).replace(/</g, "\\u003c");
@@ -730,4 +581,4 @@ function nonceValue() {
     }
     return text;
 }
-//# sourceMappingURL=DclCapabilityGraphPanel.js.map
+//# sourceMappingURL=DclLifecycleGraphPanel.js.map

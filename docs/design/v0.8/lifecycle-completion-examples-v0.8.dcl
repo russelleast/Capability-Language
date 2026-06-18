@@ -1,3 +1,5 @@
+language DCL v0.8
+
 actor Customer is human
 
 shape ExampleInput {

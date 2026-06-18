@@ -3,12 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildCapabilityGraph = buildCapabilityGraph;
 exports.buildCapabilityGraphFromCapability = buildCapabilityGraphFromCapability;
 const RELATION_BY_KIND = {
-    intents: { label: "accepts intent", kind: "accepts-intent" },
-    outcomes: { label: "produces outcome", kind: "produces-outcome" },
-    rules: { label: "enforces rule", kind: "enforces-rule" },
-    effects: { label: "causes effect", kind: "causes-effect" },
-    events: { label: "emits event", kind: "emits-event" },
-    policies: { label: "governed by policy", kind: "governed-by-policy" },
+    intents: { label: "accepts", kind: "accepts-intent" },
+    outcomes: { label: "produces", kind: "produces-outcome" },
+    rules: { label: "enforces", kind: "enforces-rule" },
+    effects: { label: "causes", kind: "causes-effect" },
+    events: { label: "emits", kind: "emits-event" },
+    policies: { label: "governed by", kind: "governed-by-policy" },
 };
 function buildCapabilityGraph(summary, capabilityName) {
     const capability = summary.capabilities.find((item) => item.name === capabilityName);
@@ -48,7 +48,7 @@ function buildCapabilityGraphFromCapability(capability) {
             kind: "lifecycle",
             source: firstLifecycleLocation(capability),
         });
-        edges.push(edge(capabilityId, id, { label: "owns lifecycle", kind: "owns-lifecycle" }));
+        edges.push(edge(capabilityId, id, { label: "owns", kind: "owns-lifecycle" }));
     }
     return {
         title: `${capability.name} Capability Graph`,

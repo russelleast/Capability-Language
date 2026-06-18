@@ -12,6 +12,8 @@ export type SemanticSummary = {
 
 export type ContextSummary = {
   name: string;
+  parent?: string;
+  children?: string[];
   dependencies?: string[];
   location?: SourceLocation;
 };
@@ -34,17 +36,40 @@ export type CapabilitySummary = {
   rules?: string[];
   effects?: string[];
   events?: string[];
+  eventDetails?: EventFlowSummary[];
   policies?: string[];
   lifecycle?: {
     begin?: string;
     ends?: string[];
     steps?: string[];
     transitions?: string[];
+    stepDetails?: LifecycleStepSummary[];
+    transitionDetails?: LifecycleTransitionSummary[];
   };
   itemLocations?: Partial<Record<CapabilityItemKind, Record<string, SourceLocation>>>;
 };
 
 export type CapabilityItemKind = "intents" | "actors" | "outcomes" | "rules" | "effects" | "events" | "policies" | "lifecycle";
+
+export type LifecycleStepSummary = {
+  name: string;
+  kind?: string;
+  isTerminal?: boolean;
+};
+
+export type LifecycleTransitionSummary = {
+  from: string;
+  to: string;
+  triggerKind?: string;
+  triggerName?: string;
+  sourceCapability?: string;
+};
+
+export type EventFlowSummary = {
+  event: string;
+  label: string;
+  sourceOutcome?: string;
+};
 
 type ProgramOutput = {
   capabilities?: CapabilityOutput[];
@@ -75,6 +100,8 @@ type CapabilityOutput = {
 
 type ContextOutput = {
   name?: string;
+  parent?: string;
+  children?: string[];
   dependencies?: string[];
 };
 
@@ -186,6 +213,12 @@ function summarizeCapability(
   const context = capability.context ?? contextFromCapabilityId(capability.id ?? capability.fully_qualified_name, name);
   const steps = nonEmpty(capability.lifecycle?.steps?.map(formatLifecycleStep));
   const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
+  const stepDetails = nonEmpty(capability.lifecycle?.steps?.map(summarizeLifecycleStep));
+  const transitionDetails = nonEmpty(capability.lifecycle?.transitions?.map(summarizeLifecycleTransition));
+  const eventDetails = nonEmpty([
+    ...arrayItems(capability.emitted_events).map(summarizeEmittedEvent),
+    ...arrayItems(capability.events).map(summarizeEventEmission),
+  ]);
   const begin = capability.lifecycle?.initial_state;
   const ends = nonEmpty(capability.lifecycle?.terminal_states);
 
@@ -203,11 +236,14 @@ function summarizeCapability(
       ...arrayItems(capability.emitted_events).map((event) => isObject(event) ? event.event : undefined),
       ...arrayItems(capability.events).map(formatEventEmission),
     ]),
+    eventDetails,
     policies: nonEmpty([
       ...arrayItems(capability.policies).map(formatPolicyUse),
       ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
     ]),
-    lifecycle: begin || ends || steps || transitions ? { begin, ends, steps, transitions } : undefined,
+    lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails
+      ? { begin, ends, steps, transitions, stepDetails, transitionDetails }
+      : undefined,
     itemLocations: summarizeItemLocations(capability, effectivePolicies, symbolLocations, context),
   };
 }
@@ -283,6 +319,8 @@ function summarizeContexts(contexts: ContextOutput[] | undefined, symbolLocation
   return nonEmpty(
     contexts.map((context) => isObject(context) ? ({
       name: context.name ?? "Unnamed context",
+      parent: context.parent,
+      children: nonEmpty(arrayItems(context.children)),
       dependencies: nonEmpty(arrayItems(context.dependencies)),
       location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined),
@@ -410,6 +448,45 @@ function formatTransition(transition: TransitionOutput | undefined): string | un
   const trigger = [transition.trigger_kind, transition.trigger_name].filter(Boolean).join(" ");
   const source = transition.source_capability ? ` from ${transition.source_capability}` : "";
   return trigger ? `${transition.from} -> ${transition.to} on ${trigger}${source}` : `${transition.from} -> ${transition.to}`;
+}
+
+function summarizeLifecycleStep(step: LifecycleStepOutput | undefined): LifecycleStepSummary | undefined {
+  if (!step?.name) return undefined;
+  return {
+    name: step.name,
+    kind: step.kind,
+    isTerminal: step.is_terminal,
+  };
+}
+
+function summarizeLifecycleTransition(transition: TransitionOutput | undefined): LifecycleTransitionSummary | undefined {
+  if (!transition?.from || !transition.to) return undefined;
+  return {
+    from: transition.from,
+    to: transition.to,
+    triggerKind: transition.trigger_kind,
+    triggerName: transition.trigger_name,
+    sourceCapability: transition.source_capability,
+  };
+}
+
+function summarizeEmittedEvent(event: EmittedEventOutput | undefined): EventFlowSummary | undefined {
+  if (!isObject(event) || !event.event) return undefined;
+  return {
+    event: event.event,
+    label: event.event,
+  };
+}
+
+function summarizeEventEmission(event: EmitOutput | undefined): EventFlowSummary | undefined {
+  if (!event?.event) return undefined;
+  const label = formatEventEmission(event);
+  if (!label) return undefined;
+  return {
+    event: event.event,
+    label,
+    sourceOutcome: event.outcome,
+  };
 }
 
 function nonEmpty<T>(items: (T | undefined)[] | undefined): T[] | undefined {

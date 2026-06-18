@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.3.8
+
+- Added `DCL: Show Architecture Overview` as the workspace-level starting graph.
+- Added architecture overview graph model generation for overview, detailed, and full detail levels.
+- Added architecture overview WebView detail selector, controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer title/context entries for opening the architecture overview.
+- Added architecture overview graph model tests.
+
+## 0.3.7
+
+- Added `DCL: Show Context Map` for compiler-provided contexts and explicit dependencies.
+- Added context map graph model generation for context hierarchy, dependency edges, and missing context references.
+- Added context map WebView controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer context map entries for context nodes and the top-level Contexts section.
+- Added context map graph model tests.
+
+## 0.3.6
+
+- Added `DCL: Show Event Flow Graph` for compiler-provided event emissions and references.
+- Added event flow graph model generation for emitting capabilities, event nodes, lifecycle transitions, and lifecycle references.
+- Added event flow WebView controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer event flow entries for event nodes, event sections, and capabilities that emit events.
+- Added event flow graph model tests for emitters, lifecycle event triggers, references, missing consumers, multiple events, missing sources, and incomplete summaries.
+
+## 0.3.5
+
+- Added `DCL: Show Lifecycle Graph` for compiler-provided capability lifecycles.
+- Added lifecycle graph model generation for lifecycle roots, initial steps, ordinary steps, terminal steps, and transitions.
+- Added lifecycle transition labels for outcome and event triggers, including source capability labels when available.
+- Added lifecycle graph WebView controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer lifecycle graph entries for lifecycle sections and lifecycle-capable capabilities.
+- Added lifecycle graph model tests.
+
+## 0.3.4
+
+- Added capability graph controls for fit, reset layout, center capability, and switch capability.
+- Added a graph legend and simple policy, lifecycle, and rule visibility filters.
+- Shortened graph edge labels for readability while keeping relationship kinds stable.
+- Added friendly empty states for missing summaries, missing selections, and capabilities without child semantic items.
+- Added graph model tests for stable edge labels and optional node categories.
+
+## 0.3.3
+
+- Added graph node selection in the capability graph WebView.
+- Added trusted graph-to-source navigation by resolving selected node ids in the extension host.
+- Added selected-node styling and a node details panel with label, kind, and relationship summary.
+- Kept source paths out of WebView selection messages.
+- Added graph source metadata tests.
+
 ## 0.3.1
 
 - Corrected the extension version line after the v0.3 graph foundation.

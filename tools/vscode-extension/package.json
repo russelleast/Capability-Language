@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.1",
+  "version": "0.3.8",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -36,7 +36,11 @@
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
+    "onCommand:dcl.showContextMap",
+    "onCommand:dcl.showEventFlowGraph",
+    "onCommand:dcl.showLifecycleGraph",
     "onView:dclSemanticSummary",
     "onView:dclExplorer"
   ],
@@ -102,8 +106,28 @@
         "category": "DCL"
       },
       {
+        "command": "dcl.showArchitectureOverview",
+        "title": "DCL: Show Architecture Overview",
+        "category": "DCL"
+      },
+      {
         "command": "dcl.showCapabilityGraph",
         "title": "DCL: Show Capability Graph",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showContextMap",
+        "title": "DCL: Show Context Map",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showEventFlowGraph",
+        "title": "DCL: Show Event Flow Graph",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showLifecycleGraph",
+        "title": "DCL: Show Lifecycle Graph",
         "category": "DCL"
       }
     ],
@@ -167,7 +191,19 @@
           "command": "dcl.refreshExplorer"
         },
         {
+          "command": "dcl.showArchitectureOverview"
+        },
+        {
           "command": "dcl.showCapabilityGraph"
+        },
+        {
+          "command": "dcl.showContextMap"
+        },
+        {
+          "command": "dcl.showEventFlowGraph"
+        },
+        {
+          "command": "dcl.showLifecycleGraph"
         },
         {
           "command": "dcl.revealSemanticItemInSource",
@@ -184,9 +220,39 @@
           "command": "dcl.compileWorkspace",
           "when": "view == dclExplorer",
           "group": "navigation@1"
+        },
+        {
+          "command": "dcl.showArchitectureOverview",
+          "when": "view == dclExplorer",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
+        {
+          "command": "dcl.showArchitectureOverview",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showArchitectureOverview",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context.located",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showContextMap",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showContextMap",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context.located",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showContextMap",
+          "when": "view == dclExplorer && viewItem == dclExplorer.contexts",
+          "group": "inline"
+        },
         {
           "command": "dcl.showCapabilityGraph",
           "when": "view == dclExplorer && viewItem == dclExplorer.capability.located",
@@ -195,6 +261,96 @@
         {
           "command": "dcl.showCapabilityGraph",
           "when": "view == dclExplorer && viewItem == dclExplorer.capability",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.lifecycle",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.lifecycle",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.events",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.events",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.lifecycle.events",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.lifecycle.events",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.events",
+          "group": "inline@2"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.events",
+          "group": "inline@2"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.lifecycle.events",
+          "group": "inline@2"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.lifecycle.events",
+          "group": "inline@2"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.event",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.event.located",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showEventFlowGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.events",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showLifecycleGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.lifecycle",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showLifecycleGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.lifecycle",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showLifecycleGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.lifecycle.events",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showLifecycleGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.lifecycle.events",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showLifecycleGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.lifecycle",
           "group": "inline"
         }
       ],
