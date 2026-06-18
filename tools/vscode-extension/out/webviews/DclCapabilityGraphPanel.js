@@ -163,7 +163,8 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       flex: 1 1 auto;
     }
 
-    .toolbar button {
+    .toolbar button,
+    .toolbar select {
       border: 1px solid var(--vscode-button-border, transparent);
       border-radius: 3px;
       padding: 4px 8px;
@@ -172,6 +173,21 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       font: inherit;
       cursor: pointer;
       white-space: nowrap;
+    }
+
+    .toolbar select {
+      max-width: 128px;
+      background: var(--vscode-dropdown-background);
+      color: var(--vscode-dropdown-foreground);
+      border-color: var(--vscode-dropdown-border);
+    }
+
+    .toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      color: var(--vscode-descriptionForeground);
     }
 
     .toolbar button:hover {
@@ -330,6 +346,13 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     <span class="title">${escapeHtml(graph.title)}</span>
     <span class="subtitle">${graph.nodes.length} nodes, ${graph.edges.length} relationships</span>
     <span class="toolbar-spacer"></span>
+    <label for="layout-mode">Layout
+      <select id="layout-mode">
+        <option value="default">Default</option>
+        <option value="layered">Layered</option>
+        <option value="radial">Radial</option>
+      </select>
+    </label>
     <button id="fit-graph" type="button">Fit</button>
     <button id="reset-layout" type="button">Reset Layout</button>
     <button id="center-capability" type="button">Center Capability</button>
@@ -344,8 +367,12 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       <p id="details-empty" class="empty-detail">Select a node to inspect it.</p>
       <div id="details-content" class="hidden">
         <p class="detail-row">
-          <span class="detail-label">Label</span>
+          <span class="detail-label">Display Label</span>
           <span id="detail-label" class="detail-value"></span>
+        </p>
+        <p class="detail-row">
+          <span class="detail-label">Source Name</span>
+          <span id="detail-source-name" class="detail-value"></span>
         </p>
         <p class="detail-row">
           <span class="detail-label">Kind</span>
@@ -378,6 +405,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
     const capabilityNodeId = graph.nodes.find((node) => node.kind === 'capability')?.id;
     const hiddenKinds = new Set();
+    let layoutMode = 'default';
     const incomingByNode = new Map();
     const outgoingByNode = new Map();
     for (const edge of graph.edges) {
@@ -400,20 +428,15 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     const cy = cytoscape({
       container: document.getElementById('graph'),
       elements,
-      layout: {
-        name: 'breadthfirst',
-        directed: true,
-        roots: graph.nodes.filter((node) => node.kind === 'capability').map((node) => node.id),
-        spacingFactor: 1.15,
-        padding: 28
-      },
+      layout: layoutOptions(layoutMode),
       style: [
         {
           selector: 'node',
           style: {
             'label': 'data(label)',
             'text-wrap': 'wrap',
-            'text-max-width': 140,
+            'text-max-width': 104,
+            'text-overflow-wrap': 'anywhere',
             'font-size': 11,
             'color': '#d4d4d4',
             'text-valign': 'center',
@@ -422,7 +445,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
             'border-width': 1,
             'border-color': '#9db0ff',
             'width': 88,
-            'height': 44,
+            'height': 62,
             'shape': 'round-rectangle'
           }
         },
@@ -432,7 +455,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
             'background-color': '#2ea043',
             'border-color': '#7ee787',
             'width': 132,
-            'height': 58,
+            'height': 72,
             'font-size': 13,
             'font-weight': 700
           }
@@ -505,6 +528,8 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
           }
         }
       ],
+      minZoom: 0.25,
+      maxZoom: 2.5,
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false
@@ -513,6 +538,10 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     document.getElementById('fit-graph').addEventListener('click', () => fitVisible());
     document.getElementById('reset-layout').addEventListener('click', () => runLayout(true));
     document.getElementById('center-capability').addEventListener('click', () => centerCapability());
+    document.getElementById('layout-mode').addEventListener('change', (event) => {
+      layoutMode = event.target.value;
+      runLayout(true);
+    });
     document.getElementById('switch-capability').addEventListener('click', () => {
       vscode.postMessage({ type: 'switchCapability' });
     });
@@ -537,14 +566,71 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
     requestAnimationFrame(() => fitVisible());
 
     function runLayout(fitAfter) {
-      cy.layout({
+      if (layoutMode === 'layered') {
+        applyLayeredLayout();
+        if (fitAfter) fitVisible();
+        return;
+      }
+
+      cy.layout(layoutOptions(layoutMode)).run();
+      if (fitAfter) window.setTimeout(() => fitVisible(), 100);
+    }
+
+    function layoutOptions(mode) {
+      if (mode === 'radial') {
+        return {
+          name: 'concentric',
+          concentric: (node) => node.id() === capabilityNodeId ? 3 : 1,
+          levelWidth: () => 1,
+          minNodeSpacing: 42,
+          padding: 36,
+          animate: false
+        };
+      }
+
+      return {
         name: 'breadthfirst',
         directed: true,
-        roots: capabilityNodeId ? [capabilityNodeId] : undefined,
-        spacingFactor: 1.15,
-        padding: 28
-      }).run();
-      if (fitAfter) window.setTimeout(() => fitVisible(), 80);
+        roots: capabilityNodeId ? [capabilityNodeId] : graph.nodes.filter((node) => node.kind === 'capability').map((node) => node.id),
+        spacingFactor: 1.3,
+        padding: 36,
+        animate: false
+      };
+    }
+
+    function applyLayeredLayout() {
+      const visibleNodes = cy.nodes().filter((node) => node.visible());
+      const capability = capabilityNodeId ? cy.getElementById(capabilityNodeId) : cy.collection();
+      const kindOrder = ['intent', 'outcome', 'rule', 'effect', 'event', 'policy', 'lifecycle'];
+      const rowHeight = 118;
+      const columnWidth = 160;
+      const blockGap = 34;
+      const startY = -Math.floor(kindOrder.length / 2) * rowHeight;
+
+      cy.batch(() => {
+        if (capability.length && capability.visible()) {
+          capability.position({ x: -240, y: 0 });
+        }
+
+        kindOrder.forEach((kind, kindIndex) => {
+          const nodes = visibleNodes.filter((node) => node.data('kind') === kind).sort((a, b) => {
+            return String(a.data('label')).localeCompare(String(b.data('label'))) || a.id().localeCompare(b.id());
+          });
+          if (!nodes.length) return;
+
+          const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
+          const rows = Math.ceil(nodes.length / columns);
+          const baseY = startY + kindIndex * rowHeight + (rows > 1 ? blockGap : 0);
+          nodes.forEach((node, index) => {
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+            node.position({
+              x: 40 + column * columnWidth,
+              y: baseY + row * 74
+            });
+          });
+        });
+      });
     }
 
     function fitVisible() {
@@ -582,6 +668,7 @@ function renderHtml(webview, extensionUri, graph, capabilities) {
       document.getElementById('details-empty').classList.add('hidden');
       document.getElementById('details-content').classList.remove('hidden');
       document.getElementById('detail-label').textContent = node.label;
+      document.getElementById('detail-source-name').textContent = node.sourceName || node.label;
       document.getElementById('detail-kind').textContent = node.kind;
       document.getElementById('detail-relationships').textContent = relationshipSummary(nodeId);
     }

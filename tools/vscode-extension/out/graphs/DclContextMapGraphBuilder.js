@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildContextMapGraph = buildContextMapGraph;
+const DclGraphLabels_1 = require("./DclGraphLabels");
 function buildContextMapGraph(summary, selectedContext) {
     if (!summary.contexts?.length)
         return undefined;
@@ -27,7 +28,8 @@ function buildContextMapGraph(summary, selectedContext) {
             if (!known.has(dependency)) {
                 nodes.push({
                     id: contextId(dependency),
-                    label: dependency,
+                    label: (0, DclGraphLabels_1.displayNameForGraph)(dependency),
+                    sourceName: dependency,
                     kind: "external-context",
                 });
             }
@@ -63,7 +65,8 @@ function relatedContexts(contexts, selected) {
 function contextNode(context, isChild) {
     return {
         id: contextId(context.name),
-        label: context.name,
+        label: (0, DclGraphLabels_1.displayNameForGraph)(context.name),
+        sourceName: context.name,
         kind: isChild ? "child-context" : "context",
         source: context.location,
     };

@@ -9,7 +9,7 @@ describe("DclContextMapGraphBuilder", () => {
     }));
 
     expect(graph?.nodes).toEqual([
-      { id: "context:sales", label: "Sales", kind: "context", source: { file: "sales.dcl", line: 1, column: 1 } },
+      { id: "context:sales", label: "Sales", sourceName: "Sales", kind: "context", source: { file: "sales.dcl", line: 1, column: 1 } },
     ]);
     expect(graph?.edges).toEqual([]);
   });
@@ -70,6 +70,18 @@ describe("DclContextMapGraphBuilder", () => {
 
   it("handles incomplete summaries without inventing contexts", () => {
     expect(buildContextMapGraph({ capabilities: [] })).toBeUndefined();
+  });
+
+  it("normalises dotted context labels without changing ids", () => {
+    const graph = buildContextMapGraph(summary({
+      contexts: [{ name: "Customer.Registration" }],
+    }));
+
+    expect(graph?.nodes[0]).toMatchObject({
+      id: "context:customer-registration",
+      label: "Customer / Registration",
+      sourceName: "Customer.Registration",
+    });
   });
 });
 

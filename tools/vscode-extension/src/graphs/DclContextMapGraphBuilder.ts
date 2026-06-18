@@ -1,4 +1,5 @@
 import { ContextSummary, SemanticSummary } from "../views/semanticSummary";
+import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
 export function buildContextMapGraph(summary: SemanticSummary, selectedContext?: string): DclGraphModel | undefined {
@@ -31,7 +32,8 @@ export function buildContextMapGraph(summary: SemanticSummary, selectedContext?:
       if (!known.has(dependency)) {
         nodes.push({
           id: contextId(dependency),
-          label: dependency,
+          label: displayNameForGraph(dependency),
+          sourceName: dependency,
           kind: "external-context",
         });
       }
@@ -66,7 +68,8 @@ function relatedContexts(contexts: ContextSummary[], selected: string): ContextS
 function contextNode(context: ContextSummary, isChild: boolean): DclGraphNode {
   return {
     id: contextId(context.name),
-    label: context.name,
+    label: displayNameForGraph(context.name),
+    sourceName: context.name,
     kind: isChild ? "child-context" : "context",
     source: context.location,
   };

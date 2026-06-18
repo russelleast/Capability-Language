@@ -71,7 +71,10 @@ describe("DclArchitectureOverviewGraphBuilder", () => {
       capabilities: [{ name: "AcceptOrder", lifecycle: { begin: "Started" } }],
     }), "full");
 
-    expect(graph.nodes.find((node) => node.kind === "lifecycle")?.label).toBe("AcceptOrder lifecycle");
+    expect(graph.nodes.find((node) => node.kind === "lifecycle")).toMatchObject({
+      label: "Accept Order Lifecycle",
+      sourceName: "AcceptOrder lifecycle",
+    });
   });
 
   it("uses Workspace when context data is missing", () => {
@@ -83,13 +86,37 @@ describe("DclArchitectureOverviewGraphBuilder", () => {
     expect(graph.edges[0]).toMatchObject({ source: "context:workspace", target: "capability:acceptorder" });
   });
 
-  it("uses Uncontexted for capabilities without contexts when contexts exist", () => {
+  it("uses explicit default context for capabilities without attached context", () => {
+    const graph = buildArchitectureOverviewGraph(summary({
+      contexts: [{ name: "default" }],
+      capabilities: [{ name: "AcceptOrder" }],
+    }), "overview");
+
+    expect(graph.nodes.filter((node) => node.id === "context:default")).toHaveLength(1);
+    expect(graph.nodes.find((node) => node.label === "Workspace")).toBeUndefined();
+    expect(graph.edges[0]).toMatchObject({ source: "context:default", target: "capability:acceptorder" });
+  });
+
+  it("uses Workspace for capabilities without contexts when no default context exists", () => {
     const graph = buildArchitectureOverviewGraph(summary({
       contexts: [{ name: "Sales" }],
       capabilities: [{ name: "AcceptOrder" }],
     }), "overview");
 
-    expect(graph.nodes.find((node) => node.label === "Uncontexted")?.kind).toBe("context");
+    expect(graph.nodes.find((node) => node.label === "Workspace")?.kind).toBe("context");
+    expect(graph.nodes.find((node) => node.label === "Uncontexted")).toBeUndefined();
+    expect(graph.edges[0]).toMatchObject({ source: "context:workspace", target: "capability:acceptorder" });
+  });
+
+  it("does not render duplicate fallback context nodes", () => {
+    const graph = buildArchitectureOverviewGraph(summary({
+      contexts: [{ name: "default" }],
+      capabilities: [{ name: "AcceptOrder" }, { name: "ShipOrder" }],
+    }), "overview");
+
+    expect(graph.nodes.filter((node) => node.id === "context:default")).toHaveLength(1);
+    expect(graph.nodes.find((node) => node.label === "Workspace")).toBeUndefined();
+    expect(graph.nodes.find((node) => node.label === "Uncontexted")).toBeUndefined();
   });
 
   it("handles incomplete compiler summaries", () => {

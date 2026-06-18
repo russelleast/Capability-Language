@@ -1,4 +1,5 @@
 import { CapabilityItemKind, CapabilitySummary, SemanticSummary } from "../views/semanticSummary";
+import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
 type CapabilityListKind = Exclude<CapabilityItemKind, "lifecycle" | "actors">;
@@ -23,7 +24,8 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
   const nodes: DclGraphNode[] = [
     {
       id: capabilityId,
-      label: capability.name,
+      label: displayNameForGraph(capability.name),
+      sourceName: capability.name,
       kind: "capability",
       source: capability.location,
     },
@@ -35,7 +37,8 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
       const id = nodeId(kind, item);
       nodes.push({
         id,
-        label: item,
+        label: displayNameForGraph(item),
+        sourceName: item,
         kind: singularKind(kind),
         source: capability.itemLocations?.[kind]?.[item],
       });
@@ -44,11 +47,13 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
   }
 
   if (capability.lifecycle) {
-    const lifecycleLabel = capability.lifecycle.begin ? `Lifecycle: ${capability.lifecycle.begin}` : "Lifecycle";
+    const lifecycleSourceName = capability.lifecycle.begin ? `Lifecycle: ${capability.lifecycle.begin}` : "Lifecycle";
+    const lifecycleLabel = capability.lifecycle.begin ? `Lifecycle: ${displayNameForGraph(capability.lifecycle.begin)}` : "Lifecycle";
     const id = nodeId("lifecycle", capability.name);
     nodes.push({
       id,
       label: lifecycleLabel,
+      sourceName: lifecycleSourceName,
       kind: "lifecycle",
       source: firstLifecycleLocation(capability),
     });
