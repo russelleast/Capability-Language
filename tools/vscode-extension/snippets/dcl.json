@@ -1,0 +1,85 @@
+{
+  "Capability": {
+    "prefix": "capability",
+    "body": [
+      "capability ${1:CapabilityName} {",
+      "  intent ${2:InputShape} from ${3:ActorName}",
+      "",
+      "  outcome ${4:OutcomeName}",
+      "",
+      "  when {",
+      "    always then ${4:OutcomeName}",
+      "  }",
+      "}"
+    ],
+    "description": "DCL capability"
+  },
+  "Actor": {
+    "prefix": "actor",
+    "body": [
+      "actor ${1:ActorName} is ${2|human,system|}"
+    ],
+    "description": "DCL actor"
+  },
+  "Shape": {
+    "prefix": "shape",
+    "body": [
+      "shape ${1:ShapeName} {",
+      "  ${2:fieldName}: ${3|Text,Number,Boolean,Uuid,Email,Date,DateTime|} required",
+      "}"
+    ],
+    "description": "DCL shape"
+  },
+  "Event": {
+    "prefix": "event",
+    "body": [
+      "event ${1:EventName} is {",
+      "  ${2:eventId}: ${3:Uuid} required",
+      "}"
+    ],
+    "description": "DCL event"
+  },
+  "Effect": {
+    "prefix": "effect",
+    "body": [
+      "effect ${1:EffectName} is ${2|persistence,notification,invocation|}"
+    ],
+    "description": "DCL effect"
+  },
+  "Policy": {
+    "prefix": "policy",
+    "body": [
+      "policy ${1:PolicyName} {",
+      "  family ${2:reliability}",
+      "  ${3:idempotency required}",
+      "}"
+    ],
+    "description": "DCL policy"
+  },
+  "When": {
+    "prefix": "when",
+    "body": [
+      "when {",
+      "  ${1:Condition} then ${2:OutcomeName}",
+      "  otherwise then ${3:DefaultOutcome}",
+      "}"
+    ],
+    "description": "DCL when block"
+  },
+  "Lifecycle": {
+    "prefix": "lifecycle",
+    "body": [
+      "lifecycle {",
+      "  begin ${1:InitialState}",
+      "",
+      "  step ${1:InitialState}",
+      "",
+      "  end ${2:TerminalState}",
+      "",
+      "  move ${1:InitialState} to ${2:TerminalState}",
+      "    on outcome ${3:OutcomeName}",
+      "}"
+    ],
+    "description": "DCL lifecycle"
+  }
+}

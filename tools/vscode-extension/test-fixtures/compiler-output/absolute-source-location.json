@@ -1,0 +1,26 @@
+{
+  "symbols": [
+    {
+      "kind": "capability",
+      "name": "AbsoluteLocationCapability",
+      "context": "default",
+      "declared": "/Users/russelleast/Code/dcl/Capability-Language/tools/vscode-extension/test-fixtures/valid-basic.dcl:12:1"
+    }
+  ],
+  "contexts": [
+    {
+      "name": "default"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "capability:AbsoluteLocationCapability",
+      "name": "AbsoluteLocationCapability",
+      "outcomes": [
+        {
+          "name": "Located"
+        }
+      ]
+    }
+  ]
+}

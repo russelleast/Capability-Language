@@ -1,0 +1,239 @@
+{
+  "name": "dcl-vscode-extension",
+  "displayName": "Declarative Capability Language (DCL)",
+  "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
+  "version": "0.3.1",
+  "publisher": "dcl",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/russelleast/Capability-Language.git",
+    "directory": "tools/vscode-extension"
+  },
+  "bugs": {
+    "url": "https://github.com/russelleast/Capability-Language/issues"
+  },
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "dcl",
+    "declarative capability language",
+    "capability",
+    "architecture",
+    "compiler",
+    "diagnostics"
+  ],
+  "activationEvents": [
+    "onLanguage:dcl",
+    "onCommand:dcl.compileCurrentFile",
+    "onCommand:dcl.compileWorkspace",
+    "onCommand:dcl.showSemanticSummary",
+    "onCommand:dcl.formatDocument",
+    "onCommand:dcl.refreshExplorer",
+    "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.showCapabilityGraph",
+    "onView:dclSemanticSummary",
+    "onView:dclExplorer"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dcl",
+        "aliases": [
+          "DCL",
+          "Declarative Capability Language"
+        ],
+        "extensions": [
+          ".dcl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dcl",
+        "scopeName": "source.dcl",
+        "path": "./syntaxes/dcl.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "dcl",
+        "path": "./snippets/dcl.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "dcl.compileCurrentFile",
+        "title": "DCL: Compile Current File",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.compileWorkspace",
+        "title": "DCL: Compile Workspace",
+        "category": "DCL",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dcl.showSemanticSummary",
+        "title": "DCL: Show Semantic Summary",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.formatDocument",
+        "title": "DCL: Format Document",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.refreshExplorer",
+        "title": "DCL: Refresh Explorer",
+        "category": "DCL",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "dcl.revealSemanticItemInSource",
+        "title": "DCL: Reveal Semantic Item in Source",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showCapabilityGraph",
+        "title": "DCL: Show Capability Graph",
+        "category": "DCL"
+      }
+    ],
+    "configuration": {
+      "title": "DCL",
+      "properties": {
+        "dcl.compilerPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the DCL compiler executable. Leave empty to use the workspace compiler when available, otherwise `dcl` on PATH. The value may include fixed arguments, for example `go run ./cmd/dcl`."
+        },
+        "dcl.compileOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the DCL compiler and refresh diagnostics when a .dcl file is saved."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dclExplorerContainer",
+          "title": "DCL Explorer",
+          "icon": "./resources/dcl.svg"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "dclSemanticSummary",
+          "name": "DCL Semantic Summary",
+          "when": "resourceLangId == dcl"
+        }
+      ],
+      "dclExplorerContainer": [
+        {
+          "id": "dclExplorer",
+          "name": "DCL Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "dcl.compileCurrentFile",
+          "when": "editorLangId == dcl"
+        },
+        {
+          "command": "dcl.compileWorkspace"
+        },
+        {
+          "command": "dcl.showSemanticSummary",
+          "when": "editorLangId == dcl"
+        },
+        {
+          "command": "dcl.formatDocument",
+          "when": "editorLangId == dcl"
+        },
+        {
+          "command": "dcl.refreshExplorer"
+        },
+        {
+          "command": "dcl.showCapabilityGraph"
+        },
+        {
+          "command": "dcl.revealSemanticItemInSource",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "dcl.refreshExplorer",
+          "when": "view == dclExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "dcl.compileWorkspace",
+          "when": "view == dclExplorer",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability.located",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showCapabilityGraph",
+          "when": "view == dclExplorer && viewItem == dclExplorer.capability",
+          "group": "inline"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "dcl.compileCurrentFile",
+          "when": "editorLangId == dcl",
+          "group": "navigation"
+        },
+        {
+          "command": "dcl.showSemanticSummary",
+          "when": "editorLangId == dcl",
+          "group": "navigation"
+        },
+        {
+          "command": "dcl.formatDocument",
+          "when": "editorLangId == dcl",
+          "group": "1_modification"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc -p ./ --noEmit",
+    "copy:vendor": "node scripts/copy-vendor-assets.mjs",
+    "package": "vsce package",
+    "package:smoke": "npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vscode:prepublish": "npm run copy:vendor && npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "@types/vscode": "^1.86.0",
+    "@vscode/vsce": "^3.9.2",
+    "cytoscape": "^3.34.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.9"
+  }
+}

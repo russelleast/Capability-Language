@@ -1,0 +1,15 @@
+node_modules/**
+src/**
+scripts/**
+tsconfig.json
+**/*.map
+.vscode/**
+test-fixtures/**
+test/**
+docs/**
+*.vsix
+DEVELOPMENT.md
+vitest.config.ts
+vitest.config.js
+.gitignore
+.vscodeignore
