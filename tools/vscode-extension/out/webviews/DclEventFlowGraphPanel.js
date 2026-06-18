@@ -165,7 +165,8 @@ function renderHtml(webview, extensionUri, graph, selectedEvent) {
       <h2 class="details-title">Node Details</h2>
       <p id="details-empty" class="empty-detail">Select an event-flow node to inspect it.</p>
       <div id="details-content" class="hidden">
-        <p class="detail-row"><span class="detail-label">Label</span><span id="detail-label" class="detail-value"></span></p>
+        <p class="detail-row"><span class="detail-label">Display Label</span><span id="detail-label" class="detail-value"></span></p>
+        <p class="detail-row"><span class="detail-label">Source Name</span><span id="detail-source-name" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Kind</span><span id="detail-kind" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Emitted By</span><span id="detail-emitted" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Referenced By / Triggered Transitions</span><span id="detail-referenced" class="detail-value"></span></p>
@@ -203,9 +204,9 @@ function renderHtml(webview, extensionUri, graph, selectedEvent) {
       elements,
       layout: { name: 'breadthfirst', directed: true, roots: graph.nodes.filter((node) => node.kind === 'capability').map((node) => node.id), spacingFactor: 1.2, padding: 30 },
       style: [
-        { selector: 'node', style: { 'label': 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 150, 'font-size': 11, 'color': '#d4d4d4', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#4f6bed', 'border-width': 1, 'border-color': '#9db0ff', 'width': 96, 'height': 44, 'shape': 'round-rectangle' } },
-        { selector: 'node.capability', style: { 'background-color': '#2ea043', 'border-color': '#7ee787', 'width': 132, 'height': 56, 'font-weight': 700 } },
-        { selector: 'node.event', style: { 'background-color': '#1f9d8a', 'border-color': '#64d8cb', 'shape': 'ellipse', 'width': 106, 'height': 52 } },
+        { selector: 'node', style: { 'label': 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 112, 'text-overflow-wrap': 'anywhere', 'font-size': 11, 'color': '#d4d4d4', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#4f6bed', 'border-width': 1, 'border-color': '#9db0ff', 'width': 104, 'height': 62, 'shape': 'round-rectangle' } },
+        { selector: 'node.capability', style: { 'background-color': '#2ea043', 'border-color': '#7ee787', 'width': 138, 'height': 74, 'font-weight': 700 } },
+        { selector: 'node.event', style: { 'background-color': '#1f9d8a', 'border-color': '#64d8cb', 'shape': 'ellipse', 'width': 122, 'height': 70 } },
         { selector: 'node.lifecycle', style: { 'background-color': '#8957e5', 'border-color': '#d2a8ff' } },
         { selector: 'node.lifecycle-transition', style: { 'background-color': '#bf4b8a', 'border-color': '#ff9ece' } },
         { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#f2cc60', 'overlay-color': '#f2cc60', 'overlay-opacity': 0.16 } },
@@ -250,6 +251,7 @@ function renderHtml(webview, extensionUri, graph, selectedEvent) {
       document.getElementById('details-empty').classList.add('hidden');
       document.getElementById('details-content').classList.remove('hidden');
       document.getElementById('detail-label').textContent = node.label;
+      document.getElementById('detail-source-name').textContent = node.sourceName || node.label;
       document.getElementById('detail-kind').textContent = node.kind;
       document.getElementById('detail-emitted').textContent = listText(emittedBy.get(nodeId));
       document.getElementById('detail-referenced').textContent = listText(referencedBy.get(nodeId));

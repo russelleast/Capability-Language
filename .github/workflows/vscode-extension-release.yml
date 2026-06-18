@@ -1,0 +1,44 @@
+name: Release VS Code Extension
+
+on:
+  push:
+    tags:
+      - "vscode-extension-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package VSIX and Attach Release Asset
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+        working-directory: tools/vscode-extension
+
+      - name: Package extension
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          npm run copy:vendor
+          npm run compile
+          npx vsce package --out "dcl-vscode-extension-v${VERSION}.vsix"
+          echo "VSIX_PATH=tools/vscode-extension/dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
+          echo "VSIX_NAME=dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
+        working-directory: tools/vscode-extension
+
+      - name: Create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" "$VSIX_PATH" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

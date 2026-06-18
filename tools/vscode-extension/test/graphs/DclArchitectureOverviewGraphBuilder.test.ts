@@ -71,7 +71,10 @@ describe("DclArchitectureOverviewGraphBuilder", () => {
       capabilities: [{ name: "AcceptOrder", lifecycle: { begin: "Started" } }],
     }), "full");
 
-    expect(graph.nodes.find((node) => node.kind === "lifecycle")?.label).toBe("AcceptOrder lifecycle");
+    expect(graph.nodes.find((node) => node.kind === "lifecycle")).toMatchObject({
+      label: "Accept Order Lifecycle",
+      sourceName: "AcceptOrder lifecycle",
+    });
   });
 
   it("uses Workspace when context data is missing", () => {

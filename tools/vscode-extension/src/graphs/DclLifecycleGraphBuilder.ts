@@ -1,4 +1,5 @@
 import { CapabilitySummary, LifecycleTransitionSummary, SemanticSummary } from "../views/semanticSummary";
+import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
 export function buildLifecycleGraph(summary: SemanticSummary, capabilityName: string): DclGraphModel | undefined {
@@ -12,7 +13,8 @@ export function buildLifecycleGraphFromCapability(capability: CapabilitySummary)
   const nodes: DclGraphNode[] = [
     {
       id: lifecycleId,
-      label: `${capability.name} lifecycle`,
+      label: `${displayNameForGraph(capability.name)} Lifecycle`,
+      sourceName: `${capability.name} lifecycle`,
       kind: "lifecycle",
       source: firstLifecycleLocation(capability),
     },
@@ -25,7 +27,8 @@ export function buildLifecycleGraphFromCapability(capability: CapabilitySummary)
   for (const stepName of stepNames) {
     nodes.push({
       id: stepId(stepName),
-      label: stepName,
+      label: displayNameForGraph(stepName),
+      sourceName: stepName,
       kind: stepKind(stepName, initialStep, terminalSteps),
       source: lifecycleLocation(capability, stepName),
     });
@@ -73,7 +76,12 @@ function lifecycleStepNames(capability: CapabilitySummary): string[] {
 function transitionLabel(transition: LifecycleTransitionSummary): string {
   const trigger = [transition.triggerKind, transition.triggerName].filter(Boolean).join(" ");
   if (!trigger) return "transition";
-  return transition.sourceCapability ? `on ${trigger} from ${transition.sourceCapability}` : `on ${trigger}`;
+  const readableTrigger = transition.triggerName
+    ? `${transition.triggerKind} ${displayNameForGraph(transition.triggerName)}`
+    : transition.triggerKind;
+  return transition.sourceCapability
+    ? `on ${readableTrigger} from ${displayNameForGraph(transition.sourceCapability)}`
+    : `on ${readableTrigger}`;
 }
 
 function stepKind(stepName: string, initialStep: string | undefined, terminalSteps: Set<string>): string {

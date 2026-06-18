@@ -1,4 +1,5 @@
 import { CapabilitySummary, ContextSummary, SemanticSummary, SourceLocation } from "../views/semanticSummary";
+import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
 export type ArchitectureOverviewDetailLevel = "overview" | "detailed" | "full";
@@ -87,7 +88,8 @@ function addEventFlow(
 function contextNode(context: ContextSummary, isChild: boolean): DclGraphNode {
   return {
     id: contextId(context.name),
-    label: context.name,
+    label: displayNameForGraph(context.name),
+    sourceName: context.name,
     kind: isChild ? "child-context" : "context",
     source: context.location,
   };
@@ -107,7 +109,8 @@ function ensureContextNode(
 
   nodes.push({
     id: contextId(name),
-    label: name,
+    label: displayNameForGraph(name),
+    sourceName: name,
     kind: fallbackKind,
   });
 }
@@ -115,7 +118,8 @@ function ensureContextNode(
 function capabilityNode(capability: CapabilitySummary): DclGraphNode {
   return {
     id: capabilityId(capability.name),
-    label: capability.name,
+    label: displayNameForGraph(capability.name),
+    sourceName: capability.name,
     kind: "capability",
     source: capability.location,
   };
@@ -124,7 +128,8 @@ function capabilityNode(capability: CapabilitySummary): DclGraphNode {
 function eventNode(summary: SemanticSummary, event: string): DclGraphNode {
   return {
     id: eventId(event),
-    label: event,
+    label: displayNameForGraph(event),
+    sourceName: event,
     kind: "event",
     source: eventLocation(summary, event),
   };
@@ -133,7 +138,8 @@ function eventNode(summary: SemanticSummary, event: string): DclGraphNode {
 function lifecycleNode(capability: CapabilitySummary): DclGraphNode {
   return {
     id: lifecycleId(capability.name),
-    label: `${capability.name} lifecycle`,
+    label: `${displayNameForGraph(capability.name)} Lifecycle`,
+    sourceName: `${capability.name} lifecycle`,
     kind: "lifecycle",
     source: firstLifecycleLocation(capability),
   };

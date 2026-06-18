@@ -74,6 +74,26 @@ describe("DclEventFlowGraphBuilder", () => {
     expect(graph?.title).toBe("All Event Flows Graph");
   });
 
+  it("normalises display labels while preserving original event names and ids", () => {
+    const graph = buildEventFlowGraph(summary({
+      events: [{ label: "customer_registered" }],
+      capabilities: [
+        { name: "RegisterCustomer", eventDetails: [{ event: "customer_registered", label: "customer_registered" }] },
+      ],
+    }), "customer_registered");
+
+    expect(graph?.nodes.find((node) => node.kind === "event")).toMatchObject({
+      id: "event:customer-registered",
+      label: "Customer Registered",
+      sourceName: "customer_registered",
+    });
+    expect(graph?.nodes.find((node) => node.kind === "capability")).toMatchObject({
+      id: "capability:registercustomer",
+      label: "Register Customer",
+      sourceName: "RegisterCustomer",
+    });
+  });
+
   it("does not invent source ranges when summary data is unlocated", () => {
     const graph = buildEventFlowGraph(summary({
       events: [{ label: "Unlocated" }],

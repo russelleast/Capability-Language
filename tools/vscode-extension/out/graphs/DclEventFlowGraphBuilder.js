@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildEventFlowGraph = buildEventFlowGraph;
+const DclGraphLabels_1 = require("./DclGraphLabels");
 function buildEventFlowGraph(summary, eventName) {
     const events = eventNames(summary, eventName);
     if (!events.length)
@@ -14,7 +15,8 @@ function buildEventFlowGraphForEvents(summary, events, selectedEvent) {
     for (const event of events) {
         nodes.push({
             id: eventId(event),
-            label: event,
+            label: (0, DclGraphLabels_1.displayNameForGraph)(event),
+            sourceName: event,
             kind: "event",
             source: eventLocation(summary, event),
         });
@@ -94,7 +96,8 @@ function knownEventNames(summary) {
 function capabilityNode(capability) {
     return {
         id: capabilityId(capability.name),
-        label: capability.name,
+        label: (0, DclGraphLabels_1.displayNameForGraph)(capability.name),
+        sourceName: capability.name,
         kind: "capability",
         source: capability.location,
     };
@@ -102,7 +105,8 @@ function capabilityNode(capability) {
 function lifecycleNode(capability) {
     return {
         id: lifecycleId(capability.name),
-        label: `${capability.name} lifecycle`,
+        label: `${(0, DclGraphLabels_1.displayNameForGraph)(capability.name)} Lifecycle`,
+        sourceName: `${capability.name} lifecycle`,
         kind: "lifecycle",
         source: firstLifecycleLocation(capability),
     };
@@ -111,7 +115,8 @@ function lifecycleTransitionNode(capability, transition) {
     const label = `${transition.from} -> ${transition.to}`;
     return {
         id: nodeId("lifecycle-transition", `${capability.name}:${label}`),
-        label,
+        label: `${(0, DclGraphLabels_1.displayNameForGraph)(transition.from)} -> ${(0, DclGraphLabels_1.displayNameForGraph)(transition.to)}`,
+        sourceName: label,
         kind: "lifecycle-transition",
         source: transitionLocation(capability, transition),
     };

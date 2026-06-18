@@ -262,6 +262,20 @@ main {
   margin-top: 0.35rem;
 }
 
+.download-note {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 1rem 0 0;
+}
+
+.download-note code,
+.install-card code {
+  background: #dfece4;
+  border-radius: 4px;
+  color: var(--accent-strong);
+  padding: 0.08rem 0.22rem;
+}
+
 .translation-flow {
   align-items: center;
   display: flex;

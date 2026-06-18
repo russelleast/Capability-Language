@@ -3,6 +3,7 @@ import { DclSourceLocation } from "../source/DclSourceLocation";
 export type DclGraphNode = {
   id: string;
   label: string;
+  sourceName?: string;
   kind: string;
   source?: DclSourceLocation;
 };

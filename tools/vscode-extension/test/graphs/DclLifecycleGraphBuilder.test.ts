@@ -39,7 +39,7 @@ describe("DclLifecycleGraphBuilder", () => {
     expect(graph.edges.map((edge) => edge.label)).toEqual([
       "begins",
       "on outcome Submitted",
-      "on event CustomerRegistered",
+      "on event Customer Registered",
     ]);
   });
 
@@ -70,7 +70,7 @@ describe("DclLifecycleGraphBuilder", () => {
       },
     });
 
-    expect(graph.edges.find((edge) => edge.kind === "transition")?.label).toBe("on outcome JobStarted from StartJob");
+    expect(graph.edges.find((edge) => edge.kind === "transition")?.label).toBe("on outcome Job Started from Start Job");
   });
 
   it("formats transition labels with event triggers", () => {
@@ -83,7 +83,7 @@ describe("DclLifecycleGraphBuilder", () => {
       },
     });
 
-    expect(graph.edges.find((edge) => edge.kind === "transition")?.label).toBe("on event CustomerRegistered");
+    expect(graph.edges.find((edge) => edge.kind === "transition")?.label).toBe("on event Customer Registered");
   });
 
   it("uses a stable fallback label when transition trigger data is missing", () => {
@@ -113,7 +113,11 @@ describe("DclLifecycleGraphBuilder", () => {
 
   it("selects one lifecycle by capability name from a semantic summary", () => {
     const summary: SemanticSummary = { capabilities: [capability] };
-    expect(buildLifecycleGraph(summary, "RegisterCustomer")?.nodes[0].label).toBe("RegisterCustomer lifecycle");
+    expect(buildLifecycleGraph(summary, "RegisterCustomer")?.nodes[0]).toMatchObject({
+      id: "lifecycle:registercustomer",
+      label: "Register Customer Lifecycle",
+      sourceName: "RegisterCustomer lifecycle",
+    });
     expect(buildLifecycleGraph(summary, "Missing")).toBeUndefined();
   });
 });

@@ -1,5 +1,7 @@
 # Declarative Capability Language for VS Code
 
+Current extension version: `0.3.10`
+
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
 This extension provides end-user VS Code support for `.dcl` files. It intentionally stays thin: the DCL compiler remains the source of truth for diagnostics, formatting, semantic summaries, source locations, and graph data.
@@ -56,6 +58,8 @@ Explorer context actions can open the relevant graph directly, including capabil
 ## Graphs
 
 All graphs are built from the compiler semantic summary. The extension does not infer relationships from folders, parse DCL source in TypeScript, or invent missing dependencies.
+
+Graph nodes use human-readable display labels for diagram readability while retaining the exact DCL source name in the details panel.
 
 ### Architecture Overview
 

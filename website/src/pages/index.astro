@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import CodeBlock from "../components/CodeBlock.astro";
-import { languageLabel, languageStatus } from "../config/version";
+import { languageLabel, languageStatus, vscodeExtensionReleaseUrl, vscodeExtensionVersion, vscodeExtensionVsixName } from "../config/version";
 import example from "../examples/register-customer.dcl?raw";
 import { playgroundExamplePath } from "../lib/playground/links";
 
@@ -136,6 +136,39 @@ const path = (href) => `${base}${href}`;
         support, MCP tooling, and production runtime projections remain future
         work.
       </p>
+    </div>
+  </section>
+
+  <section class="section two-column">
+    <div>
+      <h2>Use DCL where you work</h2>
+      <p>
+        The playground is the best place to learn DCL concepts quickly. The VS
+        Code extension is the workbench for editing real `.dcl` files, running
+        compiler diagnostics, navigating the DCL Explorer, and opening semantic
+        graphs from your workspace.
+      </p>
+      <p>
+        Marketplace publishing is planned. For now, install the extension from
+        a VSIX package.
+      </p>
+      <div class="actions">
+        <a class="button primary" href={vscodeExtensionReleaseUrl}>Download VS Code Extension</a>
+        <a class="button secondary" href="https://github.com/russelleast/Capability-Language/actions/workflows/build.yml">GitHub Actions Artifact</a>
+      </div>
+      <p class="download-note">
+        Latest VSIX: <code>{vscodeExtensionVsixName}</code>. If the latest
+        release asset is not attached yet, use the GitHub Actions artifact link.
+      </p>
+    </div>
+    <div class="notice install-card">
+      <strong>Install v{vscodeExtensionVersion}</strong>
+      <ol class="tight-list">
+        <li>Download the VSIX file.</li>
+        <li>In VS Code, run <code>Extensions: Install from VSIX...</code>.</li>
+        <li>Select the downloaded <code>.vsix</code>.</li>
+        <li>Reload VS Code when prompted.</li>
+      </ol>
     </div>
   </section>
 

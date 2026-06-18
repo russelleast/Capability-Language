@@ -301,8 +301,12 @@ function renderHtml(webview, extensionUri, graph) {
       <p id="details-empty" class="empty-detail">Select a lifecycle node to inspect it.</p>
       <div id="details-content" class="hidden">
         <p class="detail-row">
-          <span class="detail-label">Name</span>
+          <span class="detail-label">Display Label</span>
           <span id="detail-label" class="detail-value"></span>
+        </p>
+        <p class="detail-row">
+          <span class="detail-label">Source Name</span>
+          <span id="detail-source-name" class="detail-value"></span>
         </p>
         <p class="detail-row">
           <span class="detail-label">Kind</span>
@@ -370,7 +374,8 @@ function renderHtml(webview, extensionUri, graph) {
           style: {
             'label': 'data(label)',
             'text-wrap': 'wrap',
-            'text-max-width': 150,
+            'text-max-width': 112,
+            'text-overflow-wrap': 'anywhere',
             'font-size': 11,
             'color': '#d4d4d4',
             'text-valign': 'center',
@@ -379,7 +384,7 @@ function renderHtml(webview, extensionUri, graph) {
             'border-width': 1,
             'border-color': '#9db0ff',
             'width': 92,
-            'height': 44,
+            'height': 62,
             'shape': 'round-rectangle'
           }
         },
@@ -389,7 +394,7 @@ function renderHtml(webview, extensionUri, graph) {
             'background-color': '#8957e5',
             'border-color': '#d2a8ff',
             'width': 138,
-            'height': 58,
+            'height': 74,
             'font-weight': 700
           }
         },
@@ -494,6 +499,7 @@ function renderHtml(webview, extensionUri, graph) {
       document.getElementById('details-empty').classList.add('hidden');
       document.getElementById('details-content').classList.remove('hidden');
       document.getElementById('detail-label').textContent = node.label;
+      document.getElementById('detail-source-name').textContent = node.sourceName || node.label;
       document.getElementById('detail-kind').textContent = node.kind;
       document.getElementById('detail-incoming').textContent = String((incomingTransitionsByNode.get(nodeId) || []).length);
       document.getElementById('detail-outgoing').textContent = String((outgoingTransitionsByNode.get(nodeId) || []).length);

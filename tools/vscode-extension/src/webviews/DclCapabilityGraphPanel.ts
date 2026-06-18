@@ -400,8 +400,12 @@ function renderHtml(
       <p id="details-empty" class="empty-detail">Select a node to inspect it.</p>
       <div id="details-content" class="hidden">
         <p class="detail-row">
-          <span class="detail-label">Label</span>
+          <span class="detail-label">Display Label</span>
           <span id="detail-label" class="detail-value"></span>
+        </p>
+        <p class="detail-row">
+          <span class="detail-label">Source Name</span>
+          <span id="detail-source-name" class="detail-value"></span>
         </p>
         <p class="detail-row">
           <span class="detail-label">Kind</span>
@@ -464,7 +468,8 @@ function renderHtml(
           style: {
             'label': 'data(label)',
             'text-wrap': 'wrap',
-            'text-max-width': 140,
+            'text-max-width': 104,
+            'text-overflow-wrap': 'anywhere',
             'font-size': 11,
             'color': '#d4d4d4',
             'text-valign': 'center',
@@ -473,7 +478,7 @@ function renderHtml(
             'border-width': 1,
             'border-color': '#9db0ff',
             'width': 88,
-            'height': 44,
+            'height': 62,
             'shape': 'round-rectangle'
           }
         },
@@ -483,7 +488,7 @@ function renderHtml(
             'background-color': '#2ea043',
             'border-color': '#7ee787',
             'width': 132,
-            'height': 58,
+            'height': 72,
             'font-size': 13,
             'font-weight': 700
           }
@@ -696,6 +701,7 @@ function renderHtml(
       document.getElementById('details-empty').classList.add('hidden');
       document.getElementById('details-content').classList.remove('hidden');
       document.getElementById('detail-label').textContent = node.label;
+      document.getElementById('detail-source-name').textContent = node.sourceName || node.label;
       document.getElementById('detail-kind').textContent = node.kind;
       document.getElementById('detail-relationships').textContent = relationshipSummary(nodeId);
     }

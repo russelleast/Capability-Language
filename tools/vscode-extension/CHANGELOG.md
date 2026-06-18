@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.10
+
+- Added the current extension version near the top of the packaged README.
+- Added shared graph label normalisation for CamelCase, snake_case, kebab-case, dotted names, and common acronym names.
+- Preserved original graph node names in `sourceName` metadata and WebView details panels.
+- Improved graph node text wrapping and node sizing across all graph views.
+- Added website VSIX download/install copy for the VS Code extension and Marketplace status.
+- Added a tag-triggered GitHub Release workflow for attaching VSIX assets without Marketplace publishing.
+- Added tests for graph label normalisation and stable display-label/source-name behaviour.
+
 ## 0.3.9
 
 - Cleaned the packaged README so the VS Code extension page is end-user focused.

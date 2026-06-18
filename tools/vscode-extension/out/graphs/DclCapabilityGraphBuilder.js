@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildCapabilityGraph = buildCapabilityGraph;
 exports.buildCapabilityGraphFromCapability = buildCapabilityGraphFromCapability;
+const DclGraphLabels_1 = require("./DclGraphLabels");
 const RELATION_BY_KIND = {
     intents: { label: "accepts", kind: "accepts-intent" },
     outcomes: { label: "produces", kind: "produces-outcome" },
@@ -21,7 +22,8 @@ function buildCapabilityGraphFromCapability(capability) {
     const nodes = [
         {
             id: capabilityId,
-            label: capability.name,
+            label: (0, DclGraphLabels_1.displayNameForGraph)(capability.name),
+            sourceName: capability.name,
             kind: "capability",
             source: capability.location,
         },
@@ -32,7 +34,8 @@ function buildCapabilityGraphFromCapability(capability) {
             const id = nodeId(kind, item);
             nodes.push({
                 id,
-                label: item,
+                label: (0, DclGraphLabels_1.displayNameForGraph)(item),
+                sourceName: item,
                 kind: singularKind(kind),
                 source: capability.itemLocations?.[kind]?.[item],
             });
@@ -40,11 +43,13 @@ function buildCapabilityGraphFromCapability(capability) {
         }
     }
     if (capability.lifecycle) {
-        const lifecycleLabel = capability.lifecycle.begin ? `Lifecycle: ${capability.lifecycle.begin}` : "Lifecycle";
+        const lifecycleSourceName = capability.lifecycle.begin ? `Lifecycle: ${capability.lifecycle.begin}` : "Lifecycle";
+        const lifecycleLabel = capability.lifecycle.begin ? `Lifecycle: ${(0, DclGraphLabels_1.displayNameForGraph)(capability.lifecycle.begin)}` : "Lifecycle";
         const id = nodeId("lifecycle", capability.name);
         nodes.push({
             id,
             label: lifecycleLabel,
+            sourceName: lifecycleSourceName,
             kind: "lifecycle",
             source: firstLifecycleLocation(capability),
         });

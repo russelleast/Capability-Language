@@ -117,10 +117,12 @@ For each extension release:
 
 Marketplace publishing is not implemented yet. Until then, the recommended distribution path is:
 
-1. Build the VSIX with `npm run package`.
-2. Create or open the matching GitHub Release.
-3. Attach the generated `.vsix` as a release asset.
-4. Link the release asset from the project website or release notes.
+1. Update `tools/vscode-extension/package.json`.
+2. Update `tools/vscode-extension/CHANGELOG.md`.
+3. Run `npm run package:smoke`.
+4. Push a tag named `vscode-extension-v0.3.x`.
+5. The `Release VS Code Extension` workflow packages the VSIX and attaches it to the GitHub Release.
+6. The website download link targets the latest release asset named `dcl-vscode-extension-v0.3.x.vsix`.
 
 Do not add personal access tokens, publisher secrets, or Marketplace credentials to the repository.
 

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildArchitectureOverviewGraphs = buildArchitectureOverviewGraphs;
 exports.buildArchitectureOverviewGraph = buildArchitectureOverviewGraph;
+const DclGraphLabels_1 = require("./DclGraphLabels");
 function buildArchitectureOverviewGraphs(summary) {
     if (!summary.contexts?.length && !summary.capabilities.length)
         return undefined;
@@ -67,7 +68,8 @@ function addEventFlow(nodes, edges, summary, capability) {
 function contextNode(context, isChild) {
     return {
         id: contextId(context.name),
-        label: context.name,
+        label: (0, DclGraphLabels_1.displayNameForGraph)(context.name),
+        sourceName: context.name,
         kind: isChild ? "child-context" : "context",
         source: context.location,
     };
@@ -80,14 +82,16 @@ function ensureContextNode(nodes, knownContexts, name, fallbackKind = "external-
     }
     nodes.push({
         id: contextId(name),
-        label: name,
+        label: (0, DclGraphLabels_1.displayNameForGraph)(name),
+        sourceName: name,
         kind: fallbackKind,
     });
 }
 function capabilityNode(capability) {
     return {
         id: capabilityId(capability.name),
-        label: capability.name,
+        label: (0, DclGraphLabels_1.displayNameForGraph)(capability.name),
+        sourceName: capability.name,
         kind: "capability",
         source: capability.location,
     };
@@ -95,7 +99,8 @@ function capabilityNode(capability) {
 function eventNode(summary, event) {
     return {
         id: eventId(event),
-        label: event,
+        label: (0, DclGraphLabels_1.displayNameForGraph)(event),
+        sourceName: event,
         kind: "event",
         source: eventLocation(summary, event),
     };
@@ -103,7 +108,8 @@ function eventNode(summary, event) {
 function lifecycleNode(capability) {
     return {
         id: lifecycleId(capability.name),
-        label: `${capability.name} lifecycle`,
+        label: `${(0, DclGraphLabels_1.displayNameForGraph)(capability.name)} Lifecycle`,
+        sourceName: `${capability.name} lifecycle`,
         kind: "lifecycle",
         source: firstLifecycleLocation(capability),
     };

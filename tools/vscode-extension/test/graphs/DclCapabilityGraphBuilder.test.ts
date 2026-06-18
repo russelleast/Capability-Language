@@ -55,7 +55,11 @@ describe("DclCapabilityGraphBuilder", () => {
       "governed by",
       "owns",
     ]);
-    expect(graph.nodes.find((node) => node.label === "RegistrationAccepted")?.source?.line).toBe(10);
+    expect(graph.nodes.find((node) => node.label === "Registration Accepted")?.source?.line).toBe(10);
+    expect(graph.nodes.find((node) => node.id === "outcomes:registrationaccepted")).toMatchObject({
+      label: "Registration Accepted",
+      sourceName: "RegistrationAccepted",
+    });
   });
 
   it("keeps optional node categories out of the graph when absent", () => {
@@ -70,14 +74,14 @@ describe("DclCapabilityGraphBuilder", () => {
 
   it("adds source metadata to graph nodes when the semantic summary provides it", () => {
     const graph = buildCapabilityGraphFromCapability(capability);
-    const sourcesByLabel = new Map(graph.nodes.map((node) => [node.label, node.source]));
+    const sourcesByName = new Map(graph.nodes.map((node) => [node.sourceName, node.source]));
 
-    expect(sourcesByLabel.get("RegisterCustomer")).toEqual({ file: "register.dcl", line: 1, column: 1 });
-    expect(sourcesByLabel.get("RegistrationInput from Customer")).toEqual({ file: "register.dcl", line: 3, column: 7 });
-    expect(sourcesByLabel.get("RegistrationAccepted")).toEqual({ file: "register.dcl", line: 10, column: 5 });
-    expect(sourcesByLabel.get("PersistRegistration")).toEqual({ file: "register.dcl", line: 14, column: 3 });
-    expect(sourcesByLabel.get("VerificationMessageSent")).toEqual({ file: "register.dcl", line: 15, column: 3 });
-    expect(sourcesByLabel.get("RegistrationReliability")).toEqual({ file: "policies.dcl", line: 2, column: 1 });
+    expect(sourcesByName.get("RegisterCustomer")).toEqual({ file: "register.dcl", line: 1, column: 1 });
+    expect(sourcesByName.get("RegistrationInput from Customer")).toEqual({ file: "register.dcl", line: 3, column: 7 });
+    expect(sourcesByName.get("RegistrationAccepted")).toEqual({ file: "register.dcl", line: 10, column: 5 });
+    expect(sourcesByName.get("PersistRegistration")).toEqual({ file: "register.dcl", line: 14, column: 3 });
+    expect(sourcesByName.get("VerificationMessageSent")).toEqual({ file: "register.dcl", line: 15, column: 3 });
+    expect(sourcesByName.get("RegistrationReliability")).toEqual({ file: "policies.dcl", line: 2, column: 1 });
   });
 
   it("leaves graph nodes unlocated when the compiler summary has no source metadata", () => {
@@ -87,14 +91,18 @@ describe("DclCapabilityGraphBuilder", () => {
     });
 
     expect(graph.nodes).toEqual([
-      { id: "capability:unlocatedcapability", label: "UnlocatedCapability", kind: "capability", source: undefined },
-      { id: "intents:unlocatedintent", label: "UnlocatedIntent", kind: "intent", source: undefined },
+      { id: "capability:unlocatedcapability", label: "Unlocated Capability", sourceName: "UnlocatedCapability", kind: "capability", source: undefined },
+      { id: "intents:unlocatedintent", label: "Unlocated Intent", sourceName: "UnlocatedIntent", kind: "intent", source: undefined },
     ]);
   });
 
   it("selects one capability by name from a semantic summary", () => {
     const summary: SemanticSummary = { capabilities: [capability] };
-    expect(buildCapabilityGraph(summary, "RegisterCustomer")?.nodes[0].label).toBe("RegisterCustomer");
+    expect(buildCapabilityGraph(summary, "RegisterCustomer")?.nodes[0]).toMatchObject({
+      id: "capability:registercustomer",
+      label: "Register Customer",
+      sourceName: "RegisterCustomer",
+    });
     expect(buildCapabilityGraph(summary, "Missing")).toBeUndefined();
   });
 });

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildLifecycleGraph = buildLifecycleGraph;
 exports.buildLifecycleGraphFromCapability = buildLifecycleGraphFromCapability;
+const DclGraphLabels_1 = require("./DclGraphLabels");
 function buildLifecycleGraph(summary, capabilityName) {
     const capability = summary.capabilities.find((item) => item.name === capabilityName);
     if (!capability?.lifecycle)
@@ -13,7 +14,8 @@ function buildLifecycleGraphFromCapability(capability) {
     const nodes = [
         {
             id: lifecycleId,
-            label: `${capability.name} lifecycle`,
+            label: `${(0, DclGraphLabels_1.displayNameForGraph)(capability.name)} Lifecycle`,
+            sourceName: `${capability.name} lifecycle`,
             kind: "lifecycle",
             source: firstLifecycleLocation(capability),
         },
@@ -25,7 +27,8 @@ function buildLifecycleGraphFromCapability(capability) {
     for (const stepName of stepNames) {
         nodes.push({
             id: stepId(stepName),
-            label: stepName,
+            label: (0, DclGraphLabels_1.displayNameForGraph)(stepName),
+            sourceName: stepName,
             kind: stepKind(stepName, initialStep, terminalSteps),
             source: lifecycleLocation(capability, stepName),
         });
@@ -69,7 +72,12 @@ function transitionLabel(transition) {
     const trigger = [transition.triggerKind, transition.triggerName].filter(Boolean).join(" ");
     if (!trigger)
         return "transition";
-    return transition.sourceCapability ? `on ${trigger} from ${transition.sourceCapability}` : `on ${trigger}`;
+    const readableTrigger = transition.triggerName
+        ? `${transition.triggerKind} ${(0, DclGraphLabels_1.displayNameForGraph)(transition.triggerName)}`
+        : transition.triggerKind;
+    return transition.sourceCapability
+        ? `on ${readableTrigger} from ${(0, DclGraphLabels_1.displayNameForGraph)(transition.sourceCapability)}`
+        : `on ${readableTrigger}`;
 }
 function stepKind(stepName, initialStep, terminalSteps) {
     if (stepName === initialStep)
