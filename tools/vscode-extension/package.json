@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {

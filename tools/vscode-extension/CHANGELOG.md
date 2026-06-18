@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.3
+
+- Added graph node selection in the capability graph WebView.
+- Added trusted graph-to-source navigation by resolving selected node ids in the extension host.
+- Added selected-node styling and a node details panel with label, kind, and relationship summary.
+- Kept source paths out of WebView selection messages.
+- Added graph source metadata tests.
+
 ## 0.3.1
 
 - Corrected the extension version line after the v0.3 graph foundation.

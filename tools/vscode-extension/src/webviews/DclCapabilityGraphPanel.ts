@@ -1,13 +1,25 @@
 import * as vscode from "vscode";
 import { DclGraphModel } from "../graphs/DclGraphModel";
+import { revealSourceLocation } from "../source/DclSourceLocation";
+
+type GraphWebviewMessage = {
+  type: "nodeSelected";
+  nodeId: string;
+};
+
+type WebviewGraphModel = Omit<DclGraphModel, "nodes"> & {
+  nodes: Array<Omit<DclGraphModel["nodes"][number], "source">>;
+};
 
 export class DclCapabilityGraphPanel {
   private static currentPanel: vscode.WebviewPanel | undefined;
+  private static currentGraph: DclGraphModel | undefined;
 
   static show(extensionUri: vscode.Uri, graph: DclGraphModel): void {
     const title = graph.title || "DCL Capability Graph";
 
     if (DclCapabilityGraphPanel.currentPanel) {
+      DclCapabilityGraphPanel.currentGraph = graph;
       DclCapabilityGraphPanel.currentPanel.title = title;
       DclCapabilityGraphPanel.currentPanel.webview.html = renderHtml(DclCapabilityGraphPanel.currentPanel.webview, extensionUri, graph);
       DclCapabilityGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
@@ -27,17 +39,39 @@ export class DclCapabilityGraphPanel {
     );
 
     DclCapabilityGraphPanel.currentPanel = panel;
+    DclCapabilityGraphPanel.currentGraph = graph;
     panel.webview.html = renderHtml(panel.webview, extensionUri, graph);
+    panel.webview.onDidReceiveMessage((message: unknown) => {
+      void DclCapabilityGraphPanel.handleMessage(message);
+    });
     panel.onDidDispose(() => {
       DclCapabilityGraphPanel.currentPanel = undefined;
+      DclCapabilityGraphPanel.currentGraph = undefined;
     });
+  }
+
+  private static async handleMessage(message: unknown): Promise<void> {
+    if (!isGraphWebviewMessage(message)) return;
+
+    const node = DclCapabilityGraphPanel.currentGraph?.nodes.find((item) => item.id === message.nodeId);
+    if (!node) return;
+
+    if (!node.source) {
+      void vscode.window.showWarningMessage(`No source location is available for graph node '${node.label}'.`);
+      return;
+    }
+
+    const result = await revealSourceLocation(node.source, "oneBased");
+    if (!result.ok) {
+      void vscode.window.showWarningMessage(result.reason);
+    }
   }
 }
 
 function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: DclGraphModel): string {
   const nonce = nonceValue();
   const cytoscapeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "cytoscape.min.js"));
-  const graphJson = escapeScriptJson(graph);
+  const graphJson = escapeScriptJson(toWebviewGraph(graph));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -76,10 +110,75 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
       color: var(--vscode-descriptionForeground);
     }
 
-    #graph {
+    .content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
       width: 100vw;
       height: calc(100vh - 44px);
+      min-height: 0;
     }
+
+    #graph {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .details {
+      box-sizing: border-box;
+      border-left: 1px solid var(--vscode-panel-border);
+      padding: 14px;
+      overflow: auto;
+      background: var(--vscode-sideBar-background);
+      color: var(--vscode-sideBar-foreground);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .details-title {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vscode-sideBarTitle-foreground);
+    }
+
+    .detail-row {
+      margin: 0 0 10px;
+    }
+
+    .detail-label {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--vscode-descriptionForeground);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .detail-value {
+      overflow-wrap: anywhere;
+    }
+
+    .empty-detail {
+      color: var(--vscode-descriptionForeground);
+    }
+
+    @media (max-width: 720px) {
+      .content {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) 148px;
+      }
+
+      .details {
+        border-left: 0;
+        border-top: 1px solid var(--vscode-panel-border);
+      }
+    }
+
+    .hidden {
+      display: none;
+    }
+
   </style>
 </head>
 <body>
@@ -87,11 +186,42 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
     <span class="title">${escapeHtml(graph.title)}</span>
     <span class="subtitle">${graph.nodes.length} nodes, ${graph.edges.length} relationships</span>
   </header>
-  <main id="graph" aria-label="DCL capability graph"></main>
+  <main class="content">
+    <section id="graph" aria-label="DCL capability graph"></section>
+    <aside class="details" aria-live="polite">
+      <h2 class="details-title">Node Details</h2>
+      <p id="details-empty" class="empty-detail">Select a node to inspect it.</p>
+      <div id="details-content" class="hidden">
+        <p class="detail-row">
+          <span class="detail-label">Label</span>
+          <span id="detail-label" class="detail-value"></span>
+        </p>
+        <p class="detail-row">
+          <span class="detail-label">Kind</span>
+          <span id="detail-kind" class="detail-value"></span>
+        </p>
+        <p class="detail-row">
+          <span class="detail-label">Relationships</span>
+          <span id="detail-relationships" class="detail-value"></span>
+        </p>
+      </div>
+    </aside>
+  </main>
   <script nonce="${nonce}" src="${cytoscapeUri}"></script>
   <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
     const graph = ${graphJson};
     const editorBackground = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
+    const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+    const incomingByNode = new Map();
+    const outgoingByNode = new Map();
+    for (const edge of graph.edges) {
+      if (!outgoingByNode.has(edge.source)) outgoingByNode.set(edge.source, []);
+      if (!incomingByNode.has(edge.target)) incomingByNode.set(edge.target, []);
+      outgoingByNode.get(edge.source).push(edge);
+      incomingByNode.get(edge.target).push(edge);
+    }
+
     const elements = [
       ...graph.nodes.map((node) => ({
         data: { id: node.id, label: node.label, kind: node.kind },
@@ -102,7 +232,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
       }))
     ];
 
-    cytoscape({
+    const cy = cytoscape({
       container: document.getElementById('graph'),
       elements,
       layout: {
@@ -150,6 +280,15 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
           }
         },
         {
+          selector: 'node:selected',
+          style: {
+            'border-width': 4,
+            'border-color': '#f2cc60',
+            'overlay-color': '#f2cc60',
+            'overlay-opacity': 0.16
+          }
+        },
+        {
           selector: 'edge',
           style: {
             'label': 'data(label)',
@@ -170,9 +309,54 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, graph: Dc
       userPanningEnabled: true,
       boxSelectionEnabled: false
     });
+
+    cy.on('tap', 'node', (event) => {
+      const node = event.target;
+      const nodeId = node.id();
+      updateDetails(nodeId);
+      vscode.postMessage({ type: 'nodeSelected', nodeId });
+    });
+
+    function updateDetails(nodeId) {
+      const node = nodeById.get(nodeId);
+      if (!node) return;
+
+      document.getElementById('details-empty').classList.add('hidden');
+      document.getElementById('details-content').classList.remove('hidden');
+      document.getElementById('detail-label').textContent = node.label;
+      document.getElementById('detail-kind').textContent = node.kind;
+      document.getElementById('detail-relationships').textContent = relationshipSummary(nodeId);
+    }
+
+    function relationshipSummary(nodeId) {
+      const outgoing = outgoingByNode.get(nodeId) || [];
+      const incoming = incomingByNode.get(nodeId) || [];
+      const parts = [
+        ...outgoing.map((edge) => edge.label + ' ' + labelFor(edge.target)),
+        ...incoming.map((edge) => labelFor(edge.source) + ' ' + edge.label)
+      ];
+      return parts.length ? parts.join('; ') : 'No relationships';
+    }
+
+    function labelFor(nodeId) {
+      return nodeById.get(nodeId)?.label || nodeId;
+    }
   </script>
 </body>
 </html>`;
+}
+
+function isGraphWebviewMessage(message: unknown): message is GraphWebviewMessage {
+  if (!message || typeof message !== "object") return false;
+  const candidate = message as Partial<GraphWebviewMessage>;
+  return candidate.type === "nodeSelected" && typeof candidate.nodeId === "string" && candidate.nodeId.trim() !== "";
+}
+
+function toWebviewGraph(graph: DclGraphModel): WebviewGraphModel {
+  return {
+    ...graph,
+    nodes: graph.nodes.map(({ source: _source, ...node }) => node),
+  };
 }
 
 function escapeScriptJson(value: unknown): string {

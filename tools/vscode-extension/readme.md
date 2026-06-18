@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3.1 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.3 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -14,7 +14,7 @@ The extension is intentionally thin. It does not implement a parser, duplicate c
 - Compiler-backed diagnostics in VS Code Problems
 - Compiler-backed semantic summary tree
 - DCL Explorer Activity Bar view for architecture navigation
-- Read-only capability graph WebView for one selected capability at a time
+- Interactive capability graph WebView for one selected capability at a time
 - Commands for compiling files, compiling workspaces, showing summaries, and formatting documents
 
 ## Setup
@@ -62,13 +62,15 @@ npm run lint
 npm test
 ```
 
-Open this folder in VS Code and launch `Run DCL Extension` to start an Extension Development Host.
+Open this folder in VS Code and launch `Run DCL Extension` to start an Extension Development Host. (press F5, and select the Run DCL Extension launch configuration.)
 
 To package a VSIX:
 
 ```bash
 npm run package
 ```
+
+Do not double-click the VSIX. Install it through VS Code using Extensions: Install from VSIX... (cmd + shift + p)
 
 For a packaging smoke test:
 
@@ -85,7 +87,7 @@ See `DEVELOPMENT.md` for fixture-based testing notes and handoff details.
 - `DCL: Show Semantic Summary`: compiles the active `.dcl` file and focuses the semantic summary tree.
 - `DCL: Format Document`: delegates formatting to the compiler.
 - `DCL: Refresh Explorer`: recompiles the active DCL file when one is open, otherwise compiles the workspace and refreshes the DCL Explorer.
-- `DCL: Show Capability Graph`: opens a read-only Cytoscape graph for one selected capability.
+- `DCL: Show Capability Graph`: opens an interactive Cytoscape graph for one selected capability.
 
 ## DCL Explorer
 
@@ -138,7 +140,11 @@ The v0.3 graph includes available compiler-provided capability relationships:
 - capability governed by policy
 - capability owns lifecycle
 
-The graph is read-only in v0.3. It does not provide source-to-graph navigation, graph-to-source navigation, event flow graphs, context graphs, dependency graphs, or lifecycle-specific graphs yet.
+Selecting a graph node updates the node details panel with its label, kind, and relationship summary. If the compiler semantic summary includes a source location for that node, selection also reveals the DCL source in VS Code. Nodes without compiler-provided source locations remain selectable and never crash navigation.
+
+Graph-to-source navigation is resolved by the extension host from the trusted graph model. The WebView sends only the selected node id; it does not send source file paths back to the extension.
+
+The graph remains intentionally narrow in v0.3.3. It does not provide source-to-graph navigation, event flow graphs, context graphs, dependency graphs, lifecycle-specific graphs, or full bidirectional syncing yet.
 
 ## Source Navigation
 
@@ -162,7 +168,7 @@ Screenshot placeholder: DCL Semantic Summary tree generated from compiler IR.
 
 ### Capability Graph
 
-Screenshot placeholder: read-only capability graph with the selected capability as the central node.
+Screenshot placeholder: interactive capability graph with a selected node and node details panel.
 
 ## Settings
 
@@ -177,7 +183,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3.1 includes:
+v0.3.3 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -187,13 +193,13 @@ v0.3.1 includes:
 - source-range hardening for explorer navigation
 - packaging and contributor development hardening
 - automated unit test foundation
-- first read-only capability graph visualisation
+- first capability graph visualisation with node selection and graph-to-source navigation
 - CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3.1:
+Deferred beyond v0.3.3:
 
 - richer navigation and source linking
-- source-to-graph and graph-to-source navigation
+- source-to-graph navigation and full bidirectional graph syncing
 - event flow, context, dependency, and lifecycle-specific graphs
 - compiler-provided quick fixes
 - optional language server, if the project chooses that architecture later
