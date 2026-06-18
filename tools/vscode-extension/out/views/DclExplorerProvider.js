@@ -110,8 +110,8 @@ class DclExplorerProvider {
         const roots = [
             group("Contexts", summary.contexts?.map((context) => {
                 const dependencies = section("Dependencies", context.dependencies?.map((item) => itemNode(item)));
-                return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "item");
-            })),
+                return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "context");
+            }), "dclExplorer.contexts"),
             group("Capabilities", summary.capabilities.map(capabilityNode)),
             group("Actors", semanticItems(summary.actors)),
             group("Policies", semanticItems(summary.policies)),
@@ -188,6 +188,8 @@ function iconFor(kind, label) {
         return new vscode.ThemeIcon("info");
     if (kind === "group")
         return new vscode.ThemeIcon("folder");
+    if (kind === "context")
+        return new vscode.ThemeIcon("symbol-namespace");
     if (kind === "capability")
         return new vscode.ThemeIcon("symbol-class");
     if (kind === "lifecycle")

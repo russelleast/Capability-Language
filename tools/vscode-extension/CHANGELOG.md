@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.7
+
+- Added `DCL: Show Context Map` for compiler-provided contexts and explicit dependencies.
+- Added context map graph model generation for context hierarchy, dependency edges, and missing context references.
+- Added context map WebView controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer context map entries for context nodes and the top-level Contexts section.
+- Added context map graph model tests.
+
 ## 0.3.6
 
 - Added `DCL: Show Event Flow Graph` for compiler-provided event emissions and references.

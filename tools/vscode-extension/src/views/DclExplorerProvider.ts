@@ -8,7 +8,7 @@ import {
   summarizeCompilerOutput,
 } from "./semanticSummary";
 
-type ExplorerNodeKind = "empty" | "group" | "capability" | "lifecycle" | "event" | "section" | "item";
+type ExplorerNodeKind = "empty" | "group" | "context" | "capability" | "lifecycle" | "event" | "section" | "item";
 type CapabilityListKind = Exclude<CapabilityItemKind, "lifecycle">;
 type ExplorerState =
   | { kind: "empty"; message: string }
@@ -99,8 +99,8 @@ export class DclExplorerProvider implements vscode.TreeDataProvider<DclExplorerN
     const roots = [
       group("Contexts", summary.contexts?.map((context) => {
         const dependencies = section("Dependencies", context.dependencies?.map((item) => itemNode(item)));
-        return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "item");
-      })),
+        return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "context");
+      }), "dclExplorer.contexts"),
       group("Capabilities", summary.capabilities.map(capabilityNode)),
       group("Actors", semanticItems(summary.actors)),
       group("Policies", semanticItems(summary.policies)),
@@ -183,6 +183,7 @@ function eventNode(label: string, location: SourceLocation | undefined, capabili
 function iconFor(kind: ExplorerNodeKind, label: string): vscode.ThemeIcon | undefined {
   if (kind === "empty") return new vscode.ThemeIcon("info");
   if (kind === "group") return new vscode.ThemeIcon("folder");
+  if (kind === "context") return new vscode.ThemeIcon("symbol-namespace");
   if (kind === "capability") return new vscode.ThemeIcon("symbol-class");
   if (kind === "lifecycle") return new vscode.ThemeIcon("git-branch");
   if (kind === "event") return new vscode.ThemeIcon("symbol-event");

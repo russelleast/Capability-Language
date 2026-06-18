@@ -41,12 +41,14 @@ const DclDiagnosticProvider_1 = require("./diagnostics/DclDiagnosticProvider");
 const DclFormattingProvider_1 = require("./formatting/DclFormattingProvider");
 const DclHoverProvider_1 = require("./hovers/DclHoverProvider");
 const DclCapabilityGraphBuilder_1 = require("./graphs/DclCapabilityGraphBuilder");
+const DclContextMapGraphBuilder_1 = require("./graphs/DclContextMapGraphBuilder");
 const DclEventFlowGraphBuilder_1 = require("./graphs/DclEventFlowGraphBuilder");
 const DclLifecycleGraphBuilder_1 = require("./graphs/DclLifecycleGraphBuilder");
 const DclSourceLocation_1 = require("./source/DclSourceLocation");
 const DclExplorerProvider_1 = require("./views/DclExplorerProvider");
 const DclSummaryProvider_1 = require("./views/DclSummaryProvider");
 const DclCapabilityGraphPanel_1 = require("./webviews/DclCapabilityGraphPanel");
+const DclContextMapGraphPanel_1 = require("./webviews/DclContextMapGraphPanel");
 const DclEventFlowGraphPanel_1 = require("./webviews/DclEventFlowGraphPanel");
 const DclLifecycleGraphPanel_1 = require("./webviews/DclLifecycleGraphPanel");
 const DCL_SELECTOR = { language: "dcl", scheme: "file" };
@@ -55,7 +57,7 @@ function activate(context) {
     const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler);
     const summary = new DclSummaryProvider_1.DclSummaryProvider();
     const explorer = new DclExplorerProvider_1.DclExplorerProvider();
-    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => showCapabilityGraph(context.extensionUri, explorer, node)), vscode.commands.registerCommand("dcl.showEventFlowGraph", (node) => showEventFlowGraph(context.extensionUri, explorer, node)), vscode.commands.registerCommand("dcl.showLifecycleGraph", (node) => showLifecycleGraph(context.extensionUri, explorer, node)), vscode.workspace.onDidSaveTextDocument((document) => {
+    context.subscriptions.push(diagnostics, vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider_1.DclHoverProvider()), vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider_1.DclFormattingProvider(compiler)), vscode.window.registerTreeDataProvider("dclSemanticSummary", summary), vscode.window.registerTreeDataProvider("dclExplorer", explorer), vscode.commands.registerCommand("dcl.compileCurrentFile", () => compileCurrentFile(diagnostics, summary, explorer, false)), vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)), vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")), vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)), vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location) => revealSemanticItemInSource(location)), vscode.commands.registerCommand("dcl.showCapabilityGraph", (node) => showCapabilityGraph(context.extensionUri, explorer, node)), vscode.commands.registerCommand("dcl.showContextMap", (node) => showContextMap(context.extensionUri, explorer, node)), vscode.commands.registerCommand("dcl.showEventFlowGraph", (node) => showEventFlowGraph(context.extensionUri, explorer, node)), vscode.commands.registerCommand("dcl.showLifecycleGraph", (node) => showLifecycleGraph(context.extensionUri, explorer, node)), vscode.workspace.onDidSaveTextDocument((document) => {
         const compileOnSave = vscode.workspace.getConfiguration("dcl").get("compileOnSave", true);
         if (compileOnSave && document.languageId === "dcl" && document.uri.scheme === "file") {
             void compileFiles([document.uri], diagnostics, summary, explorer, false, false);
@@ -202,6 +204,38 @@ function eventFlowNames(summary) {
         }
     }
     return Array.from(names).sort();
+}
+async function showContextMap(extensionUri, explorer, node) {
+    const summary = explorer.getSummary();
+    if (!summary?.contexts?.length) {
+        DclContextMapGraphPanel_1.DclContextMapGraphPanel.showEmpty(extensionUri, "No Compiled Semantic Summary", "Compile DCL before opening a context map.");
+        return;
+    }
+    let contextName = node?.kind === "context" ? String(node.label) : undefined;
+    if (!contextName && node?.contextValue !== "dclExplorer.contexts") {
+        contextName = await pickContext(summary);
+    }
+    const graph = (0, DclContextMapGraphBuilder_1.buildContextMapGraph)(summary, contextName);
+    if (!graph) {
+        DclContextMapGraphPanel_1.DclContextMapGraphPanel.showEmpty(extensionUri, "No Contexts Declared", "The compiled semantic summary does not include declared contexts.");
+        return;
+    }
+    DclContextMapGraphPanel_1.DclContextMapGraphPanel.show(extensionUri, graph, contextName);
+}
+async function pickContext(summary) {
+    const choices = summary.contexts?.map((context) => ({
+        label: context.name,
+        description: context.parent ? `child of ${context.parent}` : undefined,
+        detail: [
+            context.children?.length ? `${context.children.length} child${context.children.length === 1 ? "" : "ren"}` : undefined,
+            context.dependencies?.length ? `${context.dependencies.length} dependenc${context.dependencies.length === 1 ? "y" : "ies"}` : undefined,
+        ].filter(Boolean).join(", ") || undefined,
+    })) ?? [];
+    const picked = await vscode.window.showQuickPick([
+        { label: "All contexts", contextName: undefined, description: `${choices.length} context${choices.length === 1 ? "" : "s"}` },
+        ...choices.map((choice) => ({ ...choice, contextName: choice.label })),
+    ], { title: "Select DCL Context Map" });
+    return picked?.contextName;
 }
 function deactivate() { }
 async function compileCurrentFile(diagnostics, summary, explorer, revealSummary) {

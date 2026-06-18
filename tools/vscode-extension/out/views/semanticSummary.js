@@ -108,6 +108,8 @@ function summarizeContexts(contexts, symbolLocations) {
         return undefined;
     return nonEmpty(contexts.map((context) => isObject(context) ? ({
         name: context.name ?? "Unnamed context",
+        parent: context.parent,
+        children: nonEmpty(arrayItems(context.children)),
         dependencies: nonEmpty(arrayItems(context.dependencies)),
         location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined));

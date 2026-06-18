@@ -12,6 +12,8 @@ export type SemanticSummary = {
 
 export type ContextSummary = {
   name: string;
+  parent?: string;
+  children?: string[];
   dependencies?: string[];
   location?: SourceLocation;
 };
@@ -98,6 +100,8 @@ type CapabilityOutput = {
 
 type ContextOutput = {
   name?: string;
+  parent?: string;
+  children?: string[];
   dependencies?: string[];
 };
 
@@ -315,6 +319,8 @@ function summarizeContexts(contexts: ContextOutput[] | undefined, symbolLocation
   return nonEmpty(
     contexts.map((context) => isObject(context) ? ({
       name: context.name ?? "Unnamed context",
+      parent: context.parent,
+      children: nonEmpty(arrayItems(context.children)),
       dependencies: nonEmpty(arrayItems(context.dependencies)),
       location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined),

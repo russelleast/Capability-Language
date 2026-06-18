@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -37,6 +37,7 @@
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
     "onCommand:dcl.showCapabilityGraph",
+    "onCommand:dcl.showContextMap",
     "onCommand:dcl.showEventFlowGraph",
     "onCommand:dcl.showLifecycleGraph",
     "onView:dclSemanticSummary",
@@ -106,6 +107,11 @@
       {
         "command": "dcl.showCapabilityGraph",
         "title": "DCL: Show Capability Graph",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showContextMap",
+        "title": "DCL: Show Context Map",
         "category": "DCL"
       },
       {
@@ -182,6 +188,9 @@
           "command": "dcl.showCapabilityGraph"
         },
         {
+          "command": "dcl.showContextMap"
+        },
+        {
           "command": "dcl.showEventFlowGraph"
         },
         {
@@ -205,6 +214,21 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "dcl.showContextMap",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showContextMap",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context.located",
+          "group": "inline"
+        },
+        {
+          "command": "dcl.showContextMap",
+          "when": "view == dclExplorer && viewItem == dclExplorer.contexts",
+          "group": "inline"
+        },
         {
           "command": "dcl.showCapabilityGraph",
           "when": "view == dclExplorer && viewItem == dclExplorer.capability.located",

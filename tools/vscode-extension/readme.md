@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3.6 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.7 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -14,7 +14,7 @@ The extension is intentionally thin. It does not implement a parser, duplicate c
 - Compiler-backed diagnostics in VS Code Problems
 - Compiler-backed semantic summary tree
 - DCL Explorer Activity Bar view for architecture navigation
-- Interactive capability, lifecycle, and event flow graph WebViews
+- Interactive capability, lifecycle, event flow, and context map graph WebViews
 - Commands for compiling files, compiling workspaces, showing summaries, and formatting documents
 
 ## Setup
@@ -88,6 +88,7 @@ See `DEVELOPMENT.md` for fixture-based testing notes and handoff details.
 - `DCL: Format Document`: delegates formatting to the compiler.
 - `DCL: Refresh Explorer`: recompiles the active DCL file when one is open, otherwise compiles the workspace and refreshes the DCL Explorer.
 - `DCL: Show Capability Graph`: opens an interactive Cytoscape graph for one selected capability.
+- `DCL: Show Context Map`: opens an interactive Cytoscape graph for DCL contexts and explicit dependencies.
 - `DCL: Show Event Flow Graph`: opens an interactive Cytoscape graph for one selected event or all event flows.
 - `DCL: Show Lifecycle Graph`: opens an interactive Cytoscape graph for one selected capability lifecycle.
 
@@ -218,7 +219,34 @@ Selecting an event flow graph node updates the details panel with label, kind, e
 
 Event flow graph empty states are explicit: no compiled semantic summary, no declared events, selected event has no known emitters, and selected event has no known references or consumers.
 
-The graph feature remains intentionally narrow in v0.3.6. It does not provide source-to-graph navigation, context graphs, dependency graphs, or full bidirectional syncing yet.
+## Context Map
+
+`DCL: Show Context Map` visualises DCL contexts as semantic boundaries and capability grouping mechanisms. It is built from the normalized compiler semantic summary and does not infer relationships from folders, modules, or deployment structure.
+
+When launched from a context in the DCL Explorer, the command opens the selected context with related parent, child, dependency, and dependent contexts where compiler data exists. When launched from the Command Palette or top-level Contexts section, it can show all contexts.
+
+Context map nodes distinguish:
+
+- context
+- child context
+- external/missing context reference
+
+Context map edges use compiler-provided relationships:
+
+- `contains`
+- `depends on`
+
+Context map controls:
+
+- `Fit`: fits the visible graph to the panel.
+- `Reset Layout`: reruns the context-map layout.
+- `Center Selected Context`: centers and selects the chosen context node.
+
+Selecting a context map node updates the details panel with context name, kind, parent context, child count, dependency count, and dependent count. If the compiler semantic summary includes a source location for that context, selection also reveals the DCL source in VS Code.
+
+Context map empty states are explicit: no compiled semantic summary, no contexts declared, and selected contexts with no dependencies or children.
+
+The graph feature remains intentionally narrow in v0.3.7. It does not provide source-to-graph navigation, dependency graph drilldowns, deployment diagrams, or full bidirectional syncing yet.
 
 ## Source Navigation
 
@@ -252,6 +280,10 @@ Screenshot placeholder: lifecycle graph showing initial, ordinary, and terminal 
 
 Screenshot placeholder: event flow graph showing emitting capabilities, event nodes, and compiler-known lifecycle transition references.
 
+### Context Map
+
+Screenshot placeholder: context map showing semantic context boundaries and explicit dependency relationships.
+
 ## Settings
 
 - `dcl.compilerPath`: path or command prefix for the DCL compiler. Leave empty to use the repository compiler when available, otherwise `dcl` on `PATH`.
@@ -265,7 +297,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3.6 includes:
+v0.3.7 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -278,13 +310,14 @@ v0.3.6 includes:
 - first capability graph visualisation with node selection, graph-to-source navigation, controls, legend, filters, and capability switching
 - lifecycle graph visualisation for compiler-provided lifecycle steps and transitions
 - event flow graph visualisation for compiler-provided event emissions and lifecycle event references
+- context map visualisation for compiler-provided context hierarchy and explicit dependencies
 - CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3.6:
+Deferred beyond v0.3.7:
 
 - richer navigation and source linking
 - source-to-graph navigation and full bidirectional graph syncing
-- context and dependency graphs
+- dependency graph drilldowns
 - compiler-provided quick fixes
 - optional language server, if the project chooses that architecture later
 

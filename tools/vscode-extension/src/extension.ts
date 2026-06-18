@@ -4,6 +4,7 @@ import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
 import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
+import { buildContextMapGraph } from "./graphs/DclContextMapGraphBuilder";
 import { buildEventFlowGraph } from "./graphs/DclEventFlowGraphBuilder";
 import { buildLifecycleGraph } from "./graphs/DclLifecycleGraphBuilder";
 import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
@@ -11,6 +12,7 @@ import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvide
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
 import { SemanticSummary } from "./views/semanticSummary";
 import { DclCapabilityGraphPanel } from "./webviews/DclCapabilityGraphPanel";
+import { DclContextMapGraphPanel } from "./webviews/DclContextMapGraphPanel";
 import { DclEventFlowGraphPanel } from "./webviews/DclEventFlowGraphPanel";
 import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 
@@ -35,6 +37,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
     vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => showCapabilityGraph(context.extensionUri, explorer, node)),
+    vscode.commands.registerCommand("dcl.showContextMap", (node?: DclExplorerNode) => showContextMap(context.extensionUri, explorer, node)),
     vscode.commands.registerCommand("dcl.showEventFlowGraph", (node?: DclExplorerNode) => showEventFlowGraph(context.extensionUri, explorer, node)),
     vscode.commands.registerCommand("dcl.showLifecycleGraph", (node?: DclExplorerNode) => showLifecycleGraph(context.extensionUri, explorer, node)),
     vscode.workspace.onDidSaveTextDocument((document) => {
@@ -269,6 +272,58 @@ function eventFlowNames(summary: SemanticSummary): string[] {
     }
   }
   return Array.from(names).sort();
+}
+
+async function showContextMap(
+  extensionUri: vscode.Uri,
+  explorer: DclExplorerProvider,
+  node: DclExplorerNode | undefined,
+): Promise<void> {
+  const summary = explorer.getSummary();
+  if (!summary?.contexts?.length) {
+    DclContextMapGraphPanel.showEmpty(
+      extensionUri,
+      "No Compiled Semantic Summary",
+      "Compile DCL before opening a context map.",
+    );
+    return;
+  }
+
+  let contextName = node?.kind === "context" ? String(node.label) : undefined;
+  if (!contextName && node?.contextValue !== "dclExplorer.contexts") {
+    contextName = await pickContext(summary);
+  }
+
+  const graph = buildContextMapGraph(summary, contextName);
+  if (!graph) {
+    DclContextMapGraphPanel.showEmpty(
+      extensionUri,
+      "No Contexts Declared",
+      "The compiled semantic summary does not include declared contexts.",
+    );
+    return;
+  }
+
+  DclContextMapGraphPanel.show(extensionUri, graph, contextName);
+}
+
+async function pickContext(summary: SemanticSummary): Promise<string | undefined> {
+  const choices = summary.contexts?.map((context) => ({
+    label: context.name,
+    description: context.parent ? `child of ${context.parent}` : undefined,
+    detail: [
+      context.children?.length ? `${context.children.length} child${context.children.length === 1 ? "" : "ren"}` : undefined,
+      context.dependencies?.length ? `${context.dependencies.length} dependenc${context.dependencies.length === 1 ? "y" : "ies"}` : undefined,
+    ].filter(Boolean).join(", ") || undefined,
+  })) ?? [];
+  const picked = await vscode.window.showQuickPick(
+    [
+      { label: "All contexts", contextName: undefined, description: `${choices.length} context${choices.length === 1 ? "" : "s"}` },
+      ...choices.map((choice) => ({ ...choice, contextName: choice.label })),
+    ],
+    { title: "Select DCL Context Map" },
+  );
+  return picked?.contextName;
 }
 
 export function deactivate(): void {}
