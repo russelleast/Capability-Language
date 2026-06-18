@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.10`
+Current extension version: `0.3.11`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -13,6 +13,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - Static hover help for core DCL primitives.
 - Compiler-backed diagnostics in VS Code Problems.
 - Compiler-backed document formatting.
+- Bundled DCL compiler binaries for macOS, Linux, and Windows.
 - DCL Explorer Activity Bar view for semantic navigation.
 - Source navigation for compiler-provided semantic locations.
 - Interactive graph WebViews for:
@@ -29,6 +30,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Compile Current File`: run the compiler for the active `.dcl` file and publish diagnostics.
 - `DCL: Compile Workspace`: compile workspace `.dcl` files together and refresh diagnostics.
 - `DCL: Show Semantic Summary`: compile the active `.dcl` file and focus the semantic summary tree.
+- `DCL: Show Compiler Info`: show which compiler the extension will run.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
 - `DCL: Show Architecture Overview`: open a workspace-level graph for contexts, capabilities, events, and lifecycle indicators.
@@ -41,7 +43,9 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 
 `dcl.compilerPath`
 
-Path to the DCL compiler executable. Leave empty to use the workspace compiler when available, otherwise `dcl` on PATH. The value may include fixed arguments, for example `go run ./cmd/dcl`.
+Optional path to a custom DCL compiler executable. Leave empty to use the bundled compiler for supported platforms, falling back to `dcl` on PATH. The value may include fixed arguments, for example `go run ./cmd/dcl`.
+
+The VSIX includes bundled compiler binaries for supported platforms. `dcl.compilerPath` is optional and is only needed when you want to use a custom compiler build.
 
 `dcl.compileOnSave`
 
@@ -107,7 +111,7 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 ## Installing From VSIX
 
-The extension is currently distributed as a VSIX package.
+The extension is currently distributed as a VSIX package. The VSIX includes the DCL compiler for macOS arm64, macOS x64, Linux x64, and Windows x64.
 
 1. Download the `.vsix` file from the project website or GitHub Actions artifact.
 2. In VS Code, open the Command Palette.
@@ -133,6 +137,18 @@ The extension is not published to the VS Code Marketplace yet. Marketplace publi
 - Graphs only show relationships exposed by the compiler semantic summary.
 - Full source-to-graph bidirectional syncing is not implemented.
 - Marketplace publishing is not automated yet.
+
+## Troubleshooting Compiler Errors
+
+Run `DCL: Show Compiler Info` to see the resolved compiler path, source, platform, architecture, and bundled compiler availability.
+
+Compiler resolution order:
+
+1. `dcl.compilerPath`, when configured.
+2. Bundled compiler matching the current platform and architecture.
+3. `dcl` from PATH.
+
+If compilation fails before diagnostics are produced, the error message includes the compiler path, source, exit code, and stderr when available.
 
 ## Links
 

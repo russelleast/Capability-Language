@@ -33,7 +33,7 @@ describe("DclCompilerAdapter", () => {
   it("throws a clear error for invalid JSON from a successful compiler run", async () => {
     const compiler = adapter({ exitCode: 0, stdout: "not json", stderr: "" });
 
-    await expect(compiler.compileFiles([file])).rejects.toThrow(/invalid JSON/);
+    await expect(compiler.compileFiles([file])).rejects.toThrow(/DCL compiler returned invalid JSON[\s\S]*Compiler: dcl/);
   });
 
   it("surfaces missing compiler failures", async () => {
@@ -71,6 +71,12 @@ describe("DclCompilerAdapter", () => {
   it("throws when the compiler exits non-zero with empty output", async () => {
     const compiler = adapter({ exitCode: 1, stdout: "", stderr: "" });
 
-    await expect(compiler.compileFiles([file])).rejects.toThrow(/without returning diagnostics/);
+    await expect(compiler.compileFiles([file])).rejects.toThrow(/failed before producing diagnostics[\s\S]*Exit code: 1/);
+  });
+
+  it("includes stderr in non-diagnostic compiler failures", async () => {
+    const compiler = adapter({ exitCode: 2, stdout: "", stderr: "panic: bad things" });
+
+    await expect(compiler.compileFiles([file])).rejects.toThrow(/stderr: panic: bad things/);
   });
 });

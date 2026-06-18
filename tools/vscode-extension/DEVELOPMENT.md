@@ -47,7 +47,7 @@ npm run test:watch
 
 Open `tools/vscode-extension` in VS Code, then use the `Run DCL Extension` launch configuration. This starts an Extension Development Host with the local extension loaded.
 
-The extension defaults to the repository compiler when the repository layout is available. Outside this repository, configure:
+The packaged extension defaults to the bundled compiler for supported platforms. During local development, configure `dcl.compilerPath` when you want to use a specific compiler build:
 
 ```json
 {
@@ -94,6 +94,10 @@ VS Code packages JavaScript from `out/`, so compiled output is intentionally inc
 
 Packaged runtime assets include:
 
+- `bin/dcl-darwin-arm64`
+- `bin/dcl-darwin-x64`
+- `bin/dcl-linux-x64`
+- `bin/dcl-win32-x64.exe`
 - `media/cytoscape.min.js`
 - `syntaxes/`
 - `snippets/`

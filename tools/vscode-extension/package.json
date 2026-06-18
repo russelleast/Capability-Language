@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -34,6 +34,7 @@
     "onCommand:dcl.compileCurrentFile",
     "onCommand:dcl.compileWorkspace",
     "onCommand:dcl.showSemanticSummary",
+    "onCommand:dcl.showCompilerInfo",
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
@@ -98,6 +99,11 @@
         "category": "DCL"
       },
       {
+        "command": "dcl.showCompilerInfo",
+        "title": "DCL: Show Compiler Info",
+        "category": "DCL"
+      },
+      {
         "command": "dcl.formatDocument",
         "title": "DCL: Format Document",
         "category": "DCL"
@@ -145,7 +151,7 @@
         "dcl.compilerPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the DCL compiler executable. Leave empty to use the workspace compiler when available, otherwise `dcl` on PATH. The value may include fixed arguments, for example `go run ./cmd/dcl`."
+          "markdownDescription": "Optional path to a custom DCL compiler executable. Leave empty to use the bundled compiler for supported platforms, falling back to `dcl` on PATH. The value may include fixed arguments, for example `go run ./cmd/dcl`."
         },
         "dcl.compileOnSave": {
           "type": "boolean",
@@ -190,6 +196,9 @@
         {
           "command": "dcl.showSemanticSummary",
           "when": "editorLangId == dcl"
+        },
+        {
+          "command": "dcl.showCompilerInfo"
         },
         {
           "command": "dcl.formatDocument",
@@ -386,11 +395,12 @@
     "watch": "tsc -watch -p ./",
     "lint": "tsc -p ./ --noEmit",
     "copy:vendor": "node scripts/copy-vendor-assets.mjs",
+    "build:compiler-binaries": "node scripts/build-compiler-binaries.mjs",
     "package": "vsce package",
-    "package:smoke": "npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
+    "package:smoke": "npm run build:compiler-binaries && npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vscode:prepublish": "npm run copy:vendor && npm run compile"
+    "vscode:prepublish": "npm run build:compiler-binaries && npm run copy:vendor && npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
