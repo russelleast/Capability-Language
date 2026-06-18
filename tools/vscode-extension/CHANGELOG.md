@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.8
+
+- Added `DCL: Show Architecture Overview` as the workspace-level starting graph.
+- Added architecture overview graph model generation for overview, detailed, and full detail levels.
+- Added architecture overview WebView detail selector, controls, legend, node details, empty states, and trusted graph-to-source navigation.
+- Added DCL Explorer title/context entries for opening the architecture overview.
+- Added architecture overview graph model tests.
+
 ## 0.3.7
 
 - Added `DCL: Show Context Map` for compiler-provided contexts and explicit dependencies.

@@ -3,6 +3,7 @@ import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdap
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
+import { buildArchitectureOverviewGraphs } from "./graphs/DclArchitectureOverviewGraphBuilder";
 import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
 import { buildContextMapGraph } from "./graphs/DclContextMapGraphBuilder";
 import { buildEventFlowGraph } from "./graphs/DclEventFlowGraphBuilder";
@@ -11,6 +12,7 @@ import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocat
 import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvider";
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
 import { SemanticSummary } from "./views/semanticSummary";
+import { DclArchitectureOverviewGraphPanel } from "./webviews/DclArchitectureOverviewGraphPanel";
 import { DclCapabilityGraphPanel } from "./webviews/DclCapabilityGraphPanel";
 import { DclContextMapGraphPanel } from "./webviews/DclContextMapGraphPanel";
 import { DclEventFlowGraphPanel } from "./webviews/DclEventFlowGraphPanel";
@@ -36,6 +38,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
+    vscode.commands.registerCommand("dcl.showArchitectureOverview", () => showArchitectureOverview(context.extensionUri, explorer)),
     vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => showCapabilityGraph(context.extensionUri, explorer, node)),
     vscode.commands.registerCommand("dcl.showContextMap", (node?: DclExplorerNode) => showContextMap(context.extensionUri, explorer, node)),
     vscode.commands.registerCommand("dcl.showEventFlowGraph", (node?: DclExplorerNode) => showEventFlowGraph(context.extensionUri, explorer, node)),
@@ -47,6 +50,30 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+}
+
+function showArchitectureOverview(extensionUri: vscode.Uri, explorer: DclExplorerProvider): void {
+  const summary = explorer.getSummary();
+  if (!summary) {
+    DclArchitectureOverviewGraphPanel.showEmpty(
+      extensionUri,
+      "No Compiled Semantic Summary",
+      "Compile DCL before opening the architecture overview.",
+    );
+    return;
+  }
+
+  const graphs = buildArchitectureOverviewGraphs(summary);
+  if (!graphs) {
+    DclArchitectureOverviewGraphPanel.showEmpty(
+      extensionUri,
+      "No Architecture Items",
+      "The compiled semantic summary does not include contexts or capabilities.",
+    );
+    return;
+  }
+
+  DclArchitectureOverviewGraphPanel.show(extensionUri, graphs);
 }
 
 async function showCapabilityGraph(

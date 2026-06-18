@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-This extension provides v0.3.7 editor support for Declarative Capability Language (`.dcl`) files.
+This extension provides v0.3.8 editor support for Declarative Capability Language (`.dcl`) files.
 
 The extension is intentionally thin. It does not implement a parser, duplicate compiler semantics, infer semantic validity, or run a language server. The DCL compiler CLI is the source of truth for diagnostics, formatting, semantic summary data, and graph inputs.
 
@@ -14,7 +14,7 @@ The extension is intentionally thin. It does not implement a parser, duplicate c
 - Compiler-backed diagnostics in VS Code Problems
 - Compiler-backed semantic summary tree
 - DCL Explorer Activity Bar view for architecture navigation
-- Interactive capability, lifecycle, event flow, and context map graph WebViews
+- Interactive architecture overview, capability, lifecycle, event flow, and context map graph WebViews
 - Commands for compiling files, compiling workspaces, showing summaries, and formatting documents
 
 ## Setup
@@ -87,6 +87,7 @@ See `DEVELOPMENT.md` for fixture-based testing notes and handoff details.
 - `DCL: Show Semantic Summary`: compiles the active `.dcl` file and focuses the semantic summary tree.
 - `DCL: Format Document`: delegates formatting to the compiler.
 - `DCL: Refresh Explorer`: recompiles the active DCL file when one is open, otherwise compiles the workspace and refreshes the DCL Explorer.
+- `DCL: Show Architecture Overview`: opens a workspace-level graph for contexts, capabilities, events, and lifecycle indicators.
 - `DCL: Show Capability Graph`: opens an interactive Cytoscape graph for one selected capability.
 - `DCL: Show Context Map`: opens an interactive Cytoscape graph for DCL contexts and explicit dependencies.
 - `DCL: Show Event Flow Graph`: opens an interactive Cytoscape graph for one selected event or all event flows.
@@ -126,6 +127,36 @@ The explorer distinguishes these empty and failure states:
 - compiler unavailable
 
 The explorer title bar includes refresh and compile-workspace actions.
+
+## Architecture Overview
+
+`DCL: Show Architecture Overview` opens the workspace-level starting graph for understanding the shape of a compiled DCL workspace. It is built from the normalized compiler semantic summary and keeps capabilities as the primary architectural unit.
+
+The overview answers:
+
+- what contexts exist
+- what capabilities exist
+- how capabilities are grouped by semantic context
+- what events connect behaviour when compiler data exists
+- which capabilities have lifecycle semantics
+
+The architecture overview has three detail levels:
+
+- `Overview`: contexts and capabilities only
+- `Detailed`: contexts, capabilities, and events
+- `Full`: contexts, capabilities, events, and lifecycle indicators
+
+Architecture overview edges use compiler-provided relationships:
+
+- context contains capability
+- parent context contains child context
+- capability emits event
+- event references capability where compiler summary provides lifecycle event references
+- capability has lifecycle
+
+The WebView includes `Fit`, `Reset Layout`, `Center Selection`, and a detail-level selector. Selecting a graph node updates the detail panel with label, kind, context, capability count, event count, and lifecycle presence. If the compiler semantic summary includes a source location for that node, selection also reveals the DCL source in VS Code.
+
+If context data is missing, capabilities are grouped under a `Workspace` context. If a capability has no context while other contexts exist, it is grouped under `Uncontexted`. These are display grouping nodes, not inferred DCL declarations.
 
 ## Capability Graph
 
@@ -246,7 +277,7 @@ Selecting a context map node updates the details panel with context name, kind, 
 
 Context map empty states are explicit: no compiled semantic summary, no contexts declared, and selected contexts with no dependencies or children.
 
-The graph feature remains intentionally narrow in v0.3.7. It does not provide source-to-graph navigation, dependency graph drilldowns, deployment diagrams, or full bidirectional syncing yet.
+The graph feature remains intentionally narrow in v0.3.8. It does not provide source-to-graph navigation, dependency graph drilldowns, deployment diagrams, infrastructure concepts, or full bidirectional syncing yet.
 
 ## Source Navigation
 
@@ -267,6 +298,10 @@ Screenshot placeholder: DCL Explorer showing capability-first architecture navig
 ### Semantic Summary
 
 Screenshot placeholder: DCL Semantic Summary tree generated from compiler IR.
+
+### Architecture Overview
+
+Screenshot placeholder: architecture overview graph with contexts, capabilities, events, and lifecycle indicators by detail level.
 
 ### Capability Graph
 
@@ -297,7 +332,7 @@ Diagnostics are cleared for files that become valid after a successful compile.
 
 ## Roadmap
 
-v0.3.7 includes:
+v0.3.8 includes:
 
 - compiler-backed diagnostics
 - compiler-backed formatting hook
@@ -311,9 +346,10 @@ v0.3.7 includes:
 - lifecycle graph visualisation for compiler-provided lifecycle steps and transitions
 - event flow graph visualisation for compiler-provided event emissions and lifecycle event references
 - context map visualisation for compiler-provided context hierarchy and explicit dependencies
+- architecture overview graph with overview, detailed, and full detail levels
 - CI build, test, and VSIX packaging artifact
 
-Deferred beyond v0.3.7:
+Deferred beyond v0.3.8:
 
 - richer navigation and source linking
 - source-to-graph navigation and full bidirectional graph syncing

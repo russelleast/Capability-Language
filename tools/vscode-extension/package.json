@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -36,6 +36,7 @@
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
     "onCommand:dcl.showContextMap",
     "onCommand:dcl.showEventFlowGraph",
@@ -102,6 +103,11 @@
       {
         "command": "dcl.revealSemanticItemInSource",
         "title": "DCL: Reveal Semantic Item in Source",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showArchitectureOverview",
+        "title": "DCL: Show Architecture Overview",
         "category": "DCL"
       },
       {
@@ -185,6 +191,9 @@
           "command": "dcl.refreshExplorer"
         },
         {
+          "command": "dcl.showArchitectureOverview"
+        },
+        {
           "command": "dcl.showCapabilityGraph"
         },
         {
@@ -211,9 +220,24 @@
           "command": "dcl.compileWorkspace",
           "when": "view == dclExplorer",
           "group": "navigation@1"
+        },
+        {
+          "command": "dcl.showArchitectureOverview",
+          "when": "view == dclExplorer",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
+        {
+          "command": "dcl.showArchitectureOverview",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context",
+          "group": "inline@1"
+        },
+        {
+          "command": "dcl.showArchitectureOverview",
+          "when": "view == dclExplorer && viewItem == dclExplorer.context.located",
+          "group": "inline@1"
+        },
         {
           "command": "dcl.showContextMap",
           "when": "view == dclExplorer && viewItem == dclExplorer.context",
