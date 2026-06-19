@@ -8,6 +8,8 @@ export type DclSourceLocation = {
   file?: string;
   line?: number;
   column?: number;
+  endLine?: number;
+  endColumn?: number;
   indexBase?: DclSourceIndexBase;
 };
 

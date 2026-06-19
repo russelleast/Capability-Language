@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+- Added source-to-Graph Workspace highlighting from active `.dcl` editor selections.
+- Added debounced cursor-follow behavior controlled by `dcl.graph.followSourceSelection`.
+- Added compiler-summary source matching for capabilities, contexts, events, effects, policies, lifecycle items, and lifecycle transitions where source locations are available.
+- Added most-specific semantic match selection for overlapping source ranges.
+- Added source selection matching tests.
+
 ## 0.4.0
 
 - Added shared semantic identities for Explorer items and graph nodes.

@@ -44,7 +44,7 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
         sourceName: item,
         kind: nodeKind,
         source: capability.itemLocations?.[kind]?.[item],
-        semanticIdentity: nodeKind === "event" ? semanticIdentity("event", eventNameFromLabel(item)) : undefined,
+        semanticIdentity: semanticIdentityForCapabilityItem(nodeKind, item),
       });
       edges.push(edge(capabilityId, id, RELATION_BY_KIND[kind]));
     }
@@ -106,6 +106,13 @@ function firstLifecycleLocation(capability: CapabilitySummary): CapabilitySummar
 
 function eventNameFromLabel(label: string): string {
   return label.replace(/\s+from\s+.+$/i, "");
+}
+
+function semanticIdentityForCapabilityItem(kind: string, label: string) {
+  if (kind === "event") return semanticIdentity("event", eventNameFromLabel(label));
+  if (kind === "effect") return semanticIdentity("effect", label.replace(/\s+after\s+.+$/i, ""));
+  if (kind === "policy") return semanticIdentity("policy", label.replace(/\s+applies to\s+.+$/i, ""));
+  return undefined;
 }
 
 function dedupeNodes(nodes: DclGraphNode[]): DclGraphNode[] {

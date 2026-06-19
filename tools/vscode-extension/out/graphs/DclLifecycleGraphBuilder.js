@@ -33,6 +33,7 @@ function buildLifecycleGraphFromCapability(capability) {
             sourceName: stepName,
             kind: stepKind(stepName, initialStep, terminalSteps),
             source: lifecycleLocation(capability, stepName),
+            semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle-step", stepName),
         });
     }
     if (initialStep && stepNames.includes(initialStep)) {

@@ -1,6 +1,14 @@
 import type { DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
-export type DclSemanticIdentityKind = "capability" | "context" | "event" | "lifecycle";
+export type DclSemanticIdentityKind =
+  | "capability"
+  | "context"
+  | "event"
+  | "effect"
+  | "policy"
+  | "lifecycle"
+  | "lifecycle-step"
+  | "lifecycle-transition";
 
 export type DclSemanticIdentity = {
   kind: DclSemanticIdentityKind;

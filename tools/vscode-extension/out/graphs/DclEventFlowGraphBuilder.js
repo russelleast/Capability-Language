@@ -123,6 +123,7 @@ function lifecycleTransitionNode(capability, transition) {
         sourceName: label,
         kind: "lifecycle-transition",
         source: transitionLocation(capability, transition),
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle-transition", formatTransition(transition)),
     };
 }
 function eventLocation(summary, event) {

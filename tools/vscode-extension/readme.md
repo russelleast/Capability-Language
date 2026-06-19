@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.4.0`
+Current extension version: `0.4.1`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -24,6 +24,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
   - Context Map
 - Graph controls for fit, reset layout, centering, details, legends, and trusted node-to-source navigation.
 - DCL Explorer selection can focus matching nodes in the open Graph Workspace.
+- Source cursor selection can focus matching nodes in the open Graph Workspace when compiler source locations are available.
 - DCL extension icon and optional DCL file icon theme.
 
 ## Commands
@@ -64,6 +65,10 @@ Available values:
 - `file`: compile only the saved `.dcl` file.
 - `off`: disable compile-on-save.
 
+`dcl.graph.followSourceSelection`
+
+When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace. Enabled by default. This uses compiler semantic summary source locations and does not parse DCL source in the extension.
+
 ## DCL Explorer
 
 The DCL Explorer is an Activity Bar view for architecture navigation. It is built from compiler semantic summary data and keeps capabilities as the primary architectural unit.
@@ -73,6 +78,8 @@ The explorer can show contexts, capabilities, actors, policies, effects, events,
 Explorer context actions can open the relevant graph directly, including capability, lifecycle, event flow, context map, and architecture overview graphs.
 
 Selecting a capability, event, context, or lifecycle in DCL Explorer focuses the matching node in the open Graph Workspace when that node exists. If the current graph cannot show the selected item, the extension opens the most relevant existing graph view and highlights the matching node.
+
+When `dcl.graph.followSourceSelection` is enabled, moving the cursor through `.dcl` source also focuses matching graph nodes for compiler-known capabilities, contexts, events, effects, policies, lifecycle items, and lifecycle transitions where source locations are available.
 
 ## Graph Workspace
 

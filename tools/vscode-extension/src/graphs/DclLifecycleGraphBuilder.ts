@@ -33,6 +33,7 @@ export function buildLifecycleGraphFromCapability(capability: CapabilitySummary)
       sourceName: stepName,
       kind: stepKind(stepName, initialStep, terminalSteps),
       source: lifecycleLocation(capability, stepName),
+      semanticIdentity: semanticIdentity("lifecycle-step", stepName),
     });
   }
 

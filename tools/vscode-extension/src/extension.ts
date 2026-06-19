@@ -11,6 +11,7 @@ import { buildEventFlowGraph } from "./graphs/DclEventFlowGraphBuilder";
 import { buildGraphWorkspaceState, DclGraphWorkspaceSelection } from "./graphs/DclGraphWorkspaceState";
 import { buildLifecycleGraph } from "./graphs/DclLifecycleGraphBuilder";
 import { DclSemanticIdentity } from "./graphs/DclSemanticIdentity";
+import { semanticIdentityAtSourcePosition } from "./source/DclSourceSelection";
 import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
 import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvider";
 import { DclSummaryProvider } from "./views/DclSummaryProvider";
@@ -32,6 +33,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const summary = new DclSummaryProvider();
   const explorer = new DclExplorerProvider();
   const explorerView = vscode.window.createTreeView("dclExplorer", { treeDataProvider: explorer });
+  let sourceSelectionTimer: ReturnType<typeof setTimeout> | undefined;
   const compileOnSave = new DclCompileOnSaveScheduler({
     compileWorkspace: () => compileWorkspace(diagnostics, summary, explorer, { showCompletionNotification: false }),
     compileFile: (uri) => compileFiles([uri], diagnostics, summary, explorer, false, false),
@@ -63,10 +65,27 @@ export function activate(context: vscode.ExtensionContext): void {
       const node = event.selection[0];
       if (node) focusExplorerNodeInGraph(context.extensionUri, diagnostics, summary, explorer, node, false);
     }),
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      if (sourceSelectionTimer) clearTimeout(sourceSelectionTimer);
+      sourceSelectionTimer = setTimeout(() => {
+        followSourceSelection(event, explorer);
+      }, 250);
+    }),
+    { dispose: () => { if (sourceSelectionTimer) clearTimeout(sourceSelectionTimer); } },
     vscode.workspace.onDidSaveTextDocument((document) => {
       compileOnSave.handleSavedDocument(document, resolveCompileOnSaveMode(vscode.workspace.getConfiguration("dcl")));
     }),
   );
+}
+
+function followSourceSelection(event: vscode.TextEditorSelectionChangeEvent, explorer: DclExplorerProvider): void {
+  const document = event.textEditor.document;
+  if (document.languageId !== "dcl" || document.uri.scheme !== "file") return;
+  if (!vscode.workspace.getConfiguration("dcl.graph").get<boolean>("followSourceSelection", true)) return;
+  const position = event.selections[0]?.active;
+  if (!position) return;
+  const identity = semanticIdentityAtSourcePosition(explorer.getSummary(), document.uri, position);
+  if (identity) DclGraphWorkspacePanel.focusSemanticIdentity(identity);
 }
 
 function focusExplorerNodeInGraph(
@@ -91,10 +110,11 @@ function focusExplorerNodeInGraph(
   }
 
   const selection = graphSelectionForIdentity(identity);
+  if (!selection) return;
   openGraphWorkspace(extensionUri, diagnostics, summaryProvider, explorer, selection);
 }
 
-function graphSelectionForIdentity(identity: DclSemanticIdentity): DclGraphWorkspaceSelection {
+function graphSelectionForIdentity(identity: DclSemanticIdentity): DclGraphWorkspaceSelection | undefined {
   switch (identity.kind) {
     case "capability":
       return { graphType: "capability", subject: identity.name, focusIdentity: identity };
@@ -104,6 +124,8 @@ function graphSelectionForIdentity(identity: DclSemanticIdentity): DclGraphWorks
       return { graphType: "context-map", subject: identity.name, focusIdentity: identity };
     case "lifecycle":
       return { graphType: "lifecycle", subject: identity.name, focusIdentity: identity };
+    default:
+      return undefined;
   }
 }
 

@@ -130,6 +130,7 @@ function lifecycleTransitionNode(capability: CapabilitySummary, transition: Life
     sourceName: label,
     kind: "lifecycle-transition",
     source: transitionLocation(capability, transition),
+    semanticIdentity: semanticIdentity("lifecycle-transition", formatTransition(transition)),
   };
 }
 

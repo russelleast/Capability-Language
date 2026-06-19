@@ -41,7 +41,7 @@ function buildCapabilityGraphFromCapability(capability) {
                 sourceName: item,
                 kind: nodeKind,
                 source: capability.itemLocations?.[kind]?.[item],
-                semanticIdentity: nodeKind === "event" ? (0, DclSemanticIdentity_1.semanticIdentity)("event", eventNameFromLabel(item)) : undefined,
+                semanticIdentity: semanticIdentityForCapabilityItem(nodeKind, item),
             });
             edges.push(edge(capabilityId, id, RELATION_BY_KIND[kind]));
         }
@@ -95,6 +95,15 @@ function firstLifecycleLocation(capability) {
 }
 function eventNameFromLabel(label) {
     return label.replace(/\s+from\s+.+$/i, "");
+}
+function semanticIdentityForCapabilityItem(kind, label) {
+    if (kind === "event")
+        return (0, DclSemanticIdentity_1.semanticIdentity)("event", eventNameFromLabel(label));
+    if (kind === "effect")
+        return (0, DclSemanticIdentity_1.semanticIdentity)("effect", label.replace(/\s+after\s+.+$/i, ""));
+    if (kind === "policy")
+        return (0, DclSemanticIdentity_1.semanticIdentity)("policy", label.replace(/\s+applies to\s+.+$/i, ""));
+    return undefined;
 }
 function dedupeNodes(nodes) {
     return Array.from(new Map(nodes.map((node) => [node.id, node])).values());
