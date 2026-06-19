@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- Added the experimental `dcl-lsp` Go executable with stdio JSON-RPC/LSP lifecycle handling for `initialize`, `initialized`, `shutdown`, and `exit`.
+- Added in-memory LSP workspace/document tracking for workspace folders and `didOpen`, `didChange`, `didSave`, and `didClose` document notifications.
+- Added structured language-server logs for startup, initialization, document events, and shutdown.
+- Added opt-in VS Code setting `dcl.languageServer.enabled`, disabled by default so existing compiler-backed extension behavior remains unchanged.
+- Added `DCL Language Server` output channel and `DCL: Show Language Server Status`.
+- Added tests for the LSP document store, workspace health/lifecycle tracking, protocol lifecycle, and VS Code language-server command resolution.
+
 ## 0.4.4
 
 - Opened Graph Workspace in the active editor column instead of forcing a split editor.

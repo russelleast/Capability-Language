@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.4.4`
+Current extension version: `0.5.0`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -34,6 +34,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Compile Workspace`: compile workspace `.dcl` files together and refresh diagnostics.
 - `DCL: Show Semantic Summary`: compile the active `.dcl` file and focus the semantic summary tree.
 - `DCL: Show Compiler Info`: show which compiler the extension will run.
+- `DCL: Show Language Server Status`: show experimental language server running/stopped state and tracked workspace/document counts.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
 - `DCL: Navigate Symbol`: fuzzy-search compiler-known DCL symbols and reveal their source.
@@ -72,6 +73,14 @@ Available values:
 `dcl.graph.followSourceSelection`
 
 When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace. Enabled by default. This uses compiler semantic summary source locations and does not parse DCL source in the extension.
+
+`dcl.languageServer.enabled`
+
+Enables the experimental DCL Language Server. Disabled by default. When disabled, the extension continues to use the existing compiler-backed behavior unchanged.
+
+`dcl.languageServer.path`
+
+Optional path to a custom `dcl-lsp` executable. Leave empty to use a bundled language server when available, falling back to `dcl-lsp` on PATH.
 
 ## DCL Explorer
 
@@ -171,9 +180,17 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 `DCL: Show Context Map` shows DCL contexts as semantic boundaries. It can display compiler-provided parent/child context hierarchy and explicit context dependencies. Contexts are not treated as services, modules, folders, or deployments.
 
+## Experimental Language Server
+
+v0.5.0 introduces an optional `dcl-lsp` executable and VS Code launcher. This is a lifecycle skeleton only: it starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, logs open/change/save/close events, and shuts down cleanly.
+
+The language server does not provide diagnostics, hover, completion, definition, formatting, graph data, or semantic navigation yet. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
+
+To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and logs.
+
 ## Installing From VSIX
 
-The extension is currently distributed as a VSIX package. The VSIX includes the DCL compiler for macOS arm64, macOS x64, Linux x64, and Windows x64.
+The extension is currently distributed as a VSIX package. The VSIX includes the DCL compiler and experimental DCL language server for macOS arm64, macOS x64, Linux x64, and Windows x64.
 
 1. Download the `.vsix` file from the project website or GitHub Actions artifact.
 2. In VS Code, open the Command Palette.
@@ -193,7 +210,7 @@ The extension is not published to the VS Code Marketplace yet. Marketplace publi
 
 ## Known Limitations
 
-- No Language Server Protocol implementation yet.
+- The Language Server Protocol implementation is experimental and currently tracks lifecycle/workspace/documents only.
 - No TypeScript-side DCL parser.
 - No inferred graph relationships from folders or source text.
 - Graphs only show relationships exposed by the compiler semantic summary.

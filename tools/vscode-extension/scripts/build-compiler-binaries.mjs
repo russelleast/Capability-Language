@@ -10,17 +10,23 @@ const compilerDir = resolve(repoRoot, "compiler");
 const binDir = resolve(extensionDir, "bin");
 
 const targets = [
-  { goos: "darwin", goarch: "arm64", output: "dcl-darwin-arm64" },
-  { goos: "darwin", goarch: "amd64", output: "dcl-darwin-x64" },
-  { goos: "linux", goarch: "amd64", output: "dcl-linux-x64" },
-  { goos: "windows", goarch: "amd64", output: "dcl-win32-x64.exe" },
+  { goos: "darwin", goarch: "arm64", suffix: "darwin-arm64", extension: "" },
+  { goos: "darwin", goarch: "amd64", suffix: "darwin-x64", extension: "" },
+  { goos: "linux", goarch: "amd64", suffix: "linux-x64", extension: "" },
+  { goos: "windows", goarch: "amd64", suffix: "win32-x64", extension: ".exe" },
 ];
 
 mkdirSync(binDir, { recursive: true });
 
 for (const target of targets) {
-  const output = resolve(binDir, target.output);
-  const result = spawnSync("go", ["build", "-trimpath", "-o", output, "./cmd/dcl"], {
+  buildGoBinary(target, "dcl", "./cmd/dcl");
+  buildGoBinary(target, "dcl-lsp", "./cmd/dcl-lsp");
+}
+
+function buildGoBinary(target, name, packagePath) {
+  const outputName = `${name}-${target.suffix}${target.extension}`;
+  const output = resolve(binDir, outputName);
+  const result = spawnSync("go", ["build", "-trimpath", "-o", output, packagePath], {
     cwd: compilerDir,
     env: {
       ...process.env,
@@ -31,11 +37,8 @@ for (const target of targets) {
     stdio: "inherit",
   });
 
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
-
-  if (!target.output.endsWith(".exe")) {
+  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (!outputName.endsWith(".exe")) {
     chmodSync(output, 0o755);
   }
 }

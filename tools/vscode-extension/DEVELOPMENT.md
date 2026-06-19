@@ -98,6 +98,10 @@ Packaged runtime assets include:
 - `bin/dcl-darwin-x64`
 - `bin/dcl-linux-x64`
 - `bin/dcl-win32-x64.exe`
+- `bin/dcl-lsp-darwin-arm64`
+- `bin/dcl-lsp-darwin-x64`
+- `bin/dcl-lsp-linux-x64`
+- `bin/dcl-lsp-win32-x64.exe`
 - `media/cytoscape.min.js`
 - `syntaxes/`
 - `snippets/`
