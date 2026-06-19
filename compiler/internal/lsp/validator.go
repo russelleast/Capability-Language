@@ -81,7 +81,7 @@ func (v *WorkspaceValidator) LastResult() ValidationResult {
 
 func (v *WorkspaceValidator) runValidation() ValidationResult {
 	v.logger.Event("validating workspace", map[string]any{"openDocumentCount": v.host.Documents().Count(), "workspaceCount": v.host.WorkspaceCount()})
-	sources, pathToURI := v.workspaceSources()
+	sources, pathToURI := WorkspaceSources(v.host)
 	result := compiler.CompileSources(sources)
 	grouped := DiagnosticsByURI(result.Diagnostics, pathToURI)
 
@@ -110,11 +110,11 @@ func (v *WorkspaceValidator) runValidation() ValidationResult {
 	return validation
 }
 
-func (v *WorkspaceValidator) workspaceSources() ([]compiler.SourceFile, map[string]string) {
+func WorkspaceSources(host *WorkspaceHost) ([]compiler.SourceFile, map[string]string) {
 	byPath := map[string]compiler.SourceFile{}
 	pathToURI := map[string]string{}
 
-	for _, folder := range v.host.WorkspaceFolders() {
+	for _, folder := range host.WorkspaceFolders() {
 		root, ok := fileURIToPath(folder.URI)
 		if !ok {
 			continue
@@ -141,7 +141,7 @@ func (v *WorkspaceValidator) workspaceSources() ([]compiler.SourceFile, map[stri
 		})
 	}
 
-	for _, document := range v.host.Documents().Snapshot() {
+	for _, document := range host.Documents().Snapshot() {
 		path, ok := fileURIToPath(document.URI)
 		if !ok {
 			continue

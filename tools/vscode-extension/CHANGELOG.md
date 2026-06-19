@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3
+
+- Added experimental compiler-backed LSP workspace symbols through `workspace/symbol`.
+- Returned semantic DCL symbols across workspace files for contexts, capabilities, intents, outcomes, events, effects, policies, actors, lifecycles, lifecycle steps, and shapes.
+- Added fuzzy and case-insensitive workspace symbol search for VS Code Ctrl+T and Go to Symbol in Workspace.
+- Included compiler source locations, display containers, and semantic identity data for workspace symbol results.
+- Added tests for empty, single-file, and multi-file workspaces, fuzzy and case-insensitive search, duplicate names in different contexts, source locations, and LSP workspace symbol requests.
+
 ## 0.5.2
 
 - Added experimental compiler-backed LSP document symbols through `textDocument/documentSymbol`.

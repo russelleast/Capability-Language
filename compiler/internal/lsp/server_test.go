@@ -97,6 +97,9 @@ func TestServerLifecycleAndDocumentNotifications(t *testing.T) {
 	if capabilities["documentSymbolProvider"] != true {
 		t.Fatalf("expected documentSymbolProvider capability, got %+v", capabilities)
 	}
+	if capabilities["workspaceSymbolProvider"] != true {
+		t.Fatalf("expected workspaceSymbolProvider capability, got %+v", capabilities)
+	}
 
 	logText := logs.String()
 	for _, event := range []string{"startup", "initialization", "initialized", "file opened", "file changed", "file saved", "shutdown"} {
@@ -195,6 +198,68 @@ capability PlaceOrder {
 
 	if !strings.Contains(logs.String(), `"event":"document symbols requested"`) {
 		t.Fatalf("expected document symbols log event in %s", logs.String())
+	}
+}
+
+func TestServerHandlesWorkspaceSymbolRequest(t *testing.T) {
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/payment.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text": `language dcl 0.9
+
+capability CapturePayment {
+  intent PaymentInput from Customer
+  outcome PaymentCaptured
+}
+`,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "workspace/symbol",
+			"params":  map[string]any{"query": "payment"},
+		}),
+	}, nil)
+	var output bytes.Buffer
+
+	if err := server.Serve(bytes.NewReader(input), &output); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+
+	responses := decodeResponses(t, output.Bytes())
+	if len(responses) != 2 {
+		t.Fatalf("expected initialize and workspace symbol responses, got %d", len(responses))
+	}
+	var symbols []WorkspaceSymbol
+	payload, _ := json.Marshal(responses[1]["result"])
+	if err := json.Unmarshal(payload, &symbols); err != nil {
+		t.Fatalf("decode workspace symbols: %v", err)
+	}
+	_ = findWorkspaceSymbol(t, symbols, "CapturePayment", "Capability")
+	_ = findWorkspaceSymbol(t, symbols, "PaymentInput", "Intent")
+
+	logText := logs.String()
+	if !strings.Contains(logText, `"event":"workspace symbols requested"`) ||
+		!strings.Contains(logText, `"query":"payment"`) ||
+		!strings.Contains(logText, `"symbolCount":`) {
+		t.Fatalf("expected workspace symbol log fields in %s", logText)
 	}
 }
 

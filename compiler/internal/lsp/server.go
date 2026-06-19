@@ -12,15 +12,16 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.2"
+const serverVersion = "0.5.3"
 
 type Server struct {
-	host      *WorkspaceHost
-	logger    *Logger
-	validator *WorkspaceValidator
-	symbols   *SymbolProvider
-	out       io.Writer
-	outMu     sync.Mutex
+	host             *WorkspaceHost
+	logger           *Logger
+	validator        *WorkspaceValidator
+	symbols          *SymbolProvider
+	workspaceSymbols *WorkspaceSymbolProvider
+	out              io.Writer
+	outMu            sync.Mutex
 }
 
 func NewServer(host *WorkspaceHost, logger *Logger) *Server {
@@ -30,6 +31,7 @@ func NewServer(host *WorkspaceHost, logger *Logger) *Server {
 	server := &Server{host: host, logger: logger}
 	server.validator = NewWorkspaceValidator(host, NewDiagnosticPublisher(server.sendNotification), logger)
 	server.symbols = NewSymbolProvider(host)
+	server.workspaceSymbols = NewWorkspaceSymbolProvider(host)
 	return server
 }
 
@@ -134,6 +136,14 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		}
 		s.log("document symbols requested", map[string]any{"uri": request.TextDocument.URI})
 		return s.symbols.DocumentSymbols(request.TextDocument.URI), nil
+	case "workspace/symbol":
+		var request workspaceSymbolParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		symbols := s.workspaceSymbols.WorkspaceSymbols(request.Query)
+		s.log("workspace symbols requested", map[string]any{"query": request.Query, "symbolCount": len(symbols)})
+		return symbols, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
@@ -210,7 +220,8 @@ func initializeResult() map[string]any {
 					"includeText": true,
 				},
 			},
-			"documentSymbolProvider": true,
+			"documentSymbolProvider":  true,
+			"workspaceSymbolProvider": true,
 		},
 	}
 }

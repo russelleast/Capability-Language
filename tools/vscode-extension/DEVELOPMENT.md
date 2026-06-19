@@ -111,7 +111,7 @@ Useful checks:
 
 - Open `valid-basic.dcl`, run `DCL: Compile Current File`, and confirm no Problems remain.
 - Open `invalid-diagnostic.dcl`, run `DCL: Compile Current File`, and confirm compiler diagnostics appear.
-- With `dcl.languageServer.enabled` set to `true`, open a `.dcl` file and confirm Problems update from LSP diagnostics, Outline shows DCL semantic symbols, breadcrumbs populate, and Ctrl+Shift+O lists capabilities and nested members.
+- With `dcl.languageServer.enabled` set to `true`, open a `.dcl` file and confirm Problems update from LSP diagnostics, Outline shows DCL semantic symbols, breadcrumbs populate, Ctrl+Shift+O lists capabilities and nested members, and Ctrl+T searches workspace DCL symbols.
 - Run `DCL: Compile Workspace` against the fixture workspace and confirm the DCL Explorer updates.
 - Inspect mocked compiler output fixtures under `test-fixtures/compiler-output/` when changing summary normalization or source-location handling.
 
