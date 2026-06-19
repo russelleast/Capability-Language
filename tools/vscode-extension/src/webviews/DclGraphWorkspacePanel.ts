@@ -15,6 +15,12 @@ type GraphWorkspaceMessage = {
   type: "nodeSelected";
   nodeId: string;
 } | {
+  type: "showInGraph";
+  graphType: DclGraphWorkspaceType;
+  subject?: string;
+  architectureDetailLevel?: "overview" | "detailed" | "full";
+  focusIdentity: DclSemanticIdentity;
+} | {
   type: "refresh";
 } | {
   type: "compileWorkspace";
@@ -173,6 +179,16 @@ export class DclGraphWorkspacePanel {
       return;
     }
 
+    if (message.type === "showInGraph") {
+      DclGraphWorkspacePanel.callbacks?.onSelectionChanged({
+        graphType: message.graphType,
+        subject: message.subject,
+        architectureDetailLevel: message.architectureDetailLevel,
+        focusIdentity: message.focusIdentity,
+      });
+      return;
+    }
+
     if (message.type === "refresh") {
       DclGraphWorkspacePanel.callbacks?.onRefresh();
       return;
@@ -285,6 +301,9 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     .detail-label { display: block; margin-bottom: 2px; color: var(--vscode-descriptionForeground); font-size: 11px; text-transform: uppercase; }
     .detail-value { overflow-wrap: anywhere; }
     .empty-detail { color: var(--vscode-descriptionForeground); }
+    .show-in-actions { display: flex; flex-direction: column; gap: 6px; }
+    .show-in-actions button { width: 100%; text-align: left; border: 1px solid var(--vscode-button-border, transparent); border-radius: 3px; padding: 4px 8px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); font: inherit; cursor: pointer; }
+    .show-in-actions button:hover { background: var(--vscode-button-secondaryHoverBackground); }
     .legend { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--vscode-panel-border); }
     .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
     .legend-item { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -348,6 +367,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         <p class="detail-row"><span class="detail-label">Source Name</span><span id="detail-source-name" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Kind</span><span id="detail-kind" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Relationships</span><span id="detail-relationships" class="detail-value"></span></p>
+        <div id="show-in-section" class="detail-row hidden"><span class="detail-label">Show In</span><div id="show-in-actions" class="show-in-actions"></div></div>
       </div>
       <section class="legend">
         <h2 class="details-title">Legend</h2>
@@ -645,6 +665,35 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       document.getElementById('detail-source-name').textContent = node.sourceName || node.label;
       document.getElementById('detail-kind').textContent = node.kind;
       document.getElementById('detail-relationships').textContent = relationshipSummary(nodeId);
+      updateShowInActions(nodeId);
+    }
+
+    function updateShowInActions(nodeId) {
+      const section = document.getElementById('show-in-section');
+      const actions = document.getElementById('show-in-actions');
+      const targets = workspaceState.graphSyncTargets?.[nodeId] || [];
+      actions.replaceChildren();
+      if (!targets.length) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      for (const target of targets) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = target.label;
+        button.addEventListener('click', () => {
+          vscode.postMessage({
+            type: 'showInGraph',
+            graphType: target.graphType,
+            subject: target.subject,
+            architectureDetailLevel: target.architectureDetailLevel,
+            focusIdentity: target.focusIdentity
+          });
+        });
+        actions.appendChild(button);
+      }
     }
 
     function relationshipSummary(nodeId) {
@@ -697,12 +746,46 @@ function isGraphWorkspaceMessage(message: unknown): message is GraphWorkspaceMes
       && (typeof candidate.text === "string" || typeof candidate.dataUri === "string");
   }
   if (candidate.type === "nodeSelected") return typeof candidate.nodeId === "string" && candidate.nodeId.trim() !== "";
-  if (candidate.type !== "selectionChanged") return false;
-  return candidate.graphType === "architecture"
-    || candidate.graphType === "capability"
-    || candidate.graphType === "lifecycle"
-    || candidate.graphType === "event-flow"
-    || candidate.graphType === "context-map";
+  if (candidate.type === "selectionChanged") {
+    return isGraphWorkspaceType(candidate.graphType);
+  }
+  if (candidate.type === "showInGraph") {
+    return isGraphWorkspaceType(candidate.graphType)
+      && isSemanticIdentity(candidate.focusIdentity)
+      && (candidate.subject === undefined || typeof candidate.subject === "string")
+      && (
+        candidate.architectureDetailLevel === undefined
+        || candidate.architectureDetailLevel === "overview"
+        || candidate.architectureDetailLevel === "detailed"
+        || candidate.architectureDetailLevel === "full"
+      );
+  }
+  return false;
+}
+
+function isGraphWorkspaceType(value: unknown): value is DclGraphWorkspaceType {
+  return value === "architecture"
+    || value === "capability"
+    || value === "lifecycle"
+    || value === "event-flow"
+    || value === "context-map";
+}
+
+function isSemanticIdentity(value: unknown): value is DclSemanticIdentity {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<DclSemanticIdentity>;
+  return typeof candidate.name === "string"
+    && candidate.name.trim() !== ""
+    && (
+      candidate.kind === "capability"
+      || candidate.kind === "context"
+      || candidate.kind === "event"
+      || candidate.kind === "effect"
+      || candidate.kind === "policy"
+      || candidate.kind === "lifecycle"
+      || candidate.kind === "lifecycle-step"
+      || candidate.kind === "lifecycle-transition"
+    );
 }
 
 function toWebviewGraph(graph: DclGraphModel): WebviewGraphModel {

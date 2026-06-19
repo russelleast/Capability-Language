@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ALL_CONTEXTS = exports.ALL_EVENT_FLOWS = void 0;
 exports.buildGraphWorkspaceState = buildGraphWorkspaceState;
+exports.graphSyncTargetsForIdentity = graphSyncTargetsForIdentity;
 const DclArchitectureOverviewGraphBuilder_1 = require("./DclArchitectureOverviewGraphBuilder");
 const DclCapabilityGraphBuilder_1 = require("./DclCapabilityGraphBuilder");
 const DclContextMapGraphBuilder_1 = require("./DclContextMapGraphBuilder");
@@ -27,10 +28,136 @@ function buildGraphWorkspaceState(summary, selection = {}) {
         architectureDetailLevel,
         graph,
         focusNodeId: (0, DclSemanticIdentity_1.findGraphNodeBySemanticIdentity)(graph, selection.focusIdentity)?.id,
+        graphSyncTargets: graph ? graphSyncTargetsByNode(summary, graph, graphType) : {},
         exportBaseName: (0, DclGraphExport_1.graphExportBaseName)(graphType, subject),
         emptyTitle: empty?.title,
         emptyMessage: empty?.message,
     };
+}
+function graphSyncTargetsForIdentity(summary, identity, currentGraphType) {
+    if (!identity)
+        return [];
+    const targets = [];
+    const seen = new Set();
+    for (const selection of graphSelectionsForIdentity(summary, identity)) {
+        if (selection.graphType === currentGraphType)
+            continue;
+        const graphType = selection.graphType ?? "architecture";
+        const architectureDetailLevel = selection.architectureDetailLevel ?? "overview";
+        const graph = buildSelectedGraph(summary, graphType, selection.subject, architectureDetailLevel);
+        if (!(0, DclSemanticIdentity_1.findGraphNodeBySemanticIdentity)(graph, identity))
+            continue;
+        const key = `${graphType}:${selection.subject ?? ""}:${architectureDetailLevel}`;
+        if (seen.has(key))
+            continue;
+        seen.add(key);
+        targets.push({
+            label: showInLabel(graphType),
+            graphType,
+            subject: selection.subject,
+            architectureDetailLevel: selection.architectureDetailLevel,
+            focusIdentity: identity,
+        });
+    }
+    return targets;
+}
+function graphSyncTargetsByNode(summary, graph, currentGraphType) {
+    const targets = {};
+    for (const node of graph.nodes) {
+        const nodeTargets = graphSyncTargetsForIdentity(summary, node.semanticIdentity, currentGraphType);
+        if (nodeTargets.length)
+            targets[node.id] = nodeTargets;
+    }
+    return targets;
+}
+function graphSelectionsForIdentity(summary, identity) {
+    const selections = [];
+    if (identity.kind === "context" || identity.kind === "capability") {
+        selections.push({ graphType: "architecture", focusIdentity: identity });
+    }
+    if (identity.kind === "event") {
+        selections.push({ graphType: "architecture", architectureDetailLevel: "detailed", focusIdentity: identity });
+    }
+    if (identity.kind === "lifecycle") {
+        selections.push({ graphType: "architecture", architectureDetailLevel: "full", focusIdentity: identity });
+    }
+    for (const subject of capabilitySubjectsForIdentity(summary, identity)) {
+        selections.push({ graphType: "capability", subject, focusIdentity: identity });
+    }
+    if (identity.kind === "event") {
+        selections.push({ graphType: "event-flow", subject: identity.name, focusIdentity: identity });
+    }
+    for (const subject of lifecycleSubjectsForIdentity(summary, identity)) {
+        selections.push({ graphType: "lifecycle", subject, focusIdentity: identity });
+    }
+    if (identity.kind === "context") {
+        selections.push({ graphType: "context-map", subject: identity.name, focusIdentity: identity });
+    }
+    return selections;
+}
+function capabilitySubjectsForIdentity(summary, identity) {
+    if (identity.kind === "capability") {
+        return summary.capabilities.some((capability) => capability.name === identity.name) ? [identity.name] : [];
+    }
+    if (identity.kind === "lifecycle") {
+        return summary.capabilities.some((capability) => capability.name === identity.name && capability.lifecycle)
+            ? [identity.name]
+            : [];
+    }
+    return summary.capabilities
+        .filter((capability) => capabilityGraphCanRepresent(capability, identity))
+        .map((capability) => capability.name);
+}
+function lifecycleSubjectsForIdentity(summary, identity) {
+    if (identity.kind === "lifecycle") {
+        return summary.capabilities.some((capability) => capability.name === identity.name && capability.lifecycle)
+            ? [identity.name]
+            : [];
+    }
+    if (identity.kind !== "lifecycle-step" && identity.kind !== "lifecycle-transition")
+        return [];
+    return summary.capabilities
+        .filter((capability) => Boolean(capability.lifecycle) && lifecycleCanRepresent(capability, identity))
+        .map((capability) => capability.name);
+}
+function capabilityGraphCanRepresent(capability, identity) {
+    switch (identity.kind) {
+        case "event":
+            return (capability.eventDetails ?? []).some((event) => event.event === identity.name)
+                || (capability.events ?? []).includes(identity.name);
+        case "effect":
+            return (capability.effects ?? []).some((effect) => effect.replace(/\s+after\s+.+$/i, "") === identity.name);
+        case "policy":
+            return (capability.policies ?? []).some((policy) => policy.replace(/\s+applies to\s+.+$/i, "") === identity.name);
+        default:
+            return false;
+    }
+}
+function lifecycleCanRepresent(capability, identity) {
+    if (identity.kind === "lifecycle-step") {
+        return [
+            capability.lifecycle?.begin,
+            ...(capability.lifecycle?.steps ?? []),
+            ...(capability.lifecycle?.ends ?? []),
+            ...(capability.lifecycle?.stepDetails?.map((step) => step.name) ?? []),
+            ...(capability.lifecycle?.transitionDetails?.flatMap((transition) => [transition.from, transition.to]) ?? []),
+        ].includes(identity.name);
+    }
+    return (capability.lifecycle?.transitions ?? []).includes(identity.name);
+}
+function showInLabel(graphType) {
+    switch (graphType) {
+        case "architecture":
+            return "Show in Architecture Overview";
+        case "capability":
+            return "Show in Capability Graph";
+        case "lifecycle":
+            return "Show in Lifecycle Graph";
+        case "event-flow":
+            return "Show in Event Flow Graph";
+        case "context-map":
+            return "Show in Context Map";
+    }
 }
 function buildSelectedGraph(summary, graphType, subject, architectureDetailLevel) {
     switch (graphType) {

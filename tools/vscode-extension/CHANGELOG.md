@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+- Added Graph Workspace `Show in...` actions so selected semantic nodes can jump to the same element in another graph type.
+- Used compiler-backed semantic identities to validate target graph availability instead of matching display labels.
+- Preserved graph node source navigation while switching graph type, subject, and detail level before focusing the matching node.
+- Added graph sync target availability tests for capability, event, context, lifecycle, and missing-target cases.
+
 ## 0.4.2
 
 - Added `DCL: Navigate Symbol` for fuzzy semantic navigation across compiler-known contexts, capabilities, events, effects, policies, actors, lifecycles, and lifecycle steps.
