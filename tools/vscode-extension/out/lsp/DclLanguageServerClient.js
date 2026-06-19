@@ -47,6 +47,7 @@ class DclLanguageServerClient {
         this.state = "stopped";
         this.stdoutBuffer = "";
         this.stderrBuffer = "";
+        this.diagnosticsCount = 0;
         this.output = vscode.window.createOutputChannel("DCL Language Server");
     }
     startIfEnabled() {
@@ -118,6 +119,8 @@ class DclLanguageServerClient {
             source: this.source,
             workspaceCount: vscode.workspace.workspaceFolders?.length ?? 0,
             openDocumentCount: this.openDocuments.size,
+            diagnosticsCount: this.diagnosticsCount,
+            lastValidationTimestamp: this.lastValidationTimestamp,
             lastError: this.lastError,
         };
     }
@@ -129,6 +132,8 @@ class DclLanguageServerClient {
             status.source ? `Source: ${status.source}` : undefined,
             `Workspace count: ${status.workspaceCount}`,
             `Open document count: ${status.openDocumentCount}`,
+            `Diagnostics count: ${status.diagnosticsCount}`,
+            status.lastValidationTimestamp ? `Last validation: ${status.lastValidationTimestamp}` : undefined,
             status.lastError ? `Last error: ${status.lastError}` : undefined,
         ].filter(Boolean).join("\n");
         void vscode.window.showInformationMessage(lines, { modal: true });
@@ -258,6 +263,10 @@ class DclLanguageServerClient {
         }
         if (message.id === this.initializeRequestId && message.result && !message.error) {
             this.output.appendLine("DCL language server initialized.");
+        }
+        if (message.method === "dcl/validationStatus") {
+            this.diagnosticsCount = message.params?.diagnosticsCount ?? 0;
+            this.lastValidationTimestamp = message.params?.lastValidationTimestamp;
         }
         if (message.error) {
             this.output.appendLine(`DCL language server protocol error: ${JSON.stringify(message.error)}`);

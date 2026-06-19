@@ -58,6 +58,27 @@ describe("DclLanguageServerClient", () => {
     expect(output).not.toContain("Content-Length");
     client.dispose();
   });
+
+  it("updates status from validation status notifications", () => {
+    const fakeProcess = new FakeLanguageServerProcess();
+    const client = new DclLanguageServerClient(vscode.Uri.file("/ext"), vi.fn(() => fakeProcess as never) as never);
+
+    client.start();
+    fakeProcess.stdout.emit(frame({
+      jsonrpc: "2.0",
+      method: "dcl/validationStatus",
+      params: {
+        diagnosticsCount: 3,
+        lastValidationTimestamp: "2026-06-19T15:30:00Z",
+      },
+    }));
+
+    expect(client.status()).toMatchObject({
+      diagnosticsCount: 3,
+      lastValidationTimestamp: "2026-06-19T15:30:00Z",
+    });
+    client.dispose();
+  });
 });
 
 class FakeLanguageServerProcess {

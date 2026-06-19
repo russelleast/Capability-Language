@@ -134,6 +134,45 @@ func TestServerClosesDocuments(t *testing.T) {
 	}
 }
 
+func TestServerPublishesDiagnosticsForOpenedDocuments(t *testing.T) {
+	host := NewWorkspaceHost()
+	server := NewServer(host, NewLogger(nil))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///diagnostic.dcl", "languageId": "dcl", "version": 1, "text": "not valid"},
+			},
+		}),
+	}, nil)
+	var output bytes.Buffer
+
+	if err := server.Serve(bytes.NewReader(input), &output); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+
+	publishes := decodePublishDiagnosticsMessages(t, output.Bytes())
+	if len(publishes) != 1 {
+		t.Fatalf("expected one publishDiagnostics notification, got %d in %q", len(publishes), output.String())
+	}
+	if publishes[0].URI != "file:///diagnostic.dcl" {
+		t.Fatalf("unexpected diagnostics uri: %s", publishes[0].URI)
+	}
+	if len(publishes[0].Diagnostics) == 0 {
+		t.Fatal("expected at least one diagnostic")
+	}
+	if host.Health().DiagnosticsCount == 0 || host.Health().LastValidationTimestamp == "" {
+		t.Fatalf("expected host health to include validation status, got %+v", host.Health())
+	}
+}
+
 func decodeResponses(t *testing.T, framed []byte) []map[string]any {
 	t.Helper()
 	var responses []map[string]any
@@ -147,7 +186,25 @@ func decodeResponses(t *testing.T, framed []byte) []map[string]any {
 		if err := json.Unmarshal(payload, &response); err != nil {
 			t.Fatalf("decode response: %v", err)
 		}
-		responses = append(responses, response)
+		if _, ok := response["id"]; ok {
+			responses = append(responses, response)
+		}
 	}
 	return responses
+}
+
+func decodePublishDiagnosticsMessages(t *testing.T, framed []byte) []publishDiagnosticsParams {
+	t.Helper()
+	var publishes []publishDiagnosticsParams
+	reader := bufio.NewReader(bytes.NewReader(framed))
+	for {
+		payload, err := readMessage(reader)
+		if err != nil {
+			break
+		}
+		if params, ok := DecodePublishDiagnostics(payload); ok {
+			publishes = append(publishes, params)
+		}
+	}
+	return publishes
 }

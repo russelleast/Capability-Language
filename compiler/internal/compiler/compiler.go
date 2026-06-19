@@ -22,6 +22,11 @@ type Result struct {
 	Diagnostics []diagnostic.Diagnostic
 }
 
+type SourceFile struct {
+	Path string
+	Text string
+}
+
 func CompileSource(path, source string) Result {
 	var bag diagnostic.Bag
 	program := ast.Program{Files: []string{path}}
@@ -44,6 +49,34 @@ func CompileSource(path, source string) Result {
 	out := c.buildIR()
 	out.Diagnostics = bag.Items()
 
+	return Result{IR: out, Diagnostics: out.Diagnostics}
+}
+
+func CompileSources(sources []SourceFile) Result {
+	var bag diagnostic.Bag
+	var program ast.Program
+
+	files := append([]SourceFile(nil), sources...)
+	sort.SliceStable(files, func(i, j int) bool {
+		return files[i].Path < files[j].Path
+	})
+
+	for _, file := range files {
+		program.Files = append(program.Files, file.Path)
+		tokens, lexDiags := lexer.Lex(file.Path, file.Text)
+		for _, d := range lexDiags {
+			bag.Add(d.Severity, d.Code, d.Message, d.Span, d.Node)
+		}
+		parsed, parseDiags := parser.Parse(tokens)
+		for _, d := range parseDiags {
+			bag.Add(d.Severity, d.Code, d.Message, d.Span, d.Node)
+		}
+		mergeProgram(&program, parsed)
+	}
+
+	c := newCompiler(program, &bag)
+	out := c.buildIR()
+	out.Diagnostics = bag.Items()
 	return Result{IR: out, Diagnostics: out.Diagnostics}
 }
 

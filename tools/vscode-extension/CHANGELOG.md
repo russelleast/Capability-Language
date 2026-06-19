@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1
+
+- Added experimental compiler-backed diagnostics in `dcl-lsp`.
+- Validated the DCL workspace on document open/save and debounced document changes.
+- Published LSP `textDocument/publishDiagnostics` notifications for compiler errors and warnings, including empty diagnostics to clear fixed files.
+- Added language-server validation status with diagnostics count and last validation timestamp.
+- Disabled save-triggered extension-side diagnostics when the experimental language server is enabled, preserving the existing path when it is disabled.
+- Added tests for diagnostic conversion, workspace validation, diagnostic publishing, debounced validation, clearing fixed diagnostics, and client validation status updates.
+
 ## 0.5.0
 
 - Added the experimental `dcl-lsp` Go executable with stdio JSON-RPC/LSP lifecycle handling for `initialize`, `initialized`, `shutdown`, and `exit`.

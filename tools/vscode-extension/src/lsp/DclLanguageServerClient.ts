@@ -14,6 +14,8 @@ export type DclLanguageServerStatus = {
   source?: string;
   workspaceCount: number;
   openDocumentCount: number;
+  diagnosticsCount: number;
+  lastValidationTimestamp?: string;
   lastError?: string;
 };
 
@@ -30,6 +32,8 @@ export class DclLanguageServerClient implements vscode.Disposable {
   private stdoutBuffer = "";
   private stderrBuffer = "";
   private initializeRequestId: JsonRpcId | undefined;
+  private diagnosticsCount = 0;
+  private lastValidationTimestamp: string | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -110,6 +114,8 @@ export class DclLanguageServerClient implements vscode.Disposable {
       source: this.source,
       workspaceCount: vscode.workspace.workspaceFolders?.length ?? 0,
       openDocumentCount: this.openDocuments.size,
+      diagnosticsCount: this.diagnosticsCount,
+      lastValidationTimestamp: this.lastValidationTimestamp,
       lastError: this.lastError,
     };
   }
@@ -122,6 +128,8 @@ export class DclLanguageServerClient implements vscode.Disposable {
       status.source ? `Source: ${status.source}` : undefined,
       `Workspace count: ${status.workspaceCount}`,
       `Open document count: ${status.openDocumentCount}`,
+      `Diagnostics count: ${status.diagnosticsCount}`,
+      status.lastValidationTimestamp ? `Last validation: ${status.lastValidationTimestamp}` : undefined,
       status.lastError ? `Last error: ${status.lastError}` : undefined,
     ].filter(Boolean).join("\n");
     void vscode.window.showInformationMessage(lines, { modal: true });
@@ -250,7 +258,13 @@ export class DclLanguageServerClient implements vscode.Disposable {
   }
 
   private handleProtocolMessage(payload: string): void {
-    let message: { id?: number | string; result?: unknown; error?: unknown };
+    let message: {
+      id?: number | string;
+      method?: string;
+      params?: { diagnosticsCount?: number; lastValidationTimestamp?: string };
+      result?: unknown;
+      error?: unknown;
+    };
     try {
       message = JSON.parse(payload);
     } catch {
@@ -258,6 +272,10 @@ export class DclLanguageServerClient implements vscode.Disposable {
     }
     if (message.id === this.initializeRequestId && message.result && !message.error) {
       this.output.appendLine("DCL language server initialized.");
+    }
+    if (message.method === "dcl/validationStatus") {
+      this.diagnosticsCount = message.params?.diagnosticsCount ?? 0;
+      this.lastValidationTimestamp = message.params?.lastValidationTimestamp;
     }
     if (message.error) {
       this.output.appendLine(`DCL language server protocol error: ${JSON.stringify(message.error)}`);

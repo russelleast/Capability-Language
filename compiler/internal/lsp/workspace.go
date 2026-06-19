@@ -1,6 +1,9 @@
 package lsp
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type LifecycleState string
 
@@ -16,17 +19,21 @@ type WorkspaceFolder struct {
 }
 
 type Health struct {
-	Running           bool           `json:"running"`
-	Lifecycle         LifecycleState `json:"lifecycle"`
-	WorkspaceCount    int            `json:"workspaceCount"`
-	OpenDocumentCount int            `json:"openDocumentCount"`
+	Running                 bool           `json:"running"`
+	Lifecycle               LifecycleState `json:"lifecycle"`
+	WorkspaceCount          int            `json:"workspaceCount"`
+	OpenDocumentCount       int            `json:"openDocumentCount"`
+	DiagnosticsCount        int            `json:"diagnosticsCount"`
+	LastValidationTimestamp string         `json:"lastValidationTimestamp,omitempty"`
 }
 
 type WorkspaceHost struct {
-	mu        sync.RWMutex
-	documents *DocumentStore
-	folders   []WorkspaceFolder
-	lifecycle LifecycleState
+	mu                      sync.RWMutex
+	documents               *DocumentStore
+	folders                 []WorkspaceFolder
+	lifecycle               LifecycleState
+	diagnosticsCount        int
+	lastValidationTimestamp string
 }
 
 func NewWorkspaceHost() *WorkspaceHost {
@@ -76,12 +83,27 @@ func (h *WorkspaceHost) Lifecycle() LifecycleState {
 	return h.lifecycle
 }
 
+func (h *WorkspaceHost) SetValidationResult(result ValidationResult) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.diagnosticsCount = result.DiagnosticsCount
+	if !result.LastValidationTimestamp.IsZero() {
+		h.lastValidationTimestamp = result.LastValidationTimestamp.Format(time.RFC3339Nano)
+	}
+}
+
 func (h *WorkspaceHost) Health() Health {
 	state := h.Lifecycle()
+	h.mu.RLock()
+	diagnosticsCount := h.diagnosticsCount
+	lastValidationTimestamp := h.lastValidationTimestamp
+	h.mu.RUnlock()
 	return Health{
-		Running:           state != LifecycleShutdown,
-		Lifecycle:         state,
-		WorkspaceCount:    h.WorkspaceCount(),
-		OpenDocumentCount: h.documents.Count(),
+		Running:                 state != LifecycleShutdown,
+		Lifecycle:               state,
+		WorkspaceCount:          h.WorkspaceCount(),
+		OpenDocumentCount:       h.documents.Count(),
+		DiagnosticsCount:        diagnosticsCount,
+		LastValidationTimestamp: lastValidationTimestamp,
 	}
 }

@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.5.0`
+Current extension version: `0.5.1`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -186,9 +186,9 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 ## Experimental Language Server
 
-v0.5.0 introduces an optional `dcl-lsp` executable and VS Code launcher. This is a lifecycle skeleton only: it starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, logs open/change/save/close events, and shuts down cleanly.
+v0.5.1 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, logs open/change/save/close events, and shuts down cleanly.
 
-The language server does not provide diagnostics, hover, completion, definition, formatting, graph data, or semantic navigation yet. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
+The language server does not provide hover, completion, definition, formatting, graph data, or semantic navigation yet. LSP diagnostics are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
 
 To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
 

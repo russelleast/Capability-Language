@@ -34,10 +34,11 @@ import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
 
 export function activate(context: vscode.ExtensionContext): void {
+  const languageServerEnabled = isLanguageServerEnabled();
   const compiler = new DclCompilerAdapter(vscode.workspace.workspaceFolders, {
     extensionPath: context.extensionUri.fsPath,
   });
-  const diagnostics = new DclDiagnosticProvider(compiler);
+  const diagnostics = new DclDiagnosticProvider(compiler, { publishDiagnostics: !languageServerEnabled });
   const summary = new DclSummaryProvider();
   const explorer = new DclExplorerProvider();
   const explorerView = vscode.window.createTreeView("dclExplorer", { treeDataProvider: explorer });
@@ -87,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     { dispose: () => { if (sourceSelectionTimer) clearTimeout(sourceSelectionTimer); } },
     vscode.workspace.onDidSaveTextDocument((document) => {
+      if (isLanguageServerEnabled()) return;
       compileOnSave.handleSavedDocument(document, resolveCompileOnSaveMode(vscode.workspace.getConfiguration("dcl")));
     }),
     languageServer,
@@ -577,6 +579,10 @@ async function pickContext(summary: SemanticSummary): Promise<string | undefined
 }
 
 export function deactivate(): void {}
+
+function isLanguageServerEnabled(): boolean {
+  return vscode.workspace.getConfiguration("dcl.languageServer").get<boolean>("enabled", false);
+}
 
 async function compileCurrentFile(
   diagnostics: DclDiagnosticProvider,

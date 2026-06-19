@@ -9,20 +9,26 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-const serverVersion = "0.5.0"
+const serverVersion = "0.5.1"
 
 type Server struct {
-	host   *WorkspaceHost
-	logger *Logger
+	host      *WorkspaceHost
+	logger    *Logger
+	validator *WorkspaceValidator
+	out       io.Writer
+	outMu     sync.Mutex
 }
 
 func NewServer(host *WorkspaceHost, logger *Logger) *Server {
 	if host == nil {
 		host = NewWorkspaceHost()
 	}
-	return &Server{host: host, logger: logger}
+	server := &Server{host: host, logger: logger}
+	server.validator = NewWorkspaceValidator(host, NewDiagnosticPublisher(server.sendNotification), logger)
+	return server
 }
 
 func (s *Server) Host() *WorkspaceHost {
@@ -47,9 +53,10 @@ func (s *Server) Serve(in io.Reader, out io.Writer) error {
 }
 
 func (s *Server) handlePayload(payload []byte, out io.Writer) error {
+	s.out = out
 	var message rpcMessage
 	if err := json.Unmarshal(payload, &message); err != nil {
-		return writeResponse(out, nil, nil, &rpcError{Code: -32700, Message: "Parse error"})
+		return s.writeResponse(nil, nil, &rpcError{Code: -32700, Message: "Parse error"})
 	}
 	if message.Method == "" {
 		return nil
@@ -59,7 +66,7 @@ func (s *Server) handlePayload(payload []byte, out io.Writer) error {
 	if message.ID == nil {
 		return nil
 	}
-	return writeResponse(out, message.ID, result, responseErr)
+	return s.writeResponse(message.ID, result, responseErr)
 }
 
 func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) {
@@ -88,6 +95,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		}
 		s.host.Documents().Open(request.TextDocument.URI, request.TextDocument.Version, request.TextDocument.Text)
 		s.log("file opened", map[string]any{"uri": request.TextDocument.URI, "version": request.TextDocument.Version, "openDocumentCount": s.host.Documents().Count()})
+		s.validateNow()
 		return nil, nil
 	case "textDocument/didChange":
 		var request didChangeTextDocumentParams
@@ -97,6 +105,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		text := latestFullText(request.ContentChanges)
 		s.host.Documents().Change(request.TextDocument.URI, request.TextDocument.Version, text)
 		s.log("file changed", map[string]any{"uri": request.TextDocument.URI, "version": request.TextDocument.Version, "openDocumentCount": s.host.Documents().Count()})
+		s.validator.ValidateSoon()
 		return nil, nil
 	case "textDocument/didClose":
 		var request didCloseTextDocumentParams
@@ -105,6 +114,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		}
 		s.host.Documents().Close(request.TextDocument.URI)
 		s.log("file closed", map[string]any{"uri": request.TextDocument.URI, "openDocumentCount": s.host.Documents().Count()})
+		s.validateNow()
 		return nil, nil
 	case "textDocument/didSave":
 		var request didSaveTextDocumentParams
@@ -113,6 +123,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		}
 		s.host.Documents().Save(request.TextDocument.URI, request.Text)
 		s.log("file saved", map[string]any{"uri": request.TextDocument.URI, "openDocumentCount": s.host.Documents().Count()})
+		s.validateNow()
 		return nil, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
@@ -133,7 +144,47 @@ func (s *Server) healthFields() map[string]any {
 		"lifecycle":         health.Lifecycle,
 		"workspaceCount":    health.WorkspaceCount,
 		"openDocumentCount": health.OpenDocumentCount,
+		"diagnosticsCount":  health.DiagnosticsCount,
+		"lastValidation":    health.LastValidationTimestamp,
 	}
+}
+
+func (s *Server) validateNow() {
+	s.validator.Validate()
+}
+
+func (s *Server) sendNotification(method string, params any) error {
+	payload, err := json.Marshal(struct {
+		JSONRPC string `json:"jsonrpc"`
+		Method  string `json:"method"`
+		Params  any    `json:"params"`
+	}{
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  params,
+	})
+	if err != nil {
+		return err
+	}
+	s.outMu.Lock()
+	defer s.outMu.Unlock()
+	return writeMessage(s.out, payload)
+}
+
+func (s *Server) writeResponse(id json.RawMessage, result any, responseErr *rpcError) error {
+	response := rpcResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Result:  result,
+		Error:   responseErr,
+	}
+	payload, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	s.outMu.Lock()
+	defer s.outMu.Unlock()
+	return writeMessage(s.out, payload)
 }
 
 func initializeResult() map[string]any {
@@ -213,20 +264,6 @@ func writeMessage(out io.Writer, payload []byte) error {
 	}
 	_, err = out.Write(payload)
 	return err
-}
-
-func writeResponse(out io.Writer, id json.RawMessage, result any, responseErr *rpcError) error {
-	response := rpcResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Result:  result,
-		Error:   responseErr,
-	}
-	payload, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
-	return writeMessage(out, payload)
 }
 
 func EncodeMessage(value any) []byte {

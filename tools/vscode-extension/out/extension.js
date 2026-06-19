@@ -61,10 +61,11 @@ const DclGraphWorkspacePanel_1 = require("./webviews/DclGraphWorkspacePanel");
 const DclLifecycleGraphPanel_1 = require("./webviews/DclLifecycleGraphPanel");
 const DCL_SELECTOR = { language: "dcl", scheme: "file" };
 function activate(context) {
+    const languageServerEnabled = isLanguageServerEnabled();
     const compiler = new DclCompilerAdapter_1.DclCompilerAdapter(vscode.workspace.workspaceFolders, {
         extensionPath: context.extensionUri.fsPath,
     });
-    const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler);
+    const diagnostics = new DclDiagnosticProvider_1.DclDiagnosticProvider(compiler, { publishDiagnostics: !languageServerEnabled });
     const summary = new DclSummaryProvider_1.DclSummaryProvider();
     const explorer = new DclExplorerProvider_1.DclExplorerProvider();
     const explorerView = vscode.window.createTreeView("dclExplorer", { treeDataProvider: explorer });
@@ -87,6 +88,8 @@ function activate(context) {
         }, 250);
     }), { dispose: () => { if (sourceSelectionTimer)
             clearTimeout(sourceSelectionTimer); } }, vscode.workspace.onDidSaveTextDocument((document) => {
+        if (isLanguageServerEnabled())
+            return;
         compileOnSave.handleSavedDocument(document, (0, DclCompileOnSave_1.resolveCompileOnSaveMode)(vscode.workspace.getConfiguration("dcl")));
     }), languageServer);
 }
@@ -426,6 +429,9 @@ async function pickContext(summary) {
     return picked?.contextName;
 }
 function deactivate() { }
+function isLanguageServerEnabled() {
+    return vscode.workspace.getConfiguration("dcl.languageServer").get("enabled", false);
+}
 async function compileCurrentFile(diagnostics, summary, explorer, revealSummary) {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== "dcl") {

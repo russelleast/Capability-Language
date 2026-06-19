@@ -5,11 +5,16 @@ import { CompileResult, DclCompilerAdapter, DclDiagnostic } from "../compiler/Dc
 export class DclDiagnosticProvider implements vscode.Disposable {
   private readonly collection = vscode.languages.createDiagnosticCollection("dcl");
 
-  constructor(private readonly compiler: DclCompilerAdapter) {}
+  constructor(
+    private readonly compiler: DclCompilerAdapter,
+    private readonly options: { publishDiagnostics?: boolean } = {},
+  ) {}
 
   async compileFiles(files: vscode.Uri[]): Promise<CompileResult> {
     const result = await this.compiler.compileFiles(files);
-    this.publish(result, files);
+    if (this.options.publishDiagnostics ?? true) {
+      this.publish(result, files);
+    }
     return result;
   }
 
