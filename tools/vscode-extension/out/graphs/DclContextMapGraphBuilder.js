@@ -1,16 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildContextMapGraph = buildContextMapGraph;
+const semanticSummary_1 = require("../views/semanticSummary");
 const DclGraphLabels_1 = require("./DclGraphLabels");
 function buildContextMapGraph(summary, selectedContext) {
-    if (!summary.contexts?.length)
+    const displayContexts = (0, semanticSummary_1.normalizeContextsForDisplay)(summary.contexts, summary.capabilities);
+    if (!displayContexts?.length)
         return undefined;
     const contexts = selectedContext
-        ? relatedContexts(summary.contexts, selectedContext)
-        : summary.contexts;
+        ? relatedContexts(displayContexts, selectedContext)
+        : displayContexts;
     if (!contexts.length)
         return undefined;
-    const known = new Set(summary.contexts.map((context) => context.name));
+    const known = new Set(displayContexts.map((context) => context.name));
     const included = new Set(contexts.map((context) => context.name));
     const nodes = [];
     const edges = [];

@@ -1,4 +1,4 @@
-import { CapabilitySummary, ContextSummary, SemanticSummary, SourceLocation } from "../views/semanticSummary";
+import { CapabilitySummary, ContextSummary, normalizeContextsForDisplay, SemanticSummary, SourceLocation } from "../views/semanticSummary";
 import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
@@ -21,7 +21,7 @@ export function buildArchitectureOverviewGraph(
 ): DclGraphModel {
   const nodes: DclGraphNode[] = [];
   const edges: DclGraphEdge[] = [];
-  const contexts = summary.contexts ?? [];
+  const contexts = normalizeContextsForDisplay(summary.contexts, summary.capabilities) ?? [];
   const knownContexts = new Map(contexts.map((context) => [context.name, context]));
 
   for (const context of contexts) {

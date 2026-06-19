@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.15
+
+- Hid empty synthetic `default`, `Workspace`, and `Uncontexted` contexts from context display data.
+- Added a single `Workspace` fallback only when declarations have no context.
+- Preserved real user-authored `default` contexts when they own capabilities, declarations, children, or dependencies.
+- Applied context cleanup across DCL Explorer, Semantic Summary, Architecture Overview, Context Map, and Graph Workspace context selectors.
+- Added regression tests for fallback context normalization and graph rendering.
+
 ## 0.3.14
 
 - Changed compile-on-save to compile the DCL workspace by default so multi-file models resolve cross-file contexts and dependencies correctly.

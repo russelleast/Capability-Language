@@ -1,15 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeCompilerOutput = summarizeCompilerOutput;
+exports.normalizeContextsForDisplay = normalizeContextsForDisplay;
+exports.isSyntheticDefaultContext = isSyntheticDefaultContext;
+exports.contextHasDeclarations = contextHasDeclarations;
 const DclSourceLocation_1 = require("../source/DclSourceLocation");
 function summarizeCompilerOutput(output) {
     const program = isObject(output) ? output : {};
     const effectivePolicies = Array.isArray(program.effective_policies) ? program.effective_policies.filter(isObject) : [];
     const symbolLocations = symbolLocationIndex(program.symbols);
+    const symbols = Array.isArray(program.symbols) ? program.symbols.filter(isObject) : [];
     const capabilities = Array.isArray(program.capabilities) ? program.capabilities.filter(isObject) : [];
+    const summarizedCapabilities = capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations));
     return {
-        capabilities: capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations)),
-        contexts: summarizeContexts(program.contexts, symbolLocations),
+        capabilities: summarizedCapabilities,
+        contexts: normalizeContextsForDisplay(summarizeContexts(program.contexts, symbolLocations), summarizedCapabilities, symbols),
         actors: topLevelItems(program.actors, "actor", symbolLocations),
         policies: topLevelItems(program.policies, "policy", symbolLocations),
         effects: topLevelItems(program.effects, "effect", symbolLocations),
@@ -113,6 +118,34 @@ function summarizeContexts(contexts, symbolLocations) {
         dependencies: nonEmpty(arrayItems(context.dependencies)),
         location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined));
+}
+function normalizeContextsForDisplay(contexts, capabilities, symbols = []) {
+    const result = (contexts ?? []).filter((context) => {
+        if (!isSyntheticDefaultContext(context))
+            return true;
+        return contextHasDeclarations(context, capabilities, symbols);
+    });
+    const hasUncontextedDeclarations = capabilities.some((capability) => !capability.context);
+    if (hasUncontextedDeclarations && !result.some((context) => isWorkspaceFallbackContext(context))) {
+        result.push({ name: "Workspace" });
+    }
+    return nonEmpty(dedupeContexts(result));
+}
+function isSyntheticDefaultContext(context) {
+    return context.name === "default" || isWorkspaceFallbackContext(context) || context.name === "Uncontexted";
+}
+function contextHasDeclarations(context, capabilities, symbols = []) {
+    if (context.children?.length || context.dependencies?.length)
+        return true;
+    if (capabilities.some((capability) => capability.context === context.name))
+        return true;
+    return symbols.some((symbol) => symbol.kind !== "context" && symbol.context === context.name);
+}
+function isWorkspaceFallbackContext(context) {
+    return context.name === "Workspace";
+}
+function dedupeContexts(contexts) {
+    return Array.from(new Map(contexts.map((context) => [context.name, context])).values());
 }
 function topLevelItems(items, kind, symbolLocations) {
     if (!Array.isArray(items))

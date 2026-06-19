@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildArchitectureOverviewGraphs = buildArchitectureOverviewGraphs;
 exports.buildArchitectureOverviewGraph = buildArchitectureOverviewGraph;
+const semanticSummary_1 = require("../views/semanticSummary");
 const DclGraphLabels_1 = require("./DclGraphLabels");
 function buildArchitectureOverviewGraphs(summary) {
     if (!summary.contexts?.length && !summary.capabilities.length)
@@ -15,7 +16,7 @@ function buildArchitectureOverviewGraphs(summary) {
 function buildArchitectureOverviewGraph(summary, detailLevel) {
     const nodes = [];
     const edges = [];
-    const contexts = summary.contexts ?? [];
+    const contexts = (0, semanticSummary_1.normalizeContextsForDisplay)(summary.contexts, summary.capabilities) ?? [];
     const knownContexts = new Map(contexts.map((context) => [context.name, context]));
     for (const context of contexts) {
         nodes.push(contextNode(context, Boolean(context.parent)));

@@ -1,16 +1,17 @@
-import { ContextSummary, SemanticSummary } from "../views/semanticSummary";
+import { ContextSummary, normalizeContextsForDisplay, SemanticSummary } from "../views/semanticSummary";
 import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
 
 export function buildContextMapGraph(summary: SemanticSummary, selectedContext?: string): DclGraphModel | undefined {
-  if (!summary.contexts?.length) return undefined;
+  const displayContexts = normalizeContextsForDisplay(summary.contexts, summary.capabilities);
+  if (!displayContexts?.length) return undefined;
 
   const contexts = selectedContext
-    ? relatedContexts(summary.contexts, selectedContext)
-    : summary.contexts;
+    ? relatedContexts(displayContexts, selectedContext)
+    : displayContexts;
   if (!contexts.length) return undefined;
 
-  const known = new Set(summary.contexts.map((context) => context.name));
+  const known = new Set(displayContexts.map((context) => context.name));
   const included = new Set(contexts.map((context) => context.name));
   const nodes: DclGraphNode[] = [];
   const edges: DclGraphEdge[] = [];

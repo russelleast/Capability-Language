@@ -20,7 +20,7 @@ describe("semantic summary normalization", () => {
       policies: [{ name: "Audit" }],
       effects: [{ name: "PersistOrder" }],
       events: [{ name: "OrderAccepted" }],
-      capabilities: [{ name: "AcceptOrder", lifecycle: { name: "AcceptOrder" } }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales", lifecycle: { name: "AcceptOrder" } }],
     });
 
     expect(summary.contexts?.map((item) => item.name)).toEqual(["Sales"]);
@@ -36,5 +36,49 @@ describe("semantic summary normalization", () => {
     const summary = summarizeCompilerOutput(fixture("invalid-summary-shape.json"));
     expect(summary.capabilities).toEqual([]);
     expect(summary.actors?.map((item) => item.label)).toEqual(["StillDefensive"]);
+  });
+
+  it("hides empty default contexts when all capabilities belong to explicit contexts", () => {
+    const summary = summarizeCompilerOutput({
+      contexts: [{ name: "default" }, { name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    });
+
+    expect(summary.contexts?.map((context) => context.name)).toEqual(["Sales"]);
+  });
+
+  it("uses one Workspace fallback for declarations without context", () => {
+    const summary = summarizeCompilerOutput({
+      capabilities: [{ name: "AcceptOrder" }, { name: "ShipOrder" }],
+    });
+
+    expect(summary.contexts?.map((context) => context.name)).toEqual(["Workspace"]);
+  });
+
+  it("hides empty default context even when the compiler returns it", () => {
+    const summary = summarizeCompilerOutput({
+      contexts: [{ name: "default" }],
+      capabilities: [],
+    });
+
+    expect(summary.contexts).toBeUndefined();
+  });
+
+  it("shows default context when it owns declarations", () => {
+    const summary = summarizeCompilerOutput({
+      contexts: [{ name: "default" }],
+      capabilities: [{ name: "AcceptOrder", context: "default" }],
+    });
+
+    expect(summary.contexts?.map((context) => context.name)).toEqual(["default"]);
+  });
+
+  it("does not duplicate default, Workspace, or Uncontexted fallback contexts", () => {
+    const summary = summarizeCompilerOutput({
+      contexts: [{ name: "default" }, { name: "Workspace" }, { name: "Uncontexted" }],
+      capabilities: [{ name: "AcceptOrder" }],
+    });
+
+    expect(summary.contexts?.map((context) => context.name)).toEqual(["Workspace"]);
   });
 });

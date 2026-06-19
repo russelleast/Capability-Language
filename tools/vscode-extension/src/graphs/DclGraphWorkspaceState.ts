@@ -5,7 +5,7 @@ import { buildEventFlowGraph } from "./DclEventFlowGraphBuilder";
 import { graphExportBaseName } from "./DclGraphExport";
 import { buildLifecycleGraph } from "./DclLifecycleGraphBuilder";
 import { DclGraphModel } from "./DclGraphModel";
-import { SemanticSummary } from "../views/semanticSummary";
+import { normalizeContextsForDisplay, SemanticSummary } from "../views/semanticSummary";
 
 export type DclGraphWorkspaceType = "architecture" | "capability" | "lifecycle" | "event-flow" | "context-map";
 
@@ -118,10 +118,10 @@ function subjectOptions(summary: SemanticSummary, graphType: DclGraphWorkspaceTy
         ]
         : [];
     case "context-map":
-      return summary.contexts?.length
+      return displayContexts(summary).length
         ? [
           { label: "All contexts", value: ALL_CONTEXTS },
-          ...summary.contexts.map((context) => ({
+          ...displayContexts(summary).map((context) => ({
             label: context.name,
             value: context.name,
             description: context.parent ? `child of ${context.parent}` : undefined,
@@ -129,6 +129,10 @@ function subjectOptions(summary: SemanticSummary, graphType: DclGraphWorkspaceTy
         ]
         : [];
   }
+}
+
+function displayContexts(summary: SemanticSummary) {
+  return normalizeContextsForDisplay(summary.contexts, summary.capabilities) ?? [];
 }
 
 function eventNames(summary: SemanticSummary): string[] {

@@ -53,4 +53,28 @@ describe("DclExplorerProvider", () => {
       "Lifecycle",
     ]);
   });
+
+  it("does not show empty synthetic default contexts", async () => {
+    const provider = new DclExplorerProvider();
+    provider.refresh({
+      contexts: [{ name: "default" }, { name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    });
+
+    const roots = await provider.getChildren();
+    const contexts = roots?.find((item) => item.label === "Contexts");
+    expect(contexts?.children.map((item) => item.label)).toEqual(["Sales"]);
+  });
+
+  it("shows one Workspace fallback when declarations have no context", async () => {
+    const provider = new DclExplorerProvider();
+    provider.refresh({
+      contexts: [{ name: "default" }, { name: "Workspace" }, { name: "Uncontexted" }],
+      capabilities: [{ name: "AcceptOrder" }],
+    });
+
+    const roots = await provider.getChildren();
+    const contexts = roots?.find((item) => item.label === "Contexts");
+    expect(contexts?.children.map((item) => item.label)).toEqual(["Workspace"]);
+  });
 });

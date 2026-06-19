@@ -57,6 +57,24 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.subject).toBe(ALL_CONTEXTS);
   });
 
+  it("does not offer empty synthetic default contexts", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "default" }, { name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }), { graphType: "context-map" });
+
+    expect(state.subjects.map((subject) => subject.value)).toEqual([ALL_CONTEXTS, "Sales"]);
+  });
+
+  it("offers Workspace fallback only when declarations have no context", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "default" }, { name: "Workspace" }, { name: "Uncontexted" }],
+      capabilities: [{ name: "AcceptOrder" }],
+    }), { graphType: "context-map" });
+
+    expect(state.subjects.map((subject) => subject.value)).toEqual([ALL_CONTEXTS, "Workspace"]);
+  });
+
   it("returns friendly empty state when selected graph has no data", () => {
     const state = buildGraphWorkspaceState(summary({
       capabilities: [],

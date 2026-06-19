@@ -8,6 +8,7 @@ const DclContextMapGraphBuilder_1 = require("./DclContextMapGraphBuilder");
 const DclEventFlowGraphBuilder_1 = require("./DclEventFlowGraphBuilder");
 const DclGraphExport_1 = require("./DclGraphExport");
 const DclLifecycleGraphBuilder_1 = require("./DclLifecycleGraphBuilder");
+const semanticSummary_1 = require("../views/semanticSummary");
 exports.ALL_EVENT_FLOWS = "__all_event_flows__";
 exports.ALL_CONTEXTS = "__all_contexts__";
 function buildGraphWorkspaceState(summary, selection = {}) {
@@ -78,10 +79,10 @@ function subjectOptions(summary, graphType) {
                 ]
                 : [];
         case "context-map":
-            return summary.contexts?.length
+            return displayContexts(summary).length
                 ? [
                     { label: "All contexts", value: exports.ALL_CONTEXTS },
-                    ...summary.contexts.map((context) => ({
+                    ...displayContexts(summary).map((context) => ({
                         label: context.name,
                         value: context.name,
                         description: context.parent ? `child of ${context.parent}` : undefined,
@@ -89,6 +90,9 @@ function subjectOptions(summary, graphType) {
                 ]
                 : [];
     }
+}
+function displayContexts(summary) {
+    return (0, semanticSummary_1.normalizeContextsForDisplay)(summary.contexts, summary.capabilities) ?? [];
 }
 function eventNames(summary) {
     const names = new Set();

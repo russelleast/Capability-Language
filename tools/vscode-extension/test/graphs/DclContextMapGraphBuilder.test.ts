@@ -83,6 +83,34 @@ describe("DclContextMapGraphBuilder", () => {
       sourceName: "Customer.Registration",
     });
   });
+
+  it("does not render an empty synthetic default context", () => {
+    const graph = buildContextMapGraph(summary({
+      contexts: [{ name: "default" }, { name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }));
+
+    expect(graph?.nodes.find((node) => node.id === "context:default")).toBeUndefined();
+    expect(graph?.nodes.map((node) => node.id)).toEqual(["context:sales"]);
+  });
+
+  it("renders real default context when it contains declarations", () => {
+    const graph = buildContextMapGraph(summary({
+      contexts: [{ name: "default" }],
+      capabilities: [{ name: "AcceptOrder", context: "default" }],
+    }));
+
+    expect(graph?.nodes.map((node) => node.id)).toEqual(["context:default"]);
+  });
+
+  it("uses one Workspace fallback when declarations have no context", () => {
+    const graph = buildContextMapGraph(summary({
+      contexts: [{ name: "default" }, { name: "Workspace" }, { name: "Uncontexted" }],
+      capabilities: [{ name: "AcceptOrder" }],
+    }));
+
+    expect(graph?.nodes.map((node) => node.label)).toEqual(["Workspace"]);
+  });
 });
 
 function summary(value: Partial<SemanticSummary>): SemanticSummary {

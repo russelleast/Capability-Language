@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.14`
+Current extension version: `0.3.15`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -124,7 +124,7 @@ Detail levels:
 - `Detailed`: contexts, capabilities, and events
 - `Full`: contexts, capabilities, events, and lifecycle indicators
 
-If the compiler provides an explicit `default` context, capabilities without a more specific context are grouped there. If no context data exists, capabilities are grouped under `Workspace`.
+Empty synthetic `default`, `Workspace`, and `Uncontexted` context placeholders are hidden. If declarations have no context, they are grouped under one `Workspace` fallback. A real `default` context is shown when it owns capabilities, declarations, children, or dependencies.
 
 ### Capability Graph
 
