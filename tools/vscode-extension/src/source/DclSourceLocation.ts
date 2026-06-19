@@ -93,7 +93,9 @@ export async function revealSourceLocation(
 }
 
 async function resolveSourceUri(file: string): Promise<vscode.Uri | undefined> {
-  if (path.isAbsolute(file) && fs.existsSync(file)) return vscode.Uri.file(file);
+  if (path.isAbsolute(file)) {
+    return fs.existsSync(file) ? vscode.Uri.file(file) : undefined;
+  }
 
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     const candidates = [
@@ -108,10 +110,15 @@ async function resolveSourceUri(file: string): Promise<vscode.Uri | undefined> {
   const basename = path.basename(file);
   const matches = await vscode.workspace.findFiles(`**/${basename}`, "**/{node_modules,.git}/**", 25);
   const comparable = comparableRelativePath(file);
-  return matches.find((match) => {
-    const matchPath = match.fsPath.replace(/\\/g, "/");
-    return matchPath.endsWith(file.replace(/\\/g, "/")) || matchPath.endsWith(comparable);
-  }) ?? matches[0];
+  if (file === basename && matches.length === 1) return matches[0];
+  if (file !== basename) {
+    const exactMatch = matches.find((match) => {
+      const matchPath = match.fsPath.replace(/\\/g, "/");
+      return matchPath.endsWith(file.replace(/\\/g, "/")) || matchPath.endsWith(comparable);
+    });
+    if (exactMatch) return exactMatch;
+  }
+  return undefined;
 }
 
 function comparableRelativePath(file: string): string {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.16
+
+- Hardened graph/source navigation so ambiguous basename-only compiler source paths fail gracefully instead of opening an arbitrary matching file.
+- Stopped missing absolute compiler source paths from falling back to unrelated basename matches.
+- Added regression tests for unique, ambiguous, and missing source path resolution.
+- Re-ran compile, tests, lint, and VSIX package smoke for the hardening release.
+
 ## 0.3.15
 
 - Hid empty synthetic `default`, `Workspace`, and `Uncontexted` contexts from context display data.
