@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveDclLanguageServer = resolveDclLanguageServer;
+exports.localLanguageServerName = localLanguageServerName;
 exports.bundledLanguageServerName = bundledLanguageServerName;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -43,6 +44,9 @@ function resolveDclLanguageServer(options) {
     const arch = options.arch ?? process.arch;
     const existsSync = options.existsSync ?? fs.existsSync;
     const configured = (options.configuredLanguageServerPath ?? "").trim();
+    const localName = localLanguageServerName(platform);
+    const localPath = options.extensionPath ? path.join(options.extensionPath, "bin", localName) : undefined;
+    const localAvailable = Boolean(localPath && existsSync(localPath));
     const bundledName = bundledLanguageServerName(platform, arch);
     const bundledPath = bundledName && options.extensionPath ? path.join(options.extensionPath, "bin", bundledName) : undefined;
     const bundledAvailable = Boolean(bundledPath && existsSync(bundledPath));
@@ -58,6 +62,23 @@ function resolveDclLanguageServer(options) {
             arch,
             bundledPath,
             bundledAvailable,
+            localPath,
+            localAvailable,
+            supportedBundleName: bundledName,
+        };
+    }
+    if (localPath && localAvailable) {
+        return {
+            command: localPath,
+            args: [],
+            cwd: workspaceRoot,
+            source: "local",
+            platform,
+            arch,
+            bundledPath,
+            bundledAvailable,
+            localPath,
+            localAvailable,
             supportedBundleName: bundledName,
         };
     }
@@ -71,6 +92,8 @@ function resolveDclLanguageServer(options) {
             arch,
             bundledPath,
             bundledAvailable,
+            localPath,
+            localAvailable,
             supportedBundleName: bundledName,
         };
     }
@@ -83,8 +106,13 @@ function resolveDclLanguageServer(options) {
         arch,
         bundledPath,
         bundledAvailable,
+        localPath,
+        localAvailable,
         supportedBundleName: bundledName,
     };
+}
+function localLanguageServerName(platform) {
+    return platform === "win32" ? "dcl-lsp.exe" : "dcl-lsp";
 }
 function bundledLanguageServerName(platform, arch) {
     if (platform === "darwin" && arch === "arm64")

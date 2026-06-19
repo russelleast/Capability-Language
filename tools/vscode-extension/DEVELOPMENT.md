@@ -63,6 +63,46 @@ or another fixed compiler command prefix such as:
 }
 ```
 
+## Test The Experimental Language Server Locally
+
+The language server is disabled by default. To test it in an Extension Development Host, first build a local LSP binary into the extension `bin/` directory:
+
+```bash
+cd tools/vscode-extension
+npm run build:lsp
+```
+
+This writes `bin/dcl-lsp` on macOS/Linux or `bin/dcl-lsp.exe` on Windows. When `dcl.languageServer.enabled` is `true`, the development host prefers that local binary before platform-specific packaged binaries or PATH fallback.
+
+Use these settings in the Extension Development Host:
+
+```json
+{
+  "dcl.languageServer.enabled": true
+}
+```
+
+You can override resolution explicitly:
+
+```json
+{
+  "dcl.languageServer.enabled": true,
+  "dcl.languageServer.path": "/absolute/path/to/dcl-lsp"
+}
+```
+
+If startup fails with `spawn dcl-lsp ENOENT`, run `npm run build:lsp` or set `dcl.languageServer.path`. Inspect `DCL: Show Language Server Status` and the `DCL Language Server` output channel for the attempted command, source, and last error.
+
+The output channel hides raw LSP framing by default. To debug protocol traffic, set:
+
+```json
+{
+  "dcl.languageServer.trace": "messages"
+}
+```
+
+Use `verbose` only when you need framed `Content-Length` protocol output.
+
 ## Test With Fixtures
 
 Open files under `test-fixtures/` in the Extension Development Host.

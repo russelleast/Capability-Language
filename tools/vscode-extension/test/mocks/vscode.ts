@@ -95,11 +95,20 @@ export class Uri {
 export const workspace = {
   workspaceFolders: [] as { uri: Uri }[],
   compilerPath: "",
+  configuration: {} as Record<string, unknown>,
   files: [] as Uri[],
-  getConfiguration(_section?: string) {
+  textDocuments: [] as TextDocument[],
+  getConfiguration(section?: string) {
     return {
-      get<T>(_key: string, defaultValue: T): T {
-        return (workspace.compilerPath || defaultValue) as T;
+      get<T>(key: string, defaultValue: T): T {
+        const fullKey = section ? `${section}.${key}` : key;
+        if (Object.prototype.hasOwnProperty.call(workspace.configuration, fullKey)) {
+          return workspace.configuration[fullKey] as T;
+        }
+        if (key === "compilerPath" || fullKey === "dcl.compilerPath") {
+          return (workspace.compilerPath || defaultValue) as T;
+        }
+        return defaultValue;
       },
     };
   },
@@ -121,10 +130,30 @@ export const workspace = {
       },
     };
   },
+  onDidOpenTextDocument(_listener: (document: TextDocument) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+  onDidChangeTextDocument(_listener: (event: { document: TextDocument }) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+  onDidSaveTextDocument(_listener: (document: TextDocument) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+  onDidCloseTextDocument(_listener: (document: TextDocument) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+};
+
+export type TextDocument = {
+  uri: Uri;
+  languageId: string;
+  version: number;
+  getText(): string;
 };
 
 export const window = {
   lastShownDocument: undefined as unknown,
+  outputChannels: [] as MockOutputChannel[],
   createdWebviewPanels: [] as MockWebviewPanel[],
   async showTextDocument(document: unknown) {
     window.lastShownDocument = document;
@@ -136,6 +165,11 @@ export const window = {
   showWarningMessage(_message: string): void {},
   showErrorMessage(_message: string): void {},
   showInformationMessage(_message: string): void {},
+  createOutputChannel(name: string): MockOutputChannel {
+    const channel = new MockOutputChannel(name);
+    window.outputChannels.push(channel);
+    return channel;
+  },
   registerTreeDataProvider(): { dispose(): void } {
     return { dispose() {} };
   },
@@ -150,6 +184,25 @@ export const window = {
     return panel;
   },
 };
+
+export class MockOutputChannel {
+  readonly lines: string[] = [];
+  disposed = false;
+
+  constructor(public readonly name: string) {}
+
+  append(value: string): void {
+    this.lines.push(value);
+  }
+
+  appendLine(value: string): void {
+    this.lines.push(value);
+  }
+
+  dispose(): void {
+    this.disposed = true;
+  }
+}
 
 export class MockWebview {
   html = "";

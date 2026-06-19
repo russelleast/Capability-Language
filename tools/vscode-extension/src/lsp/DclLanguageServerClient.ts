@@ -3,8 +3,12 @@ import * as vscode from "vscode";
 import { resolveDclLanguageServer } from "./DclLanguageServerResolver";
 
 type JsonRpcId = number;
+type LanguageServerState = "disabled" | "stopped" | "running" | "failed";
+type LanguageServerTrace = "off" | "messages" | "verbose";
+type SpawnLanguageServer = typeof spawn;
 
 export type DclLanguageServerStatus = {
+  state: LanguageServerState;
   running: boolean;
   command?: string;
   source?: string;
@@ -22,13 +26,21 @@ export class DclLanguageServerClient implements vscode.Disposable {
   private lastError: string | undefined;
   private commandLine: string | undefined;
   private source: string | undefined;
+  private state: LanguageServerState = "stopped";
+  private stdoutBuffer = "";
+  private stderrBuffer = "";
+  private initializeRequestId: JsonRpcId | undefined;
 
-  constructor(private readonly extensionUri: vscode.Uri) {
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly spawnLanguageServer: SpawnLanguageServer = spawn,
+  ) {
     this.output = vscode.window.createOutputChannel("DCL Language Server");
   }
 
   startIfEnabled(): void {
     if (!vscode.workspace.getConfiguration("dcl.languageServer").get<boolean>("enabled", false)) {
+      this.state = "disabled";
       this.output.appendLine("DCL language server is disabled.");
       return;
     }
@@ -47,36 +59,34 @@ export class DclLanguageServerClient implements vscode.Disposable {
 
     this.commandLine = [command.command, ...command.args].join(" ");
     this.source = command.source;
+    this.state = "running";
+    this.lastError = undefined;
     this.output.appendLine(`Starting DCL language server: ${this.commandLine}`);
+    this.output.appendLine(`DCL language server source: ${command.source}`);
 
     try {
-      this.process = spawn(command.command, command.args, {
+      this.process = this.spawnLanguageServer(command.command, command.args, {
         cwd: command.cwd,
         stdio: "pipe",
       });
     } catch (error) {
-      this.lastError = error instanceof Error ? error.message : String(error);
-      this.output.appendLine(`Failed to start DCL language server: ${this.lastError}`);
+      this.recordStartFailure(error);
       return;
     }
 
-    this.process.stderr.on("data", (chunk: Buffer) => {
-      this.output.append(chunk.toString());
-    });
-    this.process.stdout.on("data", (chunk: Buffer) => {
-      this.output.appendLine(`LSP response: ${chunk.toString().trim()}`);
-    });
+    this.process.stderr.on("data", (chunk: Buffer) => this.handleStderr(chunk));
+    this.process.stdout.on("data", (chunk: Buffer) => this.handleStdout(chunk));
     this.process.on("error", (error) => {
-      this.lastError = error.message;
-      this.output.appendLine(`DCL language server error: ${error.message}`);
+      this.recordStartFailure(error);
     });
     this.process.on("exit", (code, signal) => {
       this.output.appendLine(`DCL language server stopped${code === null ? "" : ` with code ${code}`}${signal ? ` signal ${signal}` : ""}.`);
       this.process = undefined;
       this.openDocuments.clear();
+      if (this.state !== "failed") this.state = code && code !== 0 ? "failed" : "stopped";
     });
 
-    this.sendRequest("initialize", {
+    this.initializeRequestId = this.sendRequest("initialize", {
       processId: process.pid,
       rootUri: vscode.workspace.workspaceFolders?.[0]?.uri.toString(),
       workspaceFolders: vscode.workspace.workspaceFolders?.map((folder) => ({
@@ -94,7 +104,8 @@ export class DclLanguageServerClient implements vscode.Disposable {
 
   status(): DclLanguageServerStatus {
     return {
-      running: Boolean(this.process),
+      state: this.state,
+      running: this.state === "running" && Boolean(this.process),
       command: this.commandLine,
       source: this.source,
       workspaceCount: vscode.workspace.workspaceFolders?.length ?? 0,
@@ -106,7 +117,7 @@ export class DclLanguageServerClient implements vscode.Disposable {
   showStatus(): void {
     const status = this.status();
     const lines = [
-      `Status: ${status.running ? "running" : "stopped"}`,
+      `Status: ${status.state}`,
       status.command ? `Command: ${status.command}` : undefined,
       status.source ? `Source: ${status.source}` : undefined,
       `Workspace count: ${status.workspaceCount}`,
@@ -124,7 +135,21 @@ export class DclLanguageServerClient implements vscode.Disposable {
       this.process.kill();
       this.process = undefined;
     }
+    if (this.state !== "failed") this.state = "stopped";
     this.output.dispose();
+  }
+
+  private recordStartFailure(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    this.lastError = message;
+    this.state = "failed";
+    this.process = undefined;
+    this.openDocuments.clear();
+    this.output.appendLine(`Failed to start DCL language server: ${message}`);
+    if (this.commandLine) this.output.appendLine(`Attempted command: ${this.commandLine}`);
+    if (/ENOENT/i.test(message)) {
+      this.output.appendLine("Build dcl-lsp or set dcl.languageServer.path.");
+    }
   }
 
   private registerDocumentForwarding(): void {
@@ -195,11 +220,104 @@ export class DclLanguageServerClient implements vscode.Disposable {
   private write(message: unknown): void {
     if (!this.process) return;
     const payload = Buffer.from(JSON.stringify(message), "utf8");
+    this.traceMessage("send", payload.toString("utf8"), `Content-Length: ${payload.length}\r\n\r\n${payload.toString("utf8")}`);
     this.process.stdin.write(`Content-Length: ${payload.length}\r\n\r\n`);
     this.process.stdin.write(payload);
+  }
+
+  private handleStdout(chunk: Buffer): void {
+    const text = chunk.toString("utf8");
+    this.stdoutBuffer += text;
+
+    while (true) {
+      const parsed = readBufferedLspMessage(this.stdoutBuffer);
+      if (!parsed) return;
+      this.stdoutBuffer = parsed.remaining;
+      this.traceMessage("receive", parsed.payload, `Content-Length: ${Buffer.byteLength(parsed.payload, "utf8")}\r\n\r\n${parsed.payload}`);
+      this.handleProtocolMessage(parsed.payload);
+    }
+  }
+
+  private handleStderr(chunk: Buffer): void {
+    this.stderrBuffer += chunk.toString("utf8");
+    const lines = this.stderrBuffer.split(/\r?\n/);
+    this.stderrBuffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      this.output.appendLine(formatServerLog(trimmed));
+    }
+  }
+
+  private handleProtocolMessage(payload: string): void {
+    let message: { id?: number | string; result?: unknown; error?: unknown };
+    try {
+      message = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    if (message.id === this.initializeRequestId && message.result && !message.error) {
+      this.output.appendLine("DCL language server initialized.");
+    }
+    if (message.error) {
+      this.output.appendLine(`DCL language server protocol error: ${JSON.stringify(message.error)}`);
+    }
+  }
+
+  private traceMessage(direction: "send" | "receive", message: string, raw: string): void {
+    const trace = languageServerTrace();
+    if (trace === "off") return;
+    if (trace === "verbose") {
+      this.output.appendLine(`LSP ${direction} raw: ${raw}`);
+      return;
+    }
+    this.output.appendLine(`LSP ${direction}: ${message}`);
   }
 }
 
 function isDclFileDocument(document: vscode.TextDocument): boolean {
   return document.languageId === "dcl" && document.uri.scheme === "file";
+}
+
+function languageServerTrace(): LanguageServerTrace {
+  const value = vscode.workspace.getConfiguration("dcl.languageServer").get<string>("trace", "off");
+  return value === "messages" || value === "verbose" ? value : "off";
+}
+
+function readBufferedLspMessage(buffer: string): { payload: string; remaining: string } | undefined {
+  const headerEnd = buffer.indexOf("\r\n\r\n");
+  if (headerEnd < 0) return undefined;
+
+  const headers = buffer.slice(0, headerEnd).split("\r\n");
+  const contentLengthHeader = headers.find((header) => /^Content-Length:/i.test(header));
+  if (!contentLengthHeader) {
+    return { payload: "", remaining: buffer.slice(headerEnd + 4) };
+  }
+
+  const length = Number(contentLengthHeader.split(":")[1]?.trim());
+  if (!Number.isFinite(length) || length < 0) {
+    return { payload: "", remaining: buffer.slice(headerEnd + 4) };
+  }
+
+  const payloadStart = headerEnd + 4;
+  const payloadEnd = payloadStart + length;
+  if (buffer.length < payloadEnd) return undefined;
+  return {
+    payload: buffer.slice(payloadStart, payloadEnd),
+    remaining: buffer.slice(payloadEnd),
+  };
+}
+
+function formatServerLog(line: string): string {
+  try {
+    const record = JSON.parse(line) as { event?: string; ts?: string; [key: string]: unknown };
+    if (!record.event) return line;
+    const details = Object.entries(record)
+      .filter(([key]) => key !== "event" && key !== "ts")
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join(" ");
+    return details ? `Server: ${record.event} (${details})` : `Server: ${record.event}`;
+  } catch {
+    return line;
+  }
 }

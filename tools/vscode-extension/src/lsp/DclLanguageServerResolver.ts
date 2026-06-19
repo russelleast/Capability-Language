@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { splitCommand } from "../compiler/DclCompilerResolver";
 
-export type DclLanguageServerSource = "configured" | "bundled" | "path";
+export type DclLanguageServerSource = "configured" | "local" | "bundled" | "path";
 
 export type DclLanguageServerCommand = {
   command: string;
@@ -13,6 +13,8 @@ export type DclLanguageServerCommand = {
   arch: NodeJS.Architecture;
   bundledPath?: string;
   bundledAvailable: boolean;
+  localPath?: string;
+  localAvailable: boolean;
   supportedBundleName?: string;
 };
 
@@ -30,6 +32,9 @@ export function resolveDclLanguageServer(options: DclLanguageServerResolverOptio
   const arch = options.arch ?? process.arch;
   const existsSync = options.existsSync ?? fs.existsSync;
   const configured = (options.configuredLanguageServerPath ?? "").trim();
+  const localName = localLanguageServerName(platform);
+  const localPath = options.extensionPath ? path.join(options.extensionPath, "bin", localName) : undefined;
+  const localAvailable = Boolean(localPath && existsSync(localPath));
   const bundledName = bundledLanguageServerName(platform, arch);
   const bundledPath = bundledName && options.extensionPath ? path.join(options.extensionPath, "bin", bundledName) : undefined;
   const bundledAvailable = Boolean(bundledPath && existsSync(bundledPath));
@@ -46,6 +51,24 @@ export function resolveDclLanguageServer(options: DclLanguageServerResolverOptio
       arch,
       bundledPath,
       bundledAvailable,
+      localPath,
+      localAvailable,
+      supportedBundleName: bundledName,
+    };
+  }
+
+  if (localPath && localAvailable) {
+    return {
+      command: localPath,
+      args: [],
+      cwd: workspaceRoot,
+      source: "local",
+      platform,
+      arch,
+      bundledPath,
+      bundledAvailable,
+      localPath,
+      localAvailable,
       supportedBundleName: bundledName,
     };
   }
@@ -60,6 +83,8 @@ export function resolveDclLanguageServer(options: DclLanguageServerResolverOptio
       arch,
       bundledPath,
       bundledAvailable,
+      localPath,
+      localAvailable,
       supportedBundleName: bundledName,
     };
   }
@@ -73,8 +98,14 @@ export function resolveDclLanguageServer(options: DclLanguageServerResolverOptio
     arch,
     bundledPath,
     bundledAvailable,
+    localPath,
+    localAvailable,
     supportedBundleName: bundledName,
   };
+}
+
+export function localLanguageServerName(platform: NodeJS.Platform): string {
+  return platform === "win32" ? "dcl-lsp.exe" : "dcl-lsp";
 }
 
 export function bundledLanguageServerName(platform: NodeJS.Platform, arch: NodeJS.Architecture): string | undefined {

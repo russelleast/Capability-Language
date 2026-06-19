@@ -218,7 +218,17 @@
         "dcl.languageServer.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Optional path to a custom `dcl-lsp` executable. Leave empty to use a bundled language server when available, falling back to `dcl-lsp` on PATH."
+          "markdownDescription": "Optional path to a custom `dcl-lsp` executable. Leave empty to use a local extension `bin/dcl-lsp` development build when present, then a bundled language server when available, falling back to `dcl-lsp` on PATH."
+        },
+        "dcl.languageServer.trace": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "markdownDescription": "Controls experimental DCL Language Server protocol logging. `off` keeps the output channel user-friendly, `messages` logs JSON-RPC payloads, and `verbose` logs framed protocol messages."
         },
         "dcl.graph.followSourceSelection": {
           "type": "boolean",
@@ -486,6 +496,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "tsc -p ./ --noEmit",
     "copy:vendor": "node scripts/copy-vendor-assets.mjs",
+    "build:lsp": "node scripts/build-local-lsp.mjs",
     "build:compiler-binaries": "node scripts/build-compiler-binaries.mjs",
     "package": "vsce package",
     "package:smoke": "npm run build:compiler-binaries && npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",

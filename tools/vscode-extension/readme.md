@@ -80,7 +80,11 @@ Enables the experimental DCL Language Server. Disabled by default. When disabled
 
 `dcl.languageServer.path`
 
-Optional path to a custom `dcl-lsp` executable. Leave empty to use a bundled language server when available, falling back to `dcl-lsp` on PATH.
+Optional path to a custom `dcl-lsp` executable. Leave empty to use a local extension `bin/dcl-lsp` development build when present, then a bundled language server when available, falling back to `dcl-lsp` on PATH.
+
+`dcl.languageServer.trace`
+
+Controls experimental language server protocol logging. The default `off` keeps the `DCL Language Server` output channel user-friendly. Use `messages` or `verbose` only when debugging raw LSP traffic.
 
 ## DCL Explorer
 
@@ -186,7 +190,7 @@ v0.5.0 introduces an optional `dcl-lsp` executable and VS Code launcher. This is
 
 The language server does not provide diagnostics, hover, completion, definition, formatting, graph data, or semantic navigation yet. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
 
-To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and logs.
+To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
 
 ## Installing From VSIX
 
