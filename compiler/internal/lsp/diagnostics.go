@@ -58,23 +58,27 @@ func DiagnosticsByURI(items []diagnostic.Diagnostic, pathToURI map[string]string
 }
 
 func ToLSPDiagnostic(item diagnostic.Diagnostic) LSPDiagnostic {
-	line := item.Span.Line - 1
-	if line < 0 {
-		line = 0
-	}
-	column := item.Span.Column - 1
-	if column < 0 {
-		column = 0
-	}
 	return LSPDiagnostic{
-		Range: Range{
-			Start: Position{Line: line, Character: column},
-			End:   Position{Line: line, Character: column + 1},
-		},
+		Range:    RangeFromSpan(item.Span),
 		Severity: diagnosticSeverity(item.Severity),
 		Code:     item.Code,
 		Source:   "dcl",
 		Message:  item.Message,
+	}
+}
+
+func RangeFromSpan(span diagnostic.Span) Range {
+	line := span.Line - 1
+	if line < 0 {
+		line = 0
+	}
+	column := span.Column - 1
+	if column < 0 {
+		column = 0
+	}
+	return Range{
+		Start: Position{Line: line, Character: column},
+		End:   Position{Line: line, Character: column + 1},
 	}
 }
 

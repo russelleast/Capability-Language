@@ -93,6 +93,10 @@ func TestServerLifecycleAndDocumentNotifications(t *testing.T) {
 	if responses[0]["result"] == nil {
 		t.Fatal("expected initialize result")
 	}
+	capabilities := responses[0]["result"].(map[string]any)["capabilities"].(map[string]any)
+	if capabilities["documentSymbolProvider"] != true {
+		t.Fatalf("expected documentSymbolProvider capability, got %+v", capabilities)
+	}
 
 	logText := logs.String()
 	for _, event := range []string{"startup", "initialization", "initialized", "file opened", "file changed", "file saved", "shutdown"} {
@@ -131,6 +135,66 @@ func TestServerClosesDocuments(t *testing.T) {
 	}
 	if host.Documents().Count() != 0 {
 		t.Fatalf("expected no open documents, got %d", host.Documents().Count())
+	}
+}
+
+func TestServerHandlesDocumentSymbolRequest(t *testing.T) {
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/order.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text": `language dcl 0.9
+
+capability PlaceOrder {
+  intent OrderInput from Customer
+  outcome OrderAccepted
+}
+`,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "textDocument/documentSymbol",
+			"params":  map[string]any{"textDocument": map[string]any{"uri": "file:///workspace/order.dcl"}},
+		}),
+	}, nil)
+	var output bytes.Buffer
+
+	if err := server.Serve(bytes.NewReader(input), &output); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+
+	responses := decodeResponses(t, output.Bytes())
+	if len(responses) != 2 {
+		t.Fatalf("expected initialize and document symbol responses, got %d", len(responses))
+	}
+	var symbols []DocumentSymbol
+	payload, _ := json.Marshal(responses[1]["result"])
+	if err := json.Unmarshal(payload, &symbols); err != nil {
+		t.Fatalf("decode document symbols: %v", err)
+	}
+	capability := findSymbol(t, symbols, "PlaceOrder")
+	_ = findSymbol(t, capability.Children, "OrderInput")
+	_ = findSymbol(t, capability.Children, "OrderAccepted")
+
+	if !strings.Contains(logs.String(), `"event":"document symbols requested"`) {
+		t.Fatalf("expected document symbols log event in %s", logs.String())
 	}
 }
 

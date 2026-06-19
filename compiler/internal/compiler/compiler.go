@@ -27,24 +27,18 @@ type SourceFile struct {
 	Text string
 }
 
+type ProgramResult struct {
+	Program     ast.Program
+	Diagnostics []diagnostic.Diagnostic
+}
+
 func CompileSource(path, source string) Result {
-	var bag diagnostic.Bag
-	program := ast.Program{Files: []string{path}}
-
-	tokens, lexDiags := lexer.Lex(path, source)
-
-	for _, d := range lexDiags {
-		bag.Add(d.Severity, d.Code, d.Message, d.Span, d.Node)
+	parsed := ParseSources([]SourceFile{{Path: path, Text: source}})
+	bag := diagnostic.Bag{}
+	for _, item := range parsed.Diagnostics {
+		bag.Add(item.Severity, item.Code, item.Message, item.Span, item.Node)
 	}
-
-	parsed, parseDiags := parser.Parse(tokens)
-
-	for _, d := range parseDiags {
-		bag.Add(d.Severity, d.Code, d.Message, d.Span, d.Node)
-	}
-
-	mergeProgram(&program, parsed)
-
+	program := parsed.Program
 	c := newCompiler(program, &bag)
 	out := c.buildIR()
 	out.Diagnostics = bag.Items()
@@ -53,6 +47,20 @@ func CompileSource(path, source string) Result {
 }
 
 func CompileSources(sources []SourceFile) Result {
+	parsed := ParseSources(sources)
+	bag := diagnostic.Bag{}
+	for _, item := range parsed.Diagnostics {
+		bag.Add(item.Severity, item.Code, item.Message, item.Span, item.Node)
+	}
+	program := parsed.Program
+
+	c := newCompiler(program, &bag)
+	out := c.buildIR()
+	out.Diagnostics = bag.Items()
+	return Result{IR: out, Diagnostics: out.Diagnostics}
+}
+
+func ParseSources(sources []SourceFile) ProgramResult {
 	var bag diagnostic.Bag
 	var program ast.Program
 
@@ -74,10 +82,7 @@ func CompileSources(sources []SourceFile) Result {
 		mergeProgram(&program, parsed)
 	}
 
-	c := newCompiler(program, &bag)
-	out := c.buildIR()
-	out.Diagnostics = bag.Items()
-	return Result{IR: out, Diagnostics: out.Diagnostics}
+	return ProgramResult{Program: program, Diagnostics: bag.Items()}
 }
 
 func CompileFiles(paths []string) Result {

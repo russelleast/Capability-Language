@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2
+
+- Added experimental compiler-backed LSP document symbols through `textDocument/documentSymbol`.
+- Returned hierarchical DCL symbols for contexts, capabilities, intents, outcomes, events, effects, policies, actors, lifecycles, lifecycle steps, and shapes.
+- Enabled VS Code Outline, breadcrumbs, and Ctrl+Shift+O support when the experimental language server is enabled.
+- Reused compiler AST/source spans for document symbol locations without adding TypeScript-side parsing or duplicating compiler semantics.
+- Added tests for capability hierarchy, contexts, lifecycles, nested symbols, empty documents, source ranges, and LSP document symbol requests.
+
 ## 0.5.1
 
 - Added experimental compiler-backed diagnostics in `dcl-lsp`.

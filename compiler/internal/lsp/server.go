@@ -12,12 +12,13 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.1"
+const serverVersion = "0.5.2"
 
 type Server struct {
 	host      *WorkspaceHost
 	logger    *Logger
 	validator *WorkspaceValidator
+	symbols   *SymbolProvider
 	out       io.Writer
 	outMu     sync.Mutex
 }
@@ -28,6 +29,7 @@ func NewServer(host *WorkspaceHost, logger *Logger) *Server {
 	}
 	server := &Server{host: host, logger: logger}
 	server.validator = NewWorkspaceValidator(host, NewDiagnosticPublisher(server.sendNotification), logger)
+	server.symbols = NewSymbolProvider(host)
 	return server
 }
 
@@ -125,6 +127,13 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		s.log("file saved", map[string]any{"uri": request.TextDocument.URI, "openDocumentCount": s.host.Documents().Count()})
 		s.validateNow()
 		return nil, nil
+	case "textDocument/documentSymbol":
+		var request documentSymbolParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		s.log("document symbols requested", map[string]any{"uri": request.TextDocument.URI})
+		return s.symbols.DocumentSymbols(request.TextDocument.URI), nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
@@ -201,6 +210,7 @@ func initializeResult() map[string]any {
 					"includeText": true,
 				},
 			},
+			"documentSymbolProvider": true,
 		},
 	}
 }
