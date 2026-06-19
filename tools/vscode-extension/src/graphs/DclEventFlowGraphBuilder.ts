@@ -1,6 +1,7 @@
 import { CapabilitySummary, LifecycleTransitionSummary, SemanticSummary, SourceLocation } from "../views/semanticSummary";
 import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
+import { semanticIdentity } from "./DclSemanticIdentity";
 
 export function buildEventFlowGraph(summary: SemanticSummary, eventName?: string): DclGraphModel | undefined {
   const events = eventNames(summary, eventName);
@@ -20,6 +21,7 @@ function buildEventFlowGraphForEvents(summary: SemanticSummary, events: string[]
       sourceName: event,
       kind: "event",
       source: eventLocation(summary, event),
+      semanticIdentity: semanticIdentity("event", event),
     });
   }
 
@@ -105,6 +107,7 @@ function capabilityNode(capability: CapabilitySummary): DclGraphNode {
     sourceName: capability.name,
     kind: "capability",
     source: capability.location,
+    semanticIdentity: semanticIdentity("capability", capability.name),
   };
 }
 
@@ -115,6 +118,7 @@ function lifecycleNode(capability: CapabilitySummary): DclGraphNode {
     sourceName: `${capability.name} lifecycle`,
     kind: "lifecycle",
     source: firstLifecycleLocation(capability),
+    semanticIdentity: semanticIdentity("lifecycle", capability.name),
   };
 }
 
@@ -126,6 +130,7 @@ function lifecycleTransitionNode(capability: CapabilitySummary, transition: Life
     sourceName: label,
     kind: "lifecycle-transition",
     source: transitionLocation(capability, transition),
+    semanticIdentity: semanticIdentity("lifecycle-transition", formatTransition(transition)),
   };
 }
 

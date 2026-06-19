@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.11`
+Current extension version: `0.4.3`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -23,6 +23,9 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
   - Event Flow Graph
   - Context Map
 - Graph controls for fit, reset layout, centering, details, legends, and trusted node-to-source navigation.
+- DCL Explorer selection can focus matching nodes in the open Graph Workspace.
+- Source cursor selection can focus matching nodes in the open Graph Workspace when compiler source locations are available.
+- Graph node details can jump to the same semantic element in other graph types where that element is represented.
 - DCL extension icon and optional DCL file icon theme.
 
 ## Commands
@@ -33,6 +36,11 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Show Compiler Info`: show which compiler the extension will run.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
+- `DCL: Navigate Symbol`: fuzzy-search compiler-known DCL symbols and reveal their source.
+- `DCL: Find Related Elements`: discover semantic relationships for a selected or searched DCL item.
+- `DCL: Open Semantic Inspector`: inspect exact symbol name, type, source, context, relationships, and graph availability.
+- `DCL: Open Graph Workspace`: open the unified graph workbench for switching graph type and graph subject.
+- `DCL: Export Current Graph`: export the currently visible graph from the Graph Workspace.
 - `DCL: Show Architecture Overview`: open a workspace-level graph for contexts, capabilities, events, and lifecycle indicators.
 - `DCL: Show Capability Graph`: open a capability-centered graph.
 - `DCL: Show Lifecycle Graph`: open a lifecycle progression graph.
@@ -49,7 +57,21 @@ The VSIX includes bundled compiler binaries for supported platforms. `dcl.compil
 
 `dcl.compileOnSave`
 
-Run the DCL compiler and refresh diagnostics when a `.dcl` file is saved. Enabled by default.
+Legacy compile-on-save toggle. If `dcl.compileOnSaveMode` is not explicitly configured, `true` maps to `workspace` and `false` maps to `off`.
+
+`dcl.compileOnSaveMode`
+
+Controls compile-on-save for `.dcl` files. The default is `workspace`, which compiles all workspace DCL files together when any `.dcl` file is saved. This is the recommended mode for multi-file models where contexts, capabilities, events, or lifecycle data are split across files.
+
+Available values:
+
+- `workspace`: compile all workspace `.dcl` files together.
+- `file`: compile only the saved `.dcl` file.
+- `off`: disable compile-on-save.
+
+`dcl.graph.followSourceSelection`
+
+When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace. Enabled by default. This uses compiler semantic summary source locations and does not parse DCL source in the extension.
 
 ## DCL Explorer
 
@@ -59,11 +81,49 @@ The explorer can show contexts, capabilities, actors, policies, effects, events,
 
 Explorer context actions can open the relevant graph directly, including capability, lifecycle, event flow, context map, and architecture overview graphs.
 
-## Graphs
+Selecting a capability, event, context, or lifecycle in DCL Explorer focuses the matching node in the open Graph Workspace when that node exists. If the current graph cannot show the selected item, the extension opens the most relevant existing graph view and highlights the matching node.
+
+When `dcl.graph.followSourceSelection` is enabled, moving the cursor through `.dcl` source also focuses matching graph nodes for compiler-known capabilities, contexts, events, effects, policies, lifecycle items, and lifecycle transitions where source locations are available.
+
+## Graph Workspace
 
 All graphs are built from the compiler semantic summary. The extension does not infer relationships from folders, parse DCL source in TypeScript, or invent missing dependencies.
 
 Graph nodes use human-readable display labels for diagram readability while retaining the exact DCL source name in the details panel.
+
+`DCL: Open Graph Workspace` opens a single graph workbench where you can switch between graph types without opening new panels.
+
+The workspace includes:
+
+- graph type selector
+- subject selector for capability, lifecycle, event flow, and context map graphs
+- architecture detail selector for overview, detailed, and full modes
+- capability layout selector for default, layered, and radial layouts
+- fit, reset layout, and center selection controls
+- SVG and PNG export controls
+- refresh from the latest compiled semantic summary
+- compile workspace action when no compiled summary is available
+- legend, node details, relationship summary, zoom limits, and source navigation
+- semantic `Show in...` actions for moving the selected element between graph types
+
+Existing graph commands still work as shortcuts into the Graph Workspace with the relevant graph type pre-selected.
+
+When a selected node can be represented in another graph, the details panel shows `Show in...` actions. These use compiler-backed semantic identity, not display labels, and switch the workspace to the target graph with the matching node highlighted.
+
+### Exporting Graphs
+
+Use `Export SVG` or `Export PNG` in the Graph Workspace toolbar, or run `DCL: Export Current Graph` from the Command Palette while a graph is open.
+
+Exports use the current graph type, subject, detail level, layout, zoom, and node positions. VS Code always opens a save dialog before writing the file.
+
+SVG is recommended for documentation and website screenshots because labels remain crisp. PNG is available for quick sharing.
+
+Suggested filenames are generated from the graph type and subject, for example:
+
+- `dcl-architecture-overview.svg`
+- `dcl-capability-place-order.svg`
+- `dcl-lifecycle-order-fulfilment.svg`
+- `dcl-event-flow-order-submitted.svg`
 
 ### Architecture Overview
 
@@ -81,7 +141,7 @@ Detail levels:
 - `Detailed`: contexts, capabilities, and events
 - `Full`: contexts, capabilities, events, and lifecycle indicators
 
-If the compiler provides an explicit `default` context, capabilities without a more specific context are grouped there. If no context data exists, capabilities are grouped under `Workspace`.
+Empty synthetic `default`, `Workspace`, and `Uncontexted` context placeholders are hidden. If declarations have no context, they are grouped under one `Workspace` fallback. A real `default` context is shown when it owns capabilities, declarations, children, or dependencies.
 
 ### Capability Graph
 

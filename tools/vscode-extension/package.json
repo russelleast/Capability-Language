@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.11",
+  "version": "0.4.3",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -35,9 +35,15 @@
     "onCommand:dcl.compileWorkspace",
     "onCommand:dcl.showSemanticSummary",
     "onCommand:dcl.showCompilerInfo",
+    "onCommand:dcl.openGraphWorkspace",
+    "onCommand:dcl.exportCurrentGraph",
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.navigateSymbol",
+    "onCommand:dcl.findRelatedElements",
+    "onCommand:dcl.openSemanticInspector",
+    "onCommand:dcl.focusGraphFromExplorer",
     "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
     "onCommand:dcl.showContextMap",
@@ -104,6 +110,16 @@
         "category": "DCL"
       },
       {
+        "command": "dcl.openGraphWorkspace",
+        "title": "DCL: Open Graph Workspace",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.exportCurrentGraph",
+        "title": "DCL: Export Current Graph",
+        "category": "DCL"
+      },
+      {
         "command": "dcl.formatDocument",
         "title": "DCL: Format Document",
         "category": "DCL"
@@ -117,6 +133,26 @@
       {
         "command": "dcl.revealSemanticItemInSource",
         "title": "DCL: Reveal Semantic Item in Source",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.navigateSymbol",
+        "title": "DCL: Navigate Symbol",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.findRelatedElements",
+        "title": "DCL: Find Related Elements",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.openSemanticInspector",
+        "title": "DCL: Open Semantic Inspector",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.focusGraphFromExplorer",
+        "title": "DCL: Focus in Graph Workspace",
         "category": "DCL"
       },
       {
@@ -156,7 +192,22 @@
         "dcl.compileOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run the DCL compiler and refresh diagnostics when a .dcl file is saved."
+          "markdownDescription": "Legacy compile-on-save toggle. If `dcl.compileOnSaveMode` is not explicitly configured, `true` maps to `workspace` and `false` maps to `off`."
+        },
+        "dcl.compileOnSaveMode": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "file",
+            "off"
+          ],
+          "default": "workspace",
+          "markdownDescription": "Controls compile-on-save for `.dcl` files. `workspace` compiles all workspace DCL files, `file` compiles only the saved file, and `off` disables compile-on-save."
+        },
+        "dcl.graph.followSourceSelection": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace."
         }
       }
     },
@@ -208,6 +259,21 @@
           "command": "dcl.refreshExplorer"
         },
         {
+          "command": "dcl.openGraphWorkspace"
+        },
+        {
+          "command": "dcl.navigateSymbol"
+        },
+        {
+          "command": "dcl.findRelatedElements"
+        },
+        {
+          "command": "dcl.openSemanticInspector"
+        },
+        {
+          "command": "dcl.exportCurrentGraph"
+        },
+        {
           "command": "dcl.showArchitectureOverview"
         },
         {
@@ -225,6 +291,10 @@
         {
           "command": "dcl.revealSemanticItemInSource",
           "when": "false"
+        },
+        {
+          "command": "dcl.focusGraphFromExplorer",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -239,7 +309,7 @@
           "group": "navigation@1"
         },
         {
-          "command": "dcl.showArchitectureOverview",
+          "command": "dcl.openGraphWorkspace",
           "when": "view == dclExplorer",
           "group": "navigation@2"
         }
@@ -254,6 +324,11 @@
           "command": "dcl.showArchitectureOverview",
           "when": "view == dclExplorer && viewItem == dclExplorer.context.located",
           "group": "inline@1"
+        },
+        {
+          "command": "dcl.focusGraphFromExplorer",
+          "when": "view == dclExplorer && viewItem =~ /dclExplorer\\.(capability|context|event|lifecycle).*/",
+          "group": "navigation"
         },
         {
           "command": "dcl.showContextMap",

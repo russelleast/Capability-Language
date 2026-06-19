@@ -35,15 +35,17 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DclExplorerProvider = exports.DclExplorerNode = void 0;
 const vscode = __importStar(require("vscode"));
+const DclSemanticIdentity_1 = require("../graphs/DclSemanticIdentity");
 const semanticSummary_1 = require("./semanticSummary");
 class DclExplorerNode extends vscode.TreeItem {
-    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName, eventName, contextValue) {
+    constructor(label, children = [], sourceLocation, kind = "item", description, capabilityName, eventName, contextValue, semanticIdentity) {
         super(label, children.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
         this.children = children;
         this.sourceLocation = sourceLocation;
         this.kind = kind;
         this.capabilityName = capabilityName;
         this.eventName = eventName;
+        this.semanticIdentity = semanticIdentity;
         this.description = description;
         this.contextValue = contextValue ?? `dclExplorer.${kind}${sourceLocation ? ".located" : ""}`;
         this.tooltip = sourceLocation?.file ? `${label}\n${sourceLocation.file}:${sourceLocation.line}:${sourceLocation.column ?? 1}` : label;
@@ -110,7 +112,7 @@ class DclExplorerProvider {
         const roots = [
             group("Contexts", summary.contexts?.map((context) => {
                 const dependencies = section("Dependencies", context.dependencies?.map((item) => itemNode(item)));
-                return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "context");
+                return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "context", undefined, undefined, undefined, undefined, (0, DclSemanticIdentity_1.semanticIdentity)("context", context.name));
             }), "dclExplorer.contexts"),
             group("Capabilities", summary.capabilities.map(capabilityNode)),
             group("Actors", semanticItems(summary.actors)),
@@ -135,7 +137,7 @@ function capabilityNode(capability) {
         lifecycleSection(capability),
     ].filter((node) => Boolean(node));
     const contextValue = `dclExplorer.capability${capability.location ? ".located" : ""}${capability.lifecycle ? ".lifecycle" : ""}${capability.eventDetails?.length ? ".events" : ""}`;
-    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, undefined, contextValue);
+    return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, undefined, contextValue, (0, DclSemanticIdentity_1.semanticIdentity)("capability", capability.name));
 }
 function sectionFromCapability(label, kind, capability) {
     const values = capability[kind];
@@ -152,7 +154,7 @@ function lifecycleSection(capability) {
         ...labelItems(lifecycle.steps, capability.itemLocations?.lifecycle),
         ...labelItems(lifecycle.transitions, capability.itemLocations?.lifecycle),
     ];
-    return new DclExplorerNode("Lifecycle", items, undefined, "lifecycle", undefined, capability.name);
+    return new DclExplorerNode("Lifecycle", items, undefined, "lifecycle", undefined, capability.name, undefined, undefined, (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle", capability.name));
 }
 function eventsSection(capability) {
     const details = capability.eventDetails;
@@ -181,7 +183,7 @@ function itemNode(label, location) {
     return new DclExplorerNode(label, [], location, "item");
 }
 function eventNode(label, location, capabilityName, eventName) {
-    return new DclExplorerNode(label, [], location, "event", capabilityName, capabilityName, eventName);
+    return new DclExplorerNode(label, [], location, "event", capabilityName, capabilityName, eventName, undefined, (0, DclSemanticIdentity_1.semanticIdentity)("event", eventName));
 }
 function iconFor(kind, label) {
     if (kind === "empty")

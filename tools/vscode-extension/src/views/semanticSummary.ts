@@ -172,7 +172,7 @@ type TransitionOutput = {
   source_capability?: string;
 };
 
-type SymbolOutput = {
+export type SymbolOutput = {
   name?: string;
   kind?: string;
   context?: string;
@@ -191,11 +191,13 @@ export function summarizeCompilerOutput(output: unknown): SemanticSummary {
   const program = isObject(output) ? (output as ProgramOutput) : {};
   const effectivePolicies = Array.isArray(program.effective_policies) ? program.effective_policies.filter(isObject) as EffectivePolicyOutput[] : [];
   const symbolLocations = symbolLocationIndex(program.symbols);
+  const symbols = Array.isArray(program.symbols) ? program.symbols.filter(isObject) as SymbolOutput[] : [];
   const capabilities = Array.isArray(program.capabilities) ? program.capabilities.filter(isObject) as CapabilityOutput[] : [];
+  const summarizedCapabilities = capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations));
 
   return {
-    capabilities: capabilities.map((capability) => summarizeCapability(capability, effectivePolicies, symbolLocations)),
-    contexts: summarizeContexts(program.contexts, symbolLocations),
+    capabilities: summarizedCapabilities,
+    contexts: normalizeContextsForDisplay(summarizeContexts(program.contexts, symbolLocations), summarizedCapabilities, symbols),
     actors: topLevelItems(program.actors, "actor", symbolLocations),
     policies: topLevelItems(program.policies, "policy", symbolLocations),
     effects: topLevelItems(program.effects, "effect", symbolLocations),
@@ -325,6 +327,46 @@ function summarizeContexts(contexts: ContextOutput[] | undefined, symbolLocation
       location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined),
   );
+}
+
+export function normalizeContextsForDisplay(
+  contexts: ContextSummary[] | undefined,
+  capabilities: CapabilitySummary[],
+  symbols: SymbolOutput[] = [],
+): ContextSummary[] | undefined {
+  const result = (contexts ?? []).filter((context) => {
+    if (!isSyntheticDefaultContext(context)) return true;
+    return contextHasDeclarations(context, capabilities, symbols);
+  });
+
+  const hasUncontextedDeclarations = capabilities.some((capability) => !capability.context);
+  if (hasUncontextedDeclarations && !result.some((context) => isWorkspaceFallbackContext(context))) {
+    result.push({ name: "Workspace" });
+  }
+
+  return nonEmpty(dedupeContexts(result));
+}
+
+export function isSyntheticDefaultContext(context: ContextSummary): boolean {
+  return context.name === "default" || isWorkspaceFallbackContext(context) || context.name === "Uncontexted";
+}
+
+export function contextHasDeclarations(
+  context: ContextSummary,
+  capabilities: CapabilitySummary[],
+  symbols: SymbolOutput[] = [],
+): boolean {
+  if (context.children?.length || context.dependencies?.length) return true;
+  if (capabilities.some((capability) => capability.context === context.name)) return true;
+  return symbols.some((symbol) => symbol.kind !== "context" && symbol.context === context.name);
+}
+
+function isWorkspaceFallbackContext(context: ContextSummary): boolean {
+  return context.name === "Workspace";
+}
+
+function dedupeContexts(contexts: ContextSummary[]): ContextSummary[] {
+  return Array.from(new Map(contexts.map((context) => [context.name, context])).values());
 }
 
 function topLevelItems(items: NamedOutput[] | undefined, kind: string, symbolLocations: SymbolLocationIndex): SemanticItem[] | undefined {

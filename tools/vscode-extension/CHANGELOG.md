@@ -1,5 +1,80 @@
 # Changelog
 
+## 0.4.3
+
+- Added Graph Workspace `Show in...` actions so selected semantic nodes can jump to the same element in another graph type.
+- Used compiler-backed semantic identities to validate target graph availability instead of matching display labels.
+- Preserved graph node source navigation while switching graph type, subject, and detail level before focusing the matching node.
+- Added graph sync target availability tests for capability, event, context, lifecycle, and missing-target cases.
+
+## 0.4.2
+
+- Added `DCL: Navigate Symbol` for fuzzy semantic navigation across compiler-known contexts, capabilities, events, effects, policies, actors, lifecycles, and lifecycle steps.
+- Added `DCL: Find Related Elements` with Quick Pick relationship discovery for capabilities, events, contexts, and lifecycles.
+- Added `DCL: Open Semantic Inspector` for exact symbol details, source location, parent context, relationships, and graph availability.
+- Reused semantic identities so selected navigation items reveal source and focus the open Graph Workspace where possible.
+- Added semantic navigation model tests for symbol search, fuzzy matching, related discovery, and source/graph integration metadata.
+
+## 0.4.1
+
+- Added source-to-Graph Workspace highlighting from active `.dcl` editor selections.
+- Added debounced cursor-follow behavior controlled by `dcl.graph.followSourceSelection`.
+- Added compiler-summary source matching for capabilities, contexts, events, effects, policies, lifecycle items, and lifecycle transitions where source locations are available.
+- Added most-specific semantic match selection for overlapping source ranges.
+- Added source selection matching tests.
+
+## 0.4.0
+
+- Added shared semantic identities for Explorer items and graph nodes.
+- Added Explorer selection and `DCL: Focus in Graph Workspace` support for focusing matching Graph Workspace nodes.
+- Graph Workspace now accepts trusted extension-host focus requests, selects the matching node, centers it, and updates the details panel.
+- Explorer selections can open or switch to the relevant existing graph type when the currently open graph cannot show the selected item.
+- Added semantic identity matching tests.
+
+## 0.3.16
+
+- Hardened graph/source navigation so ambiguous basename-only compiler source paths fail gracefully instead of opening an arbitrary matching file.
+- Stopped missing absolute compiler source paths from falling back to unrelated basename matches.
+- Added regression tests for unique, ambiguous, and missing source path resolution.
+- Re-ran compile, tests, lint, and VSIX package smoke for the hardening release.
+
+## 0.3.15
+
+- Hid empty synthetic `default`, `Workspace`, and `Uncontexted` contexts from context display data.
+- Added a single `Workspace` fallback only when declarations have no context.
+- Preserved real user-authored `default` contexts when they own capabilities, declarations, children, or dependencies.
+- Applied context cleanup across DCL Explorer, Semantic Summary, Architecture Overview, Context Map, and Graph Workspace context selectors.
+- Added regression tests for fallback context normalization and graph rendering.
+
+## 0.3.14
+
+- Changed compile-on-save to compile the DCL workspace by default so multi-file models resolve cross-file contexts and dependencies correctly.
+- Added `dcl.compileOnSaveMode` with `workspace`, `file`, and `off` modes.
+- Kept legacy `dcl.compileOnSave` compatibility when the new mode is not explicitly configured.
+- Debounced workspace compile-on-save to avoid redundant compiles during rapid saves.
+- Added status-bar feedback for workspace compile-on-save.
+- Refreshed an open Graph Workspace after successful workspace compiles and cleared it on compile failure.
+- Added compile-on-save mode and debounce tests.
+
+## 0.3.13
+
+- Added graph export controls to the Graph Workspace for SVG and PNG.
+- Added `DCL: Export Current Graph` as a command-palette export entry point.
+- Routed graph exports through the extension host and VS Code save dialog.
+- Added client-side SVG serialization from current Cytoscape positions and PNG export from the current graph viewport.
+- Added deterministic lowercase kebab-case export filenames based on graph type and subject.
+- Added export filename and command contribution tests.
+
+## 0.3.12
+
+- Added `DCL: Open Graph Workspace` as a unified graph workbench.
+- Added graph type and subject selection inside one WebView for architecture overview, capability, lifecycle, event flow, and context map graphs.
+- Routed existing graph commands into the Graph Workspace as pre-selected shortcuts.
+- Preserved graph controls, legends, node details, source navigation, architecture detail levels, and capability layout choices in the workspace.
+- Added refresh and compile-workspace actions inside the graph workspace.
+- Cleared the workspace graph on compile failure to avoid showing stale graph data.
+- Added graph workspace state selection tests.
+
 ## 0.3.11
 
 - Added bundled DCL compiler binary support for macOS arm64, macOS x64, Linux x64, and Windows x64.

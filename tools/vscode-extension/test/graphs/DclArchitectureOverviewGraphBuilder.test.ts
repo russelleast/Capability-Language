@@ -86,15 +86,15 @@ describe("DclArchitectureOverviewGraphBuilder", () => {
     expect(graph.edges[0]).toMatchObject({ source: "context:workspace", target: "capability:acceptorder" });
   });
 
-  it("uses explicit default context for capabilities without attached context", () => {
+  it("does not use an empty default context for capabilities without attached context", () => {
     const graph = buildArchitectureOverviewGraph(summary({
       contexts: [{ name: "default" }],
       capabilities: [{ name: "AcceptOrder" }],
     }), "overview");
 
-    expect(graph.nodes.filter((node) => node.id === "context:default")).toHaveLength(1);
-    expect(graph.nodes.find((node) => node.label === "Workspace")).toBeUndefined();
-    expect(graph.edges[0]).toMatchObject({ source: "context:default", target: "capability:acceptorder" });
+    expect(graph.nodes.find((node) => node.id === "context:default")).toBeUndefined();
+    expect(graph.nodes.filter((node) => node.label === "Workspace")).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({ source: "context:workspace", target: "capability:acceptorder" });
   });
 
   it("uses Workspace for capabilities without contexts when no default context exists", () => {
@@ -110,13 +110,35 @@ describe("DclArchitectureOverviewGraphBuilder", () => {
 
   it("does not render duplicate fallback context nodes", () => {
     const graph = buildArchitectureOverviewGraph(summary({
-      contexts: [{ name: "default" }],
+      contexts: [{ name: "default" }, { name: "Workspace" }, { name: "Uncontexted" }],
       capabilities: [{ name: "AcceptOrder" }, { name: "ShipOrder" }],
+    }), "overview");
+
+    expect(graph.nodes.find((node) => node.id === "context:default")).toBeUndefined();
+    expect(graph.nodes.filter((node) => node.label === "Workspace")).toHaveLength(1);
+    expect(graph.nodes.find((node) => node.label === "Uncontexted")).toBeUndefined();
+  });
+
+  it("does not render empty synthetic default context when explicit contexts contain all capabilities", () => {
+    const graph = buildArchitectureOverviewGraph(summary({
+      contexts: [{ name: "default" }, { name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }), "overview");
+
+    expect(graph.nodes.find((node) => node.id === "context:default")).toBeUndefined();
+    expect(graph.nodes.find((node) => node.label === "Workspace")).toBeUndefined();
+    expect(graph.nodes.map((node) => node.id)).toContain("context:sales");
+  });
+
+  it("renders real default context when it contains declarations", () => {
+    const graph = buildArchitectureOverviewGraph(summary({
+      contexts: [{ name: "default" }],
+      capabilities: [{ name: "AcceptOrder", context: "default" }],
     }), "overview");
 
     expect(graph.nodes.filter((node) => node.id === "context:default")).toHaveLength(1);
     expect(graph.nodes.find((node) => node.label === "Workspace")).toBeUndefined();
-    expect(graph.nodes.find((node) => node.label === "Uncontexted")).toBeUndefined();
+    expect(graph.edges[0]).toMatchObject({ source: "context:default", target: "capability:acceptorder" });
   });
 
   it("handles incomplete compiler summaries", () => {

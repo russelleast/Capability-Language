@@ -1,6 +1,7 @@
 import { CapabilitySummary, LifecycleTransitionSummary, SemanticSummary } from "../views/semanticSummary";
 import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
+import { semanticIdentity } from "./DclSemanticIdentity";
 
 export function buildLifecycleGraph(summary: SemanticSummary, capabilityName: string): DclGraphModel | undefined {
   const capability = summary.capabilities.find((item) => item.name === capabilityName);
@@ -17,6 +18,7 @@ export function buildLifecycleGraphFromCapability(capability: CapabilitySummary)
       sourceName: `${capability.name} lifecycle`,
       kind: "lifecycle",
       source: firstLifecycleLocation(capability),
+      semanticIdentity: semanticIdentity("lifecycle", capability.name),
     },
   ];
   const edges: DclGraphEdge[] = [];
@@ -31,6 +33,7 @@ export function buildLifecycleGraphFromCapability(capability: CapabilitySummary)
       sourceName: stepName,
       kind: stepKind(stepName, initialStep, terminalSteps),
       source: lifecycleLocation(capability, stepName),
+      semanticIdentity: semanticIdentity("lifecycle-step", stepName),
     });
   }
 

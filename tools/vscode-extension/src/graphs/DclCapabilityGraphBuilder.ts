@@ -1,6 +1,7 @@
 import { CapabilityItemKind, CapabilitySummary, SemanticSummary } from "../views/semanticSummary";
 import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
+import { semanticIdentity } from "./DclSemanticIdentity";
 
 type CapabilityListKind = Exclude<CapabilityItemKind, "lifecycle" | "actors">;
 
@@ -28,6 +29,7 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
       sourceName: capability.name,
       kind: "capability",
       source: capability.location,
+      semanticIdentity: semanticIdentity("capability", capability.name),
     },
   ];
   const edges: DclGraphEdge[] = [];
@@ -35,12 +37,14 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
   for (const kind of Object.keys(RELATION_BY_KIND) as CapabilityListKind[]) {
     for (const item of capability[kind] ?? []) {
       const id = nodeId(kind, item);
+      const nodeKind = singularKind(kind);
       nodes.push({
         id,
         label: displayNameForGraph(item),
         sourceName: item,
-        kind: singularKind(kind),
+        kind: nodeKind,
         source: capability.itemLocations?.[kind]?.[item],
+        semanticIdentity: semanticIdentityForCapabilityItem(nodeKind, item),
       });
       edges.push(edge(capabilityId, id, RELATION_BY_KIND[kind]));
     }
@@ -56,6 +60,7 @@ export function buildCapabilityGraphFromCapability(capability: CapabilitySummary
       sourceName: lifecycleSourceName,
       kind: "lifecycle",
       source: firstLifecycleLocation(capability),
+      semanticIdentity: semanticIdentity("lifecycle", capability.name),
     });
     edges.push(edge(capabilityId, id, { label: "owns", kind: "owns-lifecycle" }));
   }
@@ -97,6 +102,17 @@ function singularKind(kind: CapabilityListKind): string {
 function firstLifecycleLocation(capability: CapabilitySummary): CapabilitySummary["location"] {
   const locations = capability.itemLocations?.lifecycle;
   return locations ? Object.values(locations)[0] : capability.location;
+}
+
+function eventNameFromLabel(label: string): string {
+  return label.replace(/\s+from\s+.+$/i, "");
+}
+
+function semanticIdentityForCapabilityItem(kind: string, label: string) {
+  if (kind === "event") return semanticIdentity("event", eventNameFromLabel(label));
+  if (kind === "effect") return semanticIdentity("effect", label.replace(/\s+after\s+.+$/i, ""));
+  if (kind === "policy") return semanticIdentity("policy", label.replace(/\s+applies to\s+.+$/i, ""));
+  return undefined;
 }
 
 function dedupeNodes(nodes: DclGraphNode[]): DclGraphNode[] {
