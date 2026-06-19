@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.3.16`
+Current extension version: `0.4.0`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -23,6 +23,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
   - Event Flow Graph
   - Context Map
 - Graph controls for fit, reset layout, centering, details, legends, and trusted node-to-source navigation.
+- DCL Explorer selection can focus matching nodes in the open Graph Workspace.
 - DCL extension icon and optional DCL file icon theme.
 
 ## Commands
@@ -70,6 +71,8 @@ The DCL Explorer is an Activity Bar view for architecture navigation. It is buil
 The explorer can show contexts, capabilities, actors, policies, effects, events, and lifecycles when the compiler summary provides them. Selecting items with source locations reveals the corresponding DCL source. Items without source locations remain visible and fail gracefully.
 
 Explorer context actions can open the relevant graph directly, including capability, lifecycle, event flow, context map, and architecture overview graphs.
+
+Selecting a capability, event, context, or lifecycle in DCL Explorer focuses the matching node in the open Graph Workspace when that node exists. If the current graph cannot show the selected item, the extension opens the most relevant existing graph view and highlights the matching node.
 
 ## Graph Workspace
 

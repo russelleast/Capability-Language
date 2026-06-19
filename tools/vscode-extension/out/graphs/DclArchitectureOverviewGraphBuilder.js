@@ -4,6 +4,7 @@ exports.buildArchitectureOverviewGraphs = buildArchitectureOverviewGraphs;
 exports.buildArchitectureOverviewGraph = buildArchitectureOverviewGraph;
 const semanticSummary_1 = require("../views/semanticSummary");
 const DclGraphLabels_1 = require("./DclGraphLabels");
+const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 function buildArchitectureOverviewGraphs(summary) {
     if (!summary.contexts?.length && !summary.capabilities.length)
         return undefined;
@@ -73,6 +74,7 @@ function contextNode(context, isChild) {
         sourceName: context.name,
         kind: isChild ? "child-context" : "context",
         source: context.location,
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("context", context.name),
     };
 }
 function ensureContextNode(nodes, knownContexts, name, fallbackKind = "external-context") {
@@ -86,6 +88,7 @@ function ensureContextNode(nodes, knownContexts, name, fallbackKind = "external-
         label: (0, DclGraphLabels_1.displayNameForGraph)(name),
         sourceName: name,
         kind: fallbackKind,
+        semanticIdentity: fallbackKind === "context" ? (0, DclSemanticIdentity_1.semanticIdentity)("context", name) : undefined,
     });
 }
 function capabilityNode(capability) {
@@ -95,6 +98,7 @@ function capabilityNode(capability) {
         sourceName: capability.name,
         kind: "capability",
         source: capability.location,
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("capability", capability.name),
     };
 }
 function eventNode(summary, event) {
@@ -104,6 +108,7 @@ function eventNode(summary, event) {
         sourceName: event,
         kind: "event",
         source: eventLocation(summary, event),
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("event", event),
     };
 }
 function lifecycleNode(capability) {
@@ -113,6 +118,7 @@ function lifecycleNode(capability) {
         sourceName: `${capability.name} lifecycle`,
         kind: "lifecycle",
         source: firstLifecycleLocation(capability),
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle", capability.name),
     };
 }
 function eventLocation(summary, event) {

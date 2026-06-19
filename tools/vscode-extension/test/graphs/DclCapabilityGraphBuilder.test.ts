@@ -90,10 +90,21 @@ describe("DclCapabilityGraphBuilder", () => {
       intents: ["UnlocatedIntent"],
     });
 
-    expect(graph.nodes).toEqual([
-      { id: "capability:unlocatedcapability", label: "Unlocated Capability", sourceName: "UnlocatedCapability", kind: "capability", source: undefined },
-      { id: "intents:unlocatedintent", label: "Unlocated Intent", sourceName: "UnlocatedIntent", kind: "intent", source: undefined },
-    ]);
+    expect(graph.nodes[0]).toMatchObject({
+      id: "capability:unlocatedcapability",
+      label: "Unlocated Capability",
+      sourceName: "UnlocatedCapability",
+      kind: "capability",
+      source: undefined,
+      semanticIdentity: { kind: "capability", name: "UnlocatedCapability" },
+    });
+    expect(graph.nodes[1]).toMatchObject({
+      id: "intents:unlocatedintent",
+      label: "Unlocated Intent",
+      sourceName: "UnlocatedIntent",
+      kind: "intent",
+      source: undefined,
+    });
   });
 
   it("selects one capability by name from a semantic summary", () => {

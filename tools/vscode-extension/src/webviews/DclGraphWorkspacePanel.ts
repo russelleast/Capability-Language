@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { DclGraphExportFormat } from "../graphs/DclGraphExport";
 import { DclGraphModel } from "../graphs/DclGraphModel";
 import { DclGraphWorkspaceSelection, DclGraphWorkspaceState, DclGraphWorkspaceType } from "../graphs/DclGraphWorkspaceState";
+import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "../graphs/DclSemanticIdentity";
 import { revealSourceLocation } from "../source/DclSourceLocation";
 
 type GraphWorkspaceMessage = {
@@ -98,6 +99,14 @@ export class DclGraphWorkspacePanel {
   static refreshCurrent(): void {
     if (!DclGraphWorkspacePanel.currentPanel) return;
     DclGraphWorkspacePanel.callbacks?.onRefresh();
+  }
+
+  static focusSemanticIdentity(identity: DclSemanticIdentity | undefined): boolean {
+    const node = findGraphNodeBySemanticIdentity(DclGraphWorkspacePanel.currentGraph, identity);
+    if (!node || !DclGraphWorkspacePanel.currentPanel) return false;
+    DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+    void DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "focusNode", nodeId: node.id });
+    return true;
   }
 
   static async exportCurrentGraph(format?: DclGraphExportFormat): Promise<void> {
@@ -387,6 +396,9 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       if (message?.type === 'requestExport' && (message.format === 'svg' || message.format === 'png')) {
         exportGraph(message.format);
       }
+      if (message?.type === 'focusNode' && typeof message.nodeId === 'string') {
+        focusNode(message.nodeId);
+      }
     });
 
     if (graph) {
@@ -414,7 +426,12 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         updateDetails(nodeId);
         vscode.postMessage({ type: 'nodeSelected', nodeId });
       });
-      requestAnimationFrame(() => fitVisible());
+      requestAnimationFrame(() => {
+        fitVisible();
+        if (workspaceState.focusNodeId) {
+          window.setTimeout(() => focusNode(workspaceState.focusNodeId), 80);
+        }
+      });
     }
 
     function postSelection() {
@@ -472,10 +489,17 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       if (!cy) return;
       const nodeId = lastSelectedNodeId || graph.nodes.find((node) => ['capability', 'context', 'event', 'lifecycle'].includes(node.kind))?.id || graph.nodes[0]?.id;
       if (!nodeId) return;
+      focusNode(nodeId);
+    }
+
+    function focusNode(nodeId) {
+      if (!cy || !nodeId) return;
       const node = cy.getElementById(nodeId);
       if (node.length) {
+        cy.nodes().unselect();
         cy.center(node);
         node.select();
+        lastSelectedNodeId = nodeId;
         updateDetails(nodeId);
       }
     }

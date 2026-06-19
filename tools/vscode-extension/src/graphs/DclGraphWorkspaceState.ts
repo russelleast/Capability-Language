@@ -5,6 +5,7 @@ import { buildEventFlowGraph } from "./DclEventFlowGraphBuilder";
 import { graphExportBaseName } from "./DclGraphExport";
 import { buildLifecycleGraph } from "./DclLifecycleGraphBuilder";
 import { DclGraphModel } from "./DclGraphModel";
+import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "./DclSemanticIdentity";
 import { normalizeContextsForDisplay, SemanticSummary } from "../views/semanticSummary";
 
 export type DclGraphWorkspaceType = "architecture" | "capability" | "lifecycle" | "event-flow" | "context-map";
@@ -16,6 +17,7 @@ export type DclGraphWorkspaceSelection = {
   graphType?: DclGraphWorkspaceType;
   subject?: string;
   architectureDetailLevel?: ArchitectureOverviewDetailLevel;
+  focusIdentity?: DclSemanticIdentity;
 };
 
 export type DclGraphWorkspaceOption = {
@@ -31,6 +33,7 @@ export type DclGraphWorkspaceState = {
   subjects: DclGraphWorkspaceOption[];
   architectureDetailLevel: ArchitectureOverviewDetailLevel;
   graph?: DclGraphModel;
+  focusNodeId?: string;
   exportBaseName: string;
   emptyTitle?: string;
   emptyMessage?: string;
@@ -54,6 +57,7 @@ export function buildGraphWorkspaceState(
     subjects,
     architectureDetailLevel,
     graph,
+    focusNodeId: findGraphNodeBySemanticIdentity(graph, selection.focusIdentity)?.id,
     exportBaseName: graphExportBaseName(graphType, subject),
     emptyTitle: empty?.title,
     emptyMessage: empty?.message,

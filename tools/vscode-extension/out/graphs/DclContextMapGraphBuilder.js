@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildContextMapGraph = buildContextMapGraph;
 const semanticSummary_1 = require("../views/semanticSummary");
 const DclGraphLabels_1 = require("./DclGraphLabels");
+const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 function buildContextMapGraph(summary, selectedContext) {
     const displayContexts = (0, semanticSummary_1.normalizeContextsForDisplay)(summary.contexts, summary.capabilities);
     if (!displayContexts?.length)
@@ -33,6 +34,7 @@ function buildContextMapGraph(summary, selectedContext) {
                     label: (0, DclGraphLabels_1.displayNameForGraph)(dependency),
                     sourceName: dependency,
                     kind: "external-context",
+                    semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("context", dependency),
                 });
             }
             edges.push(edge(context.name, dependency, "depends on", "depends-on"));
@@ -71,6 +73,7 @@ function contextNode(context, isChild) {
         sourceName: context.name,
         kind: isChild ? "child-context" : "context",
         source: context.location,
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("context", context.name),
     };
 }
 function edge(source, target, label, kind) {

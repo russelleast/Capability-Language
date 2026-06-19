@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildLifecycleGraph = buildLifecycleGraph;
 exports.buildLifecycleGraphFromCapability = buildLifecycleGraphFromCapability;
 const DclGraphLabels_1 = require("./DclGraphLabels");
+const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 function buildLifecycleGraph(summary, capabilityName) {
     const capability = summary.capabilities.find((item) => item.name === capabilityName);
     if (!capability?.lifecycle)
@@ -18,6 +19,7 @@ function buildLifecycleGraphFromCapability(capability) {
             sourceName: `${capability.name} lifecycle`,
             kind: "lifecycle",
             source: firstLifecycleLocation(capability),
+            semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle", capability.name),
         },
     ];
     const edges = [];

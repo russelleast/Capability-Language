@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { DclSemanticIdentity, semanticIdentity } from "../graphs/DclSemanticIdentity";
 import {
   CapabilityItemKind,
   CapabilitySummary,
@@ -24,6 +25,7 @@ export class DclExplorerNode extends vscode.TreeItem {
     readonly capabilityName?: string,
     readonly eventName?: string,
     contextValue?: string,
+    readonly semanticIdentity?: DclSemanticIdentity,
   ) {
     super(label, children.length ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
     this.description = description;
@@ -99,7 +101,7 @@ export class DclExplorerProvider implements vscode.TreeDataProvider<DclExplorerN
     const roots = [
       group("Contexts", summary.contexts?.map((context) => {
         const dependencies = section("Dependencies", context.dependencies?.map((item) => itemNode(item)));
-        return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "context");
+        return new DclExplorerNode(context.name, dependencies ? [dependencies] : [], context.location, "context", undefined, undefined, undefined, undefined, semanticIdentity("context", context.name));
       }), "dclExplorer.contexts"),
       group("Capabilities", summary.capabilities.map(capabilityNode)),
       group("Actors", semanticItems(summary.actors)),
@@ -126,7 +128,7 @@ function capabilityNode(capability: CapabilitySummary): DclExplorerNode {
   ].filter((node): node is DclExplorerNode => Boolean(node));
 
   const contextValue = `dclExplorer.capability${capability.location ? ".located" : ""}${capability.lifecycle ? ".lifecycle" : ""}${capability.eventDetails?.length ? ".events" : ""}`;
-  return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, undefined, contextValue);
+  return new DclExplorerNode(capability.name, children, capability.location, "capability", capability.context, capability.name, undefined, contextValue, semanticIdentity("capability", capability.name));
 }
 
 function sectionFromCapability(label: string, kind: CapabilityListKind, capability: CapabilitySummary): DclExplorerNode | undefined {
@@ -144,7 +146,7 @@ function lifecycleSection(capability: CapabilitySummary): DclExplorerNode | unde
     ...labelItems(lifecycle.steps, capability.itemLocations?.lifecycle),
     ...labelItems(lifecycle.transitions, capability.itemLocations?.lifecycle),
   ];
-  return new DclExplorerNode("Lifecycle", items, undefined, "lifecycle", undefined, capability.name);
+  return new DclExplorerNode("Lifecycle", items, undefined, "lifecycle", undefined, capability.name, undefined, undefined, semanticIdentity("lifecycle", capability.name));
 }
 
 function eventsSection(capability: CapabilitySummary): DclExplorerNode | undefined {
@@ -177,7 +179,7 @@ function itemNode(label: string, location?: SourceLocation): DclExplorerNode {
 }
 
 function eventNode(label: string, location: SourceLocation | undefined, capabilityName: string | undefined, eventName: string): DclExplorerNode {
-  return new DclExplorerNode(label, [], location, "event", capabilityName, capabilityName, eventName);
+  return new DclExplorerNode(label, [], location, "event", capabilityName, capabilityName, eventName, undefined, semanticIdentity("event", eventName));
 }
 
 function iconFor(kind: ExplorerNodeKind, label: string): vscode.ThemeIcon | undefined {

@@ -9,7 +9,14 @@ describe("DclContextMapGraphBuilder", () => {
     }));
 
     expect(graph?.nodes).toEqual([
-      { id: "context:sales", label: "Sales", sourceName: "Sales", kind: "context", source: { file: "sales.dcl", line: 1, column: 1 } },
+      {
+        id: "context:sales",
+        label: "Sales",
+        sourceName: "Sales",
+        kind: "context",
+        source: { file: "sales.dcl", line: 1, column: 1 },
+        semanticIdentity: { kind: "context", name: "Sales" },
+      },
     ]);
     expect(graph?.edges).toEqual([]);
   });

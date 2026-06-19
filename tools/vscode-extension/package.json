@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.3.16",
+  "version": "0.4.0",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -40,6 +40,7 @@
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.focusGraphFromExplorer",
     "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
     "onCommand:dcl.showContextMap",
@@ -129,6 +130,11 @@
       {
         "command": "dcl.revealSemanticItemInSource",
         "title": "DCL: Reveal Semantic Item in Source",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.focusGraphFromExplorer",
+        "title": "DCL: Focus in Graph Workspace",
         "category": "DCL"
       },
       {
@@ -253,6 +259,10 @@
         {
           "command": "dcl.revealSemanticItemInSource",
           "when": "false"
+        },
+        {
+          "command": "dcl.focusGraphFromExplorer",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -282,6 +292,11 @@
           "command": "dcl.showArchitectureOverview",
           "when": "view == dclExplorer && viewItem == dclExplorer.context.located",
           "group": "inline@1"
+        },
+        {
+          "command": "dcl.focusGraphFromExplorer",
+          "when": "view == dclExplorer && viewItem =~ /dclExplorer\\.(capability|context|event|lifecycle).*/",
+          "group": "navigation"
         },
         {
           "command": "dcl.showContextMap",

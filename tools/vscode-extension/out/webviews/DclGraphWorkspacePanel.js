@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DclGraphWorkspacePanel = void 0;
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
+const DclSemanticIdentity_1 = require("../graphs/DclSemanticIdentity");
 const DclSourceLocation_1 = require("../source/DclSourceLocation");
 class DclGraphWorkspacePanel {
     static show(extensionUri, state, callbacks) {
@@ -75,6 +76,14 @@ class DclGraphWorkspacePanel {
         if (!DclGraphWorkspacePanel.currentPanel)
             return;
         DclGraphWorkspacePanel.callbacks?.onRefresh();
+    }
+    static focusSemanticIdentity(identity) {
+        const node = (0, DclSemanticIdentity_1.findGraphNodeBySemanticIdentity)(DclGraphWorkspacePanel.currentGraph, identity);
+        if (!node || !DclGraphWorkspacePanel.currentPanel)
+            return false;
+        DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+        void DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "focusNode", nodeId: node.id });
+        return true;
     }
     static async exportCurrentGraph(format) {
         if (!DclGraphWorkspacePanel.currentPanel || !DclGraphWorkspacePanel.currentGraph) {
@@ -334,6 +343,9 @@ function renderHtml(webview, extensionUri, state) {
       if (message?.type === 'requestExport' && (message.format === 'svg' || message.format === 'png')) {
         exportGraph(message.format);
       }
+      if (message?.type === 'focusNode' && typeof message.nodeId === 'string') {
+        focusNode(message.nodeId);
+      }
     });
 
     if (graph) {
@@ -361,7 +373,12 @@ function renderHtml(webview, extensionUri, state) {
         updateDetails(nodeId);
         vscode.postMessage({ type: 'nodeSelected', nodeId });
       });
-      requestAnimationFrame(() => fitVisible());
+      requestAnimationFrame(() => {
+        fitVisible();
+        if (workspaceState.focusNodeId) {
+          window.setTimeout(() => focusNode(workspaceState.focusNodeId), 80);
+        }
+      });
     }
 
     function postSelection() {
@@ -419,10 +436,17 @@ function renderHtml(webview, extensionUri, state) {
       if (!cy) return;
       const nodeId = lastSelectedNodeId || graph.nodes.find((node) => ['capability', 'context', 'event', 'lifecycle'].includes(node.kind))?.id || graph.nodes[0]?.id;
       if (!nodeId) return;
+      focusNode(nodeId);
+    }
+
+    function focusNode(nodeId) {
+      if (!cy || !nodeId) return;
       const node = cy.getElementById(nodeId);
       if (node.length) {
+        cy.nodes().unselect();
         cy.center(node);
         node.select();
+        lastSelectedNodeId = nodeId;
         updateDetails(nodeId);
       }
     }

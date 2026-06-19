@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildEventFlowGraph = buildEventFlowGraph;
 const DclGraphLabels_1 = require("./DclGraphLabels");
+const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 function buildEventFlowGraph(summary, eventName) {
     const events = eventNames(summary, eventName);
     if (!events.length)
@@ -19,6 +20,7 @@ function buildEventFlowGraphForEvents(summary, events, selectedEvent) {
             sourceName: event,
             kind: "event",
             source: eventLocation(summary, event),
+            semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("event", event),
         });
     }
     for (const capability of summary.capabilities) {
@@ -100,6 +102,7 @@ function capabilityNode(capability) {
         sourceName: capability.name,
         kind: "capability",
         source: capability.location,
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("capability", capability.name),
     };
 }
 function lifecycleNode(capability) {
@@ -109,6 +112,7 @@ function lifecycleNode(capability) {
         sourceName: `${capability.name} lifecycle`,
         kind: "lifecycle",
         source: firstLifecycleLocation(capability),
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle", capability.name),
     };
 }
 function lifecycleTransitionNode(capability, transition) {

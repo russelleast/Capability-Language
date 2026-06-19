@@ -1,6 +1,7 @@
 import { CapabilitySummary, ContextSummary, normalizeContextsForDisplay, SemanticSummary, SourceLocation } from "../views/semanticSummary";
 import { displayNameForGraph } from "./DclGraphLabels";
 import { DclGraphEdge, DclGraphModel, DclGraphNode } from "./DclGraphModel";
+import { semanticIdentity } from "./DclSemanticIdentity";
 
 export type ArchitectureOverviewDetailLevel = "overview" | "detailed" | "full";
 
@@ -92,6 +93,7 @@ function contextNode(context: ContextSummary, isChild: boolean): DclGraphNode {
     sourceName: context.name,
     kind: isChild ? "child-context" : "context",
     source: context.location,
+    semanticIdentity: semanticIdentity("context", context.name),
   };
 }
 
@@ -112,6 +114,7 @@ function ensureContextNode(
     label: displayNameForGraph(name),
     sourceName: name,
     kind: fallbackKind,
+    semanticIdentity: fallbackKind === "context" ? semanticIdentity("context", name) : undefined,
   });
 }
 
@@ -122,6 +125,7 @@ function capabilityNode(capability: CapabilitySummary): DclGraphNode {
     sourceName: capability.name,
     kind: "capability",
     source: capability.location,
+    semanticIdentity: semanticIdentity("capability", capability.name),
   };
 }
 
@@ -132,6 +136,7 @@ function eventNode(summary: SemanticSummary, event: string): DclGraphNode {
     sourceName: event,
     kind: "event",
     source: eventLocation(summary, event),
+    semanticIdentity: semanticIdentity("event", event),
   };
 }
 
@@ -142,6 +147,7 @@ function lifecycleNode(capability: CapabilitySummary): DclGraphNode {
     sourceName: `${capability.name} lifecycle`,
     kind: "lifecycle",
     source: firstLifecycleLocation(capability),
+    semanticIdentity: semanticIdentity("lifecycle", capability.name),
   };
 }
 

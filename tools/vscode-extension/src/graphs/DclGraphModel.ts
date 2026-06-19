@@ -1,4 +1,5 @@
-import { DclSourceLocation } from "../source/DclSourceLocation";
+import type { DclSourceLocation } from "../source/DclSourceLocation";
+import type { DclSemanticIdentity } from "./DclSemanticIdentity";
 
 export type DclGraphNode = {
   id: string;
@@ -6,6 +7,7 @@ export type DclGraphNode = {
   sourceName?: string;
   kind: string;
   source?: DclSourceLocation;
+  semanticIdentity?: DclSemanticIdentity;
 };
 
 export type DclGraphEdge = {

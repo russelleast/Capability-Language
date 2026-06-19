@@ -8,6 +8,7 @@ const DclContextMapGraphBuilder_1 = require("./DclContextMapGraphBuilder");
 const DclEventFlowGraphBuilder_1 = require("./DclEventFlowGraphBuilder");
 const DclGraphExport_1 = require("./DclGraphExport");
 const DclLifecycleGraphBuilder_1 = require("./DclLifecycleGraphBuilder");
+const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 const semanticSummary_1 = require("../views/semanticSummary");
 exports.ALL_EVENT_FLOWS = "__all_event_flows__";
 exports.ALL_CONTEXTS = "__all_contexts__";
@@ -25,6 +26,7 @@ function buildGraphWorkspaceState(summary, selection = {}) {
         subjects,
         architectureDetailLevel,
         graph,
+        focusNodeId: (0, DclSemanticIdentity_1.findGraphNodeBySemanticIdentity)(graph, selection.focusIdentity)?.id,
         exportBaseName: (0, DclGraphExport_1.graphExportBaseName)(graphType, subject),
         emptyTitle: empty?.title,
         emptyMessage: empty?.message,

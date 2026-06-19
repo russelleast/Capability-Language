@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Added shared semantic identities for Explorer items and graph nodes.
+- Added Explorer selection and `DCL: Focus in Graph Workspace` support for focusing matching Graph Workspace nodes.
+- Graph Workspace now accepts trusted extension-host focus requests, selects the matching node, centers it, and updates the details panel.
+- Explorer selections can open or switch to the relevant existing graph type when the currently open graph cannot show the selected item.
+- Added semantic identity matching tests.
+
 ## 0.3.16
 
 - Hardened graph/source navigation so ambiguous basename-only compiler source paths fail gracefully instead of opening an arbitrary matching file.

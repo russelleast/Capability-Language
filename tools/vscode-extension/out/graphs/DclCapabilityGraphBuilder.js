@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildCapabilityGraph = buildCapabilityGraph;
 exports.buildCapabilityGraphFromCapability = buildCapabilityGraphFromCapability;
 const DclGraphLabels_1 = require("./DclGraphLabels");
+const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 const RELATION_BY_KIND = {
     intents: { label: "accepts", kind: "accepts-intent" },
     outcomes: { label: "produces", kind: "produces-outcome" },
@@ -26,18 +27,21 @@ function buildCapabilityGraphFromCapability(capability) {
             sourceName: capability.name,
             kind: "capability",
             source: capability.location,
+            semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("capability", capability.name),
         },
     ];
     const edges = [];
     for (const kind of Object.keys(RELATION_BY_KIND)) {
         for (const item of capability[kind] ?? []) {
             const id = nodeId(kind, item);
+            const nodeKind = singularKind(kind);
             nodes.push({
                 id,
                 label: (0, DclGraphLabels_1.displayNameForGraph)(item),
                 sourceName: item,
-                kind: singularKind(kind),
+                kind: nodeKind,
                 source: capability.itemLocations?.[kind]?.[item],
+                semanticIdentity: nodeKind === "event" ? (0, DclSemanticIdentity_1.semanticIdentity)("event", eventNameFromLabel(item)) : undefined,
             });
             edges.push(edge(capabilityId, id, RELATION_BY_KIND[kind]));
         }
@@ -52,6 +56,7 @@ function buildCapabilityGraphFromCapability(capability) {
             sourceName: lifecycleSourceName,
             kind: "lifecycle",
             source: firstLifecycleLocation(capability),
+            semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("lifecycle", capability.name),
         });
         edges.push(edge(capabilityId, id, { label: "owns", kind: "owns-lifecycle" }));
     }
@@ -87,6 +92,9 @@ function singularKind(kind) {
 function firstLifecycleLocation(capability) {
     const locations = capability.itemLocations?.lifecycle;
     return locations ? Object.values(locations)[0] : capability.location;
+}
+function eventNameFromLabel(label) {
+    return label.replace(/\s+from\s+.+$/i, "");
 }
 function dedupeNodes(nodes) {
     return Array.from(new Map(nodes.map((node) => [node.id, node])).values());
