@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.4.3`
+Current extension version: `0.4.4`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -22,7 +22,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
   - Lifecycle Graph
   - Event Flow Graph
   - Context Map
-- Graph controls for fit, reset layout, centering, details, legends, and trusted node-to-source navigation.
+- Graph controls for fit, reset layout, centering, details, legends, and explicit node-to-source navigation.
 - DCL Explorer selection can focus matching nodes in the open Graph Workspace.
 - Source cursor selection can focus matching nodes in the open Graph Workspace when compiler source locations are available.
 - Graph node details can jump to the same semantic element in other graph types where that element is represented.
@@ -91,7 +91,7 @@ All graphs are built from the compiler semantic summary. The extension does not 
 
 Graph nodes use human-readable display labels for diagram readability while retaining the exact DCL source name in the details panel.
 
-`DCL: Open Graph Workspace` opens a single graph workbench where you can switch between graph types without opening new panels.
+`DCL: Open Graph Workspace` opens a single graph workbench in the active editor area where you can switch between graph types without opening new panels or forcing a split editor.
 
 The workspace includes:
 
@@ -103,10 +103,12 @@ The workspace includes:
 - SVG and PNG export controls
 - refresh from the latest compiled semantic summary
 - compile workspace action when no compiled summary is available
-- legend, node details, relationship summary, zoom limits, and source navigation
+- legend, node details, relationship summary, zoom limits, and explicit source navigation
 - semantic `Show in...` actions for moving the selected element between graph types
 
 Existing graph commands still work as shortcuts into the Graph Workspace with the relevant graph type pre-selected.
+
+Single-click a node to select it and update the details panel. To reveal DCL source, double-click the node or use the `Open Source` action shown in the details panel when compiler source locations are available.
 
 When a selected node can be represented in another graph, the details panel shows `Show in...` actions. These use compiler-backed semantic identity, not display labels, and switch the workspace to the target graph with the matching node highlighted.
 

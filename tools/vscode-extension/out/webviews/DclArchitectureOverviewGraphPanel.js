@@ -43,10 +43,10 @@ class DclArchitectureOverviewGraphPanel {
             DclArchitectureOverviewGraphPanel.currentGraphs = graphs;
             DclArchitectureOverviewGraphPanel.currentPanel.title = title;
             DclArchitectureOverviewGraphPanel.currentPanel.webview.html = renderHtml(DclArchitectureOverviewGraphPanel.currentPanel.webview, extensionUri, graphs);
-            DclArchitectureOverviewGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+            DclArchitectureOverviewGraphPanel.currentPanel.reveal();
             return;
         }
-        const panel = vscode.window.createWebviewPanel("dclArchitectureOverview", title, vscode.ViewColumn.Beside, {
+        const panel = vscode.window.createWebviewPanel("dclArchitectureOverview", title, vscode.ViewColumn.Active, {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(extensionUri, "media"),
@@ -68,10 +68,10 @@ class DclArchitectureOverviewGraphPanel {
             DclArchitectureOverviewGraphPanel.currentGraphs = undefined;
             DclArchitectureOverviewGraphPanel.currentPanel.title = title;
             DclArchitectureOverviewGraphPanel.currentPanel.webview.html = renderEmptyHtml(title, message);
-            DclArchitectureOverviewGraphPanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+            DclArchitectureOverviewGraphPanel.currentPanel.reveal();
             return;
         }
-        const panel = vscode.window.createWebviewPanel("dclArchitectureOverview", title, vscode.ViewColumn.Beside, {
+        const panel = vscode.window.createWebviewPanel("dclArchitectureOverview", title, vscode.ViewColumn.Active, {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(extensionUri, "media"),
@@ -90,6 +90,8 @@ class DclArchitectureOverviewGraphPanel {
     }
     static async handleMessage(message) {
         if (!isArchitectureOverviewMessage(message))
+            return;
+        if (message.type === "nodeSelected")
             return;
         const node = DclArchitectureOverviewGraphPanel.currentGraphs?.[message.detailLevel].nodes.find((item) => item.id === message.nodeId);
         if (!node)
@@ -133,6 +135,9 @@ function renderHtml(webview, extensionUri, graphs) {
     .detail-label { display: block; margin-bottom: 2px; color: var(--vscode-descriptionForeground); font-size: 11px; text-transform: uppercase; }
     .detail-value { overflow-wrap: anywhere; }
     .empty-detail { color: var(--vscode-descriptionForeground); }
+    .detail-actions { display: flex; flex-direction: column; gap: 6px; }
+    .detail-actions button { width: 100%; text-align: left; border: 1px solid var(--vscode-button-border, transparent); border-radius: 3px; padding: 4px 8px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); font: inherit; cursor: pointer; }
+    .detail-actions button:hover { background: var(--vscode-button-secondaryHoverBackground); }
     .legend { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--vscode-panel-border); }
     .legend-item { display: flex; align-items: center; gap: 6px; margin: 8px 0; min-width: 0; }
     .swatch { width: 11px; height: 11px; border-radius: 2px; flex: 0 0 auto; background: #4f6bed; border: 1px solid #9db0ff; }
@@ -170,6 +175,7 @@ function renderHtml(webview, extensionUri, graphs) {
         <p class="detail-row"><span class="detail-label">Capability Count</span><span id="detail-capability-count" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Event Count</span><span id="detail-event-count" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Lifecycle</span><span id="detail-lifecycle" class="detail-value"></span></p>
+        <div id="source-section" class="detail-row hidden"><span class="detail-label">Source</span><div class="detail-actions"><button id="open-source" type="button">Open Source</button></div></div>
       </div>
       <section class="legend">
         <h2 class="details-title">Legend</h2>
@@ -194,6 +200,9 @@ function renderHtml(webview, extensionUri, graphs) {
     document.getElementById('fit-graph').addEventListener('click', () => fitVisible());
     document.getElementById('reset-layout').addEventListener('click', () => runLayout(true));
     document.getElementById('center-selection').addEventListener('click', () => centerSelection());
+    document.getElementById('open-source').addEventListener('click', () => {
+      if (lastSelectedNodeId) vscode.postMessage({ type: 'revealSource', detailLevel, nodeId: lastSelectedNodeId });
+    });
 
     renderGraph();
 
@@ -224,6 +233,7 @@ function renderHtml(webview, extensionUri, graphs) {
         ],
         minZoom: 0.25,
         maxZoom: 2.5,
+        wheelSensitivity: 1.8,
         userZoomingEnabled: true,
         userPanningEnabled: true,
         boxSelectionEnabled: false
@@ -234,9 +244,13 @@ function renderHtml(webview, extensionUri, graphs) {
         updateDetails(nodeId);
         vscode.postMessage({ type: 'nodeSelected', detailLevel, nodeId });
       });
+      cy.on('dbltap', 'node', (event) => {
+        vscode.postMessage({ type: 'revealSource', detailLevel, nodeId: event.target.id() });
+      });
       requestAnimationFrame(() => fitVisible());
       document.getElementById('details-empty').classList.remove('hidden');
       document.getElementById('details-content').classList.add('hidden');
+      document.getElementById('source-section').classList.add('hidden');
     }
 
     function runLayout(fitAfter) {
@@ -245,7 +259,12 @@ function renderHtml(webview, extensionUri, graphs) {
     }
     function fitVisible() {
       const visible = cy.elements().filter((element) => element.visible());
-      if (visible.length) cy.fit(visible, 32);
+      if (!visible.length) return;
+      cy.fit(visible, 72);
+      if (visible.nodes().length <= 35 && cy.zoom() < 0.55) {
+        cy.zoom(0.55);
+        cy.center(visible);
+      }
     }
     function centerSelection() {
       const nodeId = lastSelectedNodeId || graphs[detailLevel].nodes.find((node) => node.kind === 'context' || node.kind === 'capability')?.id;
@@ -270,6 +289,7 @@ function renderHtml(webview, extensionUri, graphs) {
       document.getElementById('detail-capability-count').textContent = String(graph.edges.filter((edge) => edge.kind === 'contains-capability' && edge.source === nodeId).length);
       document.getElementById('detail-event-count').textContent = String(graph.edges.filter((edge) => edge.kind === 'emits' && edge.source === nodeId).length);
       document.getElementById('detail-lifecycle').textContent = graph.edges.some((edge) => edge.kind === 'has-lifecycle' && edge.source === nodeId) || node.kind === 'lifecycle' ? 'Present' : 'Absent';
+      document.getElementById('source-section').classList.toggle('hidden', !node.hasSource);
     }
     function contextFor(graph, nodeId) {
       const parent = graph.edges.find((edge) => edge.kind === 'contains-capability' && edge.target === nodeId);
@@ -304,7 +324,7 @@ function isArchitectureOverviewMessage(message) {
     if (!message || typeof message !== "object")
         return false;
     const candidate = message;
-    return candidate.type === "nodeSelected"
+    return (candidate.type === "nodeSelected" || candidate.type === "revealSource")
         && isDetailLevel(candidate.detailLevel)
         && typeof candidate.nodeId === "string"
         && candidate.nodeId.trim() !== "";
@@ -322,7 +342,7 @@ function toWebviewGraphSet(graphs) {
 function toWebviewGraph(graph) {
     return {
         ...graph,
-        nodes: graph.nodes.map(({ source: _source, ...node }) => node),
+        nodes: graph.nodes.map(({ source, ...node }) => ({ ...node, hasSource: Boolean(source) })),
     };
 }
 function escapeScriptJson(value) {

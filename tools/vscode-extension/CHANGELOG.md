@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.4
+
+- Opened Graph Workspace in the active editor column instead of forcing a split editor.
+- Reused the existing Graph Workspace panel on graph type, subject, and detail changes without revealing it beside the current editor.
+- Made node selection update details only; source reveal now requires double-clicking a node or using the explicit `Open Source` details action.
+- Improved initial graph fitting with more comfortable padding, a minimum useful initial zoom for small and medium graphs, and faster wheel zoom sensitivity while keeping zoom limits.
+- Added regression tests for active-column panel creation, panel reuse, and explicit source navigation.
+
 ## 0.4.3
 
 - Added Graph Workspace `Show in...` actions so selected semantic nodes can jump to the same element in another graph type.
