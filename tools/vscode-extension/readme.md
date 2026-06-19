@@ -35,6 +35,9 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Show Compiler Info`: show which compiler the extension will run.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
+- `DCL: Navigate Symbol`: fuzzy-search compiler-known DCL symbols and reveal their source.
+- `DCL: Find Related Elements`: discover semantic relationships for a selected or searched DCL item.
+- `DCL: Open Semantic Inspector`: inspect exact symbol name, type, source, context, relationships, and graph availability.
 - `DCL: Open Graph Workspace`: open the unified graph workbench for switching graph type and graph subject.
 - `DCL: Export Current Graph`: export the currently visible graph from the Graph Workspace.
 - `DCL: Show Architecture Overview`: open a workspace-level graph for contexts, capabilities, events, and lifecycle indicators.

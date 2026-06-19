@@ -11,6 +11,13 @@ import { buildEventFlowGraph } from "./graphs/DclEventFlowGraphBuilder";
 import { buildGraphWorkspaceState, DclGraphWorkspaceSelection } from "./graphs/DclGraphWorkspaceState";
 import { buildLifecycleGraph } from "./graphs/DclLifecycleGraphBuilder";
 import { DclSemanticIdentity } from "./graphs/DclSemanticIdentity";
+import {
+  buildSemanticNavigationItems,
+  DclSemanticNavigationItem,
+  findSemanticNavigationItem,
+  relatedSemanticItems,
+  semanticInspectorText,
+} from "./navigation/DclSemanticNavigation";
 import { semanticIdentityAtSourcePosition } from "./source/DclSourceSelection";
 import { DclSourceLocation, revealSourceLocation } from "./source/DclSourceLocation";
 import { DclExplorerNode, DclExplorerProvider } from "./views/DclExplorerProvider";
@@ -52,6 +59,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
+    vscode.commands.registerCommand("dcl.navigateSymbol", () => navigateSymbol(explorer)),
+    vscode.commands.registerCommand("dcl.findRelatedElements", () => findRelatedElements(explorer)),
+    vscode.commands.registerCommand("dcl.openSemanticInspector", () => openSemanticInspector(explorer)),
     vscode.commands.registerCommand("dcl.focusGraphFromExplorer", (node?: DclExplorerNode) => focusExplorerNodeInGraph(context.extensionUri, diagnostics, summary, explorer, node, true)),
     vscode.commands.registerCommand("dcl.openGraphWorkspace", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.exportCurrentGraph", () => DclGraphWorkspacePanel.exportCurrentGraph()),
@@ -76,6 +86,89 @@ export function activate(context: vscode.ExtensionContext): void {
       compileOnSave.handleSavedDocument(document, resolveCompileOnSaveMode(vscode.workspace.getConfiguration("dcl")));
     }),
   );
+}
+
+async function navigateSymbol(explorer: DclExplorerProvider): Promise<void> {
+  const item = await pickSemanticItem(explorer.getSummary(), "Navigate DCL Symbol");
+  if (item) await revealAndFocusSemanticItem(item);
+}
+
+async function findRelatedElements(explorer: DclExplorerProvider): Promise<void> {
+  const summary = explorer.getSummary();
+  const selected = await currentOrPickedSemanticItem(summary, "Find Related Elements");
+  if (!summary || !selected) return;
+
+  const related = relatedSemanticItems(summary, selected);
+  if (!related.length) {
+    void vscode.window.showInformationMessage(`No related DCL elements found for ${selected.label}.`);
+    return;
+  }
+
+  const picked = await pickFromItems(related, `Related to ${selected.displayName}`);
+  if (picked) await revealAndFocusSemanticItem(picked);
+}
+
+async function openSemanticInspector(explorer: DclExplorerProvider): Promise<void> {
+  const item = await currentOrPickedSemanticItem(explorer.getSummary(), "Open Semantic Inspector");
+  if (!item) return;
+  void vscode.window.showInformationMessage(semanticInspectorText(item), { modal: true });
+}
+
+async function currentOrPickedSemanticItem(
+  summary: SemanticSummary | undefined,
+  title: string,
+): Promise<DclSemanticNavigationItem | undefined> {
+  if (!summary) {
+    void vscode.window.showWarningMessage("Compile DCL before using semantic navigation.");
+    return undefined;
+  }
+
+  const editor = vscode.window.activeTextEditor;
+  const identity = editor?.document.languageId === "dcl"
+    ? semanticIdentityAtSourcePosition(summary, editor.document.uri, editor.selection.active)
+    : undefined;
+  const items = buildSemanticNavigationItems(summary);
+  return findSemanticNavigationItem(items, identity) ?? pickFromItems(items, title);
+}
+
+async function pickSemanticItem(
+  summary: SemanticSummary | undefined,
+  title: string,
+): Promise<DclSemanticNavigationItem | undefined> {
+  if (!summary) {
+    void vscode.window.showWarningMessage("Compile DCL before using semantic navigation.");
+    return undefined;
+  }
+  return pickFromItems(buildSemanticNavigationItems(summary), title);
+}
+
+async function pickFromItems(
+  items: DclSemanticNavigationItem[],
+  title: string,
+): Promise<DclSemanticNavigationItem | undefined> {
+  const picked = await vscode.window.showQuickPick(
+    items.map((item) => ({
+      label: item.label,
+      description: item.context ?? item.parentCapability,
+      detail: item.relationships.join("; ") || item.source?.file,
+      item,
+    })),
+    {
+      title,
+      matchOnDescription: true,
+      matchOnDetail: true,
+      placeHolder: "Search contexts, capabilities, events, effects, policies, actors, lifecycles, and lifecycle steps",
+    },
+  );
+  return picked?.item;
+}
+
+async function revealAndFocusSemanticItem(item: DclSemanticNavigationItem): Promise<void> {
+  if (item.source) {
+    const result = await revealSourceLocation(item.source, "oneBased");
+    if (!result.ok) void vscode.window.showWarningMessage(result.reason);
+  }
+  if (item.identity) DclGraphWorkspacePanel.focusSemanticIdentity(item.identity);
 }
 
 function followSourceSelection(event: vscode.TextEditorSelectionChangeEvent, explorer: DclExplorerProvider): void {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2
+
+- Added `DCL: Navigate Symbol` for fuzzy semantic navigation across compiler-known contexts, capabilities, events, effects, policies, actors, lifecycles, and lifecycle steps.
+- Added `DCL: Find Related Elements` with Quick Pick relationship discovery for capabilities, events, contexts, and lifecycles.
+- Added `DCL: Open Semantic Inspector` for exact symbol details, source location, parent context, relationships, and graph availability.
+- Reused semantic identities so selected navigation items reveal source and focus the open Graph Workspace where possible.
+- Added semantic navigation model tests for symbol search, fuzzy matching, related discovery, and source/graph integration metadata.
+
 ## 0.4.1
 
 - Added source-to-Graph Workspace highlighting from active `.dcl` editor selections.

@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -40,6 +40,9 @@
     "onCommand:dcl.formatDocument",
     "onCommand:dcl.refreshExplorer",
     "onCommand:dcl.revealSemanticItemInSource",
+    "onCommand:dcl.navigateSymbol",
+    "onCommand:dcl.findRelatedElements",
+    "onCommand:dcl.openSemanticInspector",
     "onCommand:dcl.focusGraphFromExplorer",
     "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
@@ -130,6 +133,21 @@
       {
         "command": "dcl.revealSemanticItemInSource",
         "title": "DCL: Reveal Semantic Item in Source",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.navigateSymbol",
+        "title": "DCL: Navigate Symbol",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.findRelatedElements",
+        "title": "DCL: Find Related Elements",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.openSemanticInspector",
+        "title": "DCL: Open Semantic Inspector",
         "category": "DCL"
       },
       {
@@ -242,6 +260,15 @@
         },
         {
           "command": "dcl.openGraphWorkspace"
+        },
+        {
+          "command": "dcl.navigateSymbol"
+        },
+        {
+          "command": "dcl.findRelatedElements"
+        },
+        {
+          "command": "dcl.openSemanticInspector"
         },
         {
           "command": "dcl.exportCurrentGraph"
