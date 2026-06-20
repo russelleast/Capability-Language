@@ -45,10 +45,10 @@ class DclGraphWorkspacePanel {
         if (DclGraphWorkspacePanel.currentPanel) {
             DclGraphWorkspacePanel.currentPanel.title = "DCL Graph Workspace";
             DclGraphWorkspacePanel.currentPanel.webview.html = renderHtml(DclGraphWorkspacePanel.currentPanel.webview, extensionUri, state);
-            DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+            DclGraphWorkspacePanel.currentPanel.reveal();
             return;
         }
-        const panel = vscode.window.createWebviewPanel("dclGraphWorkspace", "DCL Graph Workspace", vscode.ViewColumn.Beside, {
+        const panel = vscode.window.createWebviewPanel("dclGraphWorkspace", "DCL Graph Workspace", vscode.ViewColumn.Active, {
             enableScripts: true,
             localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
         });
@@ -81,7 +81,7 @@ class DclGraphWorkspacePanel {
         const node = (0, DclSemanticIdentity_1.findGraphNodeBySemanticIdentity)(DclGraphWorkspacePanel.currentGraph, identity);
         if (!node || !DclGraphWorkspacePanel.currentPanel)
             return false;
-        DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+        DclGraphWorkspacePanel.currentPanel.reveal();
         void DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "focusNode", nodeId: node.id });
         return true;
     }
@@ -103,10 +103,10 @@ class DclGraphWorkspacePanel {
         DclGraphWorkspacePanel.currentGraph = undefined;
         if (DclGraphWorkspacePanel.currentPanel) {
             DclGraphWorkspacePanel.currentPanel.webview.html = renderEmptyHtml(title, message, true);
-            DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Beside);
+            DclGraphWorkspacePanel.currentPanel.reveal();
             return;
         }
-        const panel = vscode.window.createWebviewPanel("dclGraphWorkspace", "DCL Graph Workspace", vscode.ViewColumn.Beside, { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")] });
+        const panel = vscode.window.createWebviewPanel("dclGraphWorkspace", "DCL Graph Workspace", vscode.ViewColumn.Active, { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")] });
         DclGraphWorkspacePanel.currentPanel = panel;
         panel.webview.html = renderEmptyHtml(title, message, true);
         panel.webview.onDidReceiveMessage((message) => {
@@ -154,6 +154,8 @@ class DclGraphWorkspacePanel {
             await saveGraphExport(message);
             return;
         }
+        if (message.type === "nodeSelected")
+            return;
         const node = DclGraphWorkspacePanel.currentGraph?.nodes.find((item) => item.id === message.nodeId);
         if (!node)
             return;
@@ -241,9 +243,9 @@ function renderHtml(webview, extensionUri, state) {
     .detail-label { display: block; margin-bottom: 2px; color: var(--vscode-descriptionForeground); font-size: 11px; text-transform: uppercase; }
     .detail-value { overflow-wrap: anywhere; }
     .empty-detail { color: var(--vscode-descriptionForeground); }
-    .show-in-actions { display: flex; flex-direction: column; gap: 6px; }
-    .show-in-actions button { width: 100%; text-align: left; border: 1px solid var(--vscode-button-border, transparent); border-radius: 3px; padding: 4px 8px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); font: inherit; cursor: pointer; }
-    .show-in-actions button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+    .detail-actions { display: flex; flex-direction: column; gap: 6px; }
+    .detail-actions button { width: 100%; text-align: left; border: 1px solid var(--vscode-button-border, transparent); border-radius: 3px; padding: 4px 8px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); font: inherit; cursor: pointer; }
+    .detail-actions button:hover { background: var(--vscode-button-secondaryHoverBackground); }
     .legend { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--vscode-panel-border); }
     .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
     .legend-item { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -307,7 +309,8 @@ function renderHtml(webview, extensionUri, state) {
         <p class="detail-row"><span class="detail-label">Source Name</span><span id="detail-source-name" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Kind</span><span id="detail-kind" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Relationships</span><span id="detail-relationships" class="detail-value"></span></p>
-        <div id="show-in-section" class="detail-row hidden"><span class="detail-label">Show In</span><div id="show-in-actions" class="show-in-actions"></div></div>
+        <div id="source-section" class="detail-row hidden"><span class="detail-label">Source</span><div class="detail-actions"><button id="open-source" type="button">Open Source</button></div></div>
+        <div id="show-in-section" class="detail-row hidden"><span class="detail-label">Show In</span><div id="show-in-actions" class="detail-actions"></div></div>
       </div>
       <section class="legend">
         <h2 class="details-title">Legend</h2>
@@ -351,6 +354,9 @@ function renderHtml(webview, extensionUri, state) {
     document.getElementById('export-svg').addEventListener('click', () => exportGraph('svg'));
     document.getElementById('export-png').addEventListener('click', () => exportGraph('png'));
     document.getElementById('empty-compile')?.addEventListener('click', () => vscode.postMessage({ type: 'compileWorkspace' }));
+    document.getElementById('open-source')?.addEventListener('click', () => {
+      if (lastSelectedNodeId) vscode.postMessage({ type: 'revealSource', nodeId: lastSelectedNodeId });
+    });
     window.addEventListener('message', (event) => {
       const message = event.data;
       if (message?.type === 'requestExport' && (message.format === 'svg' || message.format === 'png')) {
@@ -373,6 +379,7 @@ function renderHtml(webview, extensionUri, state) {
         style: styleSheet(),
         minZoom: 0.25,
         maxZoom: 2.5,
+        wheelSensitivity: 1.8,
         userZoomingEnabled: true,
         userPanningEnabled: true,
         boxSelectionEnabled: false
@@ -385,6 +392,9 @@ function renderHtml(webview, extensionUri, state) {
         lastSelectedNodeId = nodeId;
         updateDetails(nodeId);
         vscode.postMessage({ type: 'nodeSelected', nodeId });
+      });
+      cy.on('dbltap', 'node', (event) => {
+        vscode.postMessage({ type: 'revealSource', nodeId: event.target.id() });
       });
       requestAnimationFrame(() => {
         fitVisible();
@@ -442,7 +452,12 @@ function renderHtml(webview, extensionUri, state) {
 
     function fitVisible() {
       const visible = cy?.elements().filter((element) => element.visible());
-      if (visible?.length) cy.fit(visible, 32);
+      if (!visible?.length) return;
+      cy.fit(visible, 72);
+      if (visible.nodes().length <= 35 && cy.zoom() < 0.55) {
+        cy.zoom(0.55);
+        cy.center(visible);
+      }
     }
 
     function centerSelection() {
@@ -605,6 +620,7 @@ function renderHtml(webview, extensionUri, state) {
       document.getElementById('detail-source-name').textContent = node.sourceName || node.label;
       document.getElementById('detail-kind').textContent = node.kind;
       document.getElementById('detail-relationships').textContent = relationshipSummary(nodeId);
+      document.getElementById('source-section').classList.toggle('hidden', !node.hasSource);
       updateShowInActions(nodeId);
     }
 
@@ -686,8 +702,9 @@ function isGraphWorkspaceMessage(message) {
             && typeof candidate.filename === "string"
             && (typeof candidate.text === "string" || typeof candidate.dataUri === "string");
     }
-    if (candidate.type === "nodeSelected")
+    if (candidate.type === "nodeSelected" || candidate.type === "revealSource") {
         return typeof candidate.nodeId === "string" && candidate.nodeId.trim() !== "";
+    }
     if (candidate.type === "selectionChanged") {
         return isGraphWorkspaceType(candidate.graphType);
     }
@@ -727,7 +744,7 @@ function isSemanticIdentity(value) {
 function toWebviewGraph(graph) {
     return {
         ...graph,
-        nodes: graph.nodes.map(({ source: _source, ...node }) => node),
+        nodes: graph.nodes.map(({ source, ...node }) => ({ ...node, hasSource: Boolean(source) })),
     };
 }
 function toWebviewState(state) {

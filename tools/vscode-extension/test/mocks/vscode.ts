@@ -68,6 +68,13 @@ export enum TextEditorRevealType {
   AtTop = 3,
 }
 
+export enum ViewColumn {
+  Active = -1,
+  Beside = -2,
+  One = 1,
+  Two = 2,
+}
+
 export class EventEmitter<T> {
   readonly event = () => undefined;
   fire(_value?: T): void {}
@@ -88,11 +95,20 @@ export class Uri {
 export const workspace = {
   workspaceFolders: [] as { uri: Uri }[],
   compilerPath: "",
+  configuration: {} as Record<string, unknown>,
   files: [] as Uri[],
-  getConfiguration(_section?: string) {
+  textDocuments: [] as TextDocument[],
+  getConfiguration(section?: string) {
     return {
-      get<T>(_key: string, defaultValue: T): T {
-        return (workspace.compilerPath || defaultValue) as T;
+      get<T>(key: string, defaultValue: T): T {
+        const fullKey = section ? `${section}.${key}` : key;
+        if (Object.prototype.hasOwnProperty.call(workspace.configuration, fullKey)) {
+          return workspace.configuration[fullKey] as T;
+        }
+        if (key === "compilerPath" || fullKey === "dcl.compilerPath") {
+          return (workspace.compilerPath || defaultValue) as T;
+        }
+        return defaultValue;
       },
     };
   },
@@ -114,10 +130,31 @@ export const workspace = {
       },
     };
   },
+  onDidOpenTextDocument(_listener: (document: TextDocument) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+  onDidChangeTextDocument(_listener: (event: { document: TextDocument }) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+  onDidSaveTextDocument(_listener: (document: TextDocument) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+  onDidCloseTextDocument(_listener: (document: TextDocument) => void): { dispose(): void } {
+    return { dispose() {} };
+  },
+};
+
+export type TextDocument = {
+  uri: Uri;
+  languageId: string;
+  version: number;
+  getText(): string;
 };
 
 export const window = {
   lastShownDocument: undefined as unknown,
+  outputChannels: [] as MockOutputChannel[],
+  createdWebviewPanels: [] as MockWebviewPanel[],
   async showTextDocument(document: unknown) {
     window.lastShownDocument = document;
     return {
@@ -128,10 +165,93 @@ export const window = {
   showWarningMessage(_message: string): void {},
   showErrorMessage(_message: string): void {},
   showInformationMessage(_message: string): void {},
+  createOutputChannel(name: string): MockOutputChannel {
+    const channel = new MockOutputChannel(name);
+    window.outputChannels.push(channel);
+    return channel;
+  },
   registerTreeDataProvider(): { dispose(): void } {
     return { dispose() {} };
   },
+  createWebviewPanel(
+    viewType: string,
+    title: string,
+    showOptions: ViewColumn,
+    _options: unknown,
+  ): MockWebviewPanel {
+    const panel = new MockWebviewPanel(viewType, title, showOptions);
+    window.createdWebviewPanels.push(panel);
+    return panel;
+  },
 };
+
+export class MockOutputChannel {
+  readonly lines: string[] = [];
+  disposed = false;
+
+  constructor(public readonly name: string) {}
+
+  append(value: string): void {
+    this.lines.push(value);
+  }
+
+  appendLine(value: string): void {
+    this.lines.push(value);
+  }
+
+  dispose(): void {
+    this.disposed = true;
+  }
+}
+
+export class MockWebview {
+  html = "";
+  readonly postedMessages: unknown[] = [];
+  private messageHandler: ((message: unknown) => void) | undefined;
+
+  asWebviewUri(uri: Uri): Uri {
+    return uri;
+  }
+
+  onDidReceiveMessage(handler: (message: unknown) => void): { dispose(): void } {
+    this.messageHandler = handler;
+    return { dispose: () => { this.messageHandler = undefined; } };
+  }
+
+  async postMessage(message: unknown): Promise<boolean> {
+    this.postedMessages.push(message);
+    return true;
+  }
+
+  emitMessage(message: unknown): void {
+    this.messageHandler?.(message);
+  }
+}
+
+export class MockWebviewPanel {
+  readonly webview = new MockWebview();
+  readonly revealCalls: Array<ViewColumn | undefined> = [];
+  private disposeHandler: (() => void) | undefined;
+
+  constructor(
+    public readonly viewType: string,
+    public title: string,
+    public readonly showOptions: ViewColumn,
+  ) {}
+
+  reveal(column?: ViewColumn): void {
+    this.revealCalls.push(column);
+  }
+
+  onDidDispose(handler: () => void): { dispose(): void } {
+    this.disposeHandler = handler;
+    return { dispose: () => { this.disposeHandler = undefined; } };
+  }
+
+  dispose(): void {
+    this.disposeHandler?.();
+  }
+}
 
 export const languages = {
   createDiagnosticCollection() {

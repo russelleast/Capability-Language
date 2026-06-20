@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.5.5
+
+- Added experimental compiler-backed LSP Find References through `textDocument/references`.
+- Returned semantic references for shapes, events, outcomes, capabilities, lifecycles, and contexts across workspace files.
+- Reused compiler workspace parsing, symbol resolution, source ranges, and semantic context rules to avoid textual reference search.
+- Supported declaration inclusion through the LSP references context and returned empty results for unresolved or unreferenced symbols.
+- Added tests for event, outcome, shape, cross-file, duplicate-context, no-reference, and server references request handling.
+
+## 0.5.4
+
+- Added experimental compiler-backed LSP Go To Definition through `textDocument/definition`.
+- Supported definition navigation for shape, event, outcome, capability, context, and lifecycle references where compiler semantic data is available.
+- Reused compiler workspace parsing, symbol resolution, source ranges, and semantic context rules for definition targets.
+- Returned no result for unresolved symbols without surfacing protocol errors.
+- Added tests for event, outcome, shape, cross-file, unresolved, duplicate-context, and server definition request handling.
+
+## 0.5.3
+
+- Added experimental compiler-backed LSP workspace symbols through `workspace/symbol`.
+- Returned semantic DCL symbols across workspace files for contexts, capabilities, intents, outcomes, events, effects, policies, actors, lifecycles, lifecycle steps, and shapes.
+- Added fuzzy and case-insensitive workspace symbol search for VS Code Ctrl+T and Go to Symbol in Workspace.
+- Included compiler source locations, display containers, and semantic identity data for workspace symbol results.
+- Added tests for empty, single-file, and multi-file workspaces, fuzzy and case-insensitive search, duplicate names in different contexts, source locations, and LSP workspace symbol requests.
+
+## 0.5.2
+
+- Added experimental compiler-backed LSP document symbols through `textDocument/documentSymbol`.
+- Returned hierarchical DCL symbols for contexts, capabilities, intents, outcomes, events, effects, policies, actors, lifecycles, lifecycle steps, and shapes.
+- Enabled VS Code Outline, breadcrumbs, and Ctrl+Shift+O support when the experimental language server is enabled.
+- Reused compiler AST/source spans for document symbol locations without adding TypeScript-side parsing or duplicating compiler semantics.
+- Added tests for capability hierarchy, contexts, lifecycles, nested symbols, empty documents, source ranges, and LSP document symbol requests.
+
+## 0.5.1
+
+- Added experimental compiler-backed diagnostics in `dcl-lsp`.
+- Validated the DCL workspace on document open/save and debounced document changes.
+- Published LSP `textDocument/publishDiagnostics` notifications for compiler errors and warnings, including empty diagnostics to clear fixed files.
+- Added language-server validation status with diagnostics count and last validation timestamp.
+- Disabled save-triggered extension-side diagnostics when the experimental language server is enabled, preserving the existing path when it is disabled.
+- Added tests for diagnostic conversion, workspace validation, diagnostic publishing, debounced validation, clearing fixed diagnostics, and client validation status updates.
+
+## 0.5.0
+
+- Added the experimental `dcl-lsp` Go executable with stdio JSON-RPC/LSP lifecycle handling for `initialize`, `initialized`, `shutdown`, and `exit`.
+- Added in-memory LSP workspace/document tracking for workspace folders and `didOpen`, `didChange`, `didSave`, and `didClose` document notifications.
+- Added structured language-server logs for startup, initialization, document events, and shutdown.
+- Added opt-in VS Code setting `dcl.languageServer.enabled`, disabled by default so existing compiler-backed extension behavior remains unchanged.
+- Added `DCL Language Server` output channel and `DCL: Show Language Server Status`.
+- Added tests for the LSP document store, workspace health/lifecycle tracking, protocol lifecycle, and VS Code language-server command resolution.
+
+## 0.4.4
+
+- Opened Graph Workspace in the active editor column instead of forcing a split editor.
+- Reused the existing Graph Workspace panel on graph type, subject, and detail changes without revealing it beside the current editor.
+- Made node selection update details only; source reveal now requires double-clicking a node or using the explicit `Open Source` details action.
+- Improved initial graph fitting with more comfortable padding, a minimum useful initial zoom for small and medium graphs, and faster wheel zoom sensitivity while keeping zoom limits.
+- Added regression tests for active-column panel creation, panel reuse, and explicit source navigation.
+
 ## 0.4.3
 
 - Added Graph Workspace `Show in...` actions so selected semantic nodes can jump to the same element in another graph type.

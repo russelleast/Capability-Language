@@ -2,6 +2,7 @@ language dcl 0.9
 
 actor Customer is human
 actor SupportAgent is human
+actor test is system
 
 effect CapturePaymentRecord is persistence
 effect RefundPaymentRecord is persistence

@@ -4,6 +4,7 @@ import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdap
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
+import { DclLanguageServerClient } from "./lsp/DclLanguageServerClient";
 import { buildArchitectureOverviewGraphs } from "./graphs/DclArchitectureOverviewGraphBuilder";
 import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
 import { buildContextMapGraph } from "./graphs/DclContextMapGraphBuilder";
@@ -33,13 +34,16 @@ import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
 
 export function activate(context: vscode.ExtensionContext): void {
+  const languageServerEnabled = isLanguageServerEnabled();
   const compiler = new DclCompilerAdapter(vscode.workspace.workspaceFolders, {
     extensionPath: context.extensionUri.fsPath,
   });
-  const diagnostics = new DclDiagnosticProvider(compiler);
+  const diagnostics = new DclDiagnosticProvider(compiler, { publishDiagnostics: !languageServerEnabled });
   const summary = new DclSummaryProvider();
   const explorer = new DclExplorerProvider();
   const explorerView = vscode.window.createTreeView("dclExplorer", { treeDataProvider: explorer });
+  const languageServer = new DclLanguageServerClient(context.extensionUri);
+  languageServer.startIfEnabled();
   let sourceSelectionTimer: ReturnType<typeof setTimeout> | undefined;
   const compileOnSave = new DclCompileOnSaveScheduler({
     compileWorkspace: () => compileWorkspace(diagnostics, summary, explorer, { showCompletionNotification: false }),
@@ -56,6 +60,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)),
     vscode.commands.registerCommand("dcl.showCompilerInfo", () => showCompilerInfo(compiler)),
+    vscode.commands.registerCommand("dcl.showLanguageServerStatus", () => languageServer.showStatus()),
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
@@ -83,8 +88,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     { dispose: () => { if (sourceSelectionTimer) clearTimeout(sourceSelectionTimer); } },
     vscode.workspace.onDidSaveTextDocument((document) => {
+      if (isLanguageServerEnabled()) return;
       compileOnSave.handleSavedDocument(document, resolveCompileOnSaveMode(vscode.workspace.getConfiguration("dcl")));
     }),
+    languageServer,
   );
 }
 
@@ -572,6 +579,10 @@ async function pickContext(summary: SemanticSummary): Promise<string | undefined
 }
 
 export function deactivate(): void {}
+
+function isLanguageServerEnabled(): boolean {
+  return vscode.workspace.getConfiguration("dcl.languageServer").get<boolean>("enabled", false);
+}
 
 async function compileCurrentFile(
   diagnostics: DclDiagnosticProvider,

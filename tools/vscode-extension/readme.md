@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.4.3`
+Current extension version: `0.5.5`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -22,7 +22,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
   - Lifecycle Graph
   - Event Flow Graph
   - Context Map
-- Graph controls for fit, reset layout, centering, details, legends, and trusted node-to-source navigation.
+- Graph controls for fit, reset layout, centering, details, legends, and explicit node-to-source navigation.
 - DCL Explorer selection can focus matching nodes in the open Graph Workspace.
 - Source cursor selection can focus matching nodes in the open Graph Workspace when compiler source locations are available.
 - Graph node details can jump to the same semantic element in other graph types where that element is represented.
@@ -34,6 +34,7 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Compile Workspace`: compile workspace `.dcl` files together and refresh diagnostics.
 - `DCL: Show Semantic Summary`: compile the active `.dcl` file and focus the semantic summary tree.
 - `DCL: Show Compiler Info`: show which compiler the extension will run.
+- `DCL: Show Language Server Status`: show experimental language server running/stopped state and tracked workspace/document counts.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
 - `DCL: Navigate Symbol`: fuzzy-search compiler-known DCL symbols and reveal their source.
@@ -73,6 +74,18 @@ Available values:
 
 When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace. Enabled by default. This uses compiler semantic summary source locations and does not parse DCL source in the extension.
 
+`dcl.languageServer.enabled`
+
+Enables the experimental DCL Language Server for compiler-backed diagnostics, document symbols, workspace symbols, definition navigation, and find references. Disabled by default. When disabled, the extension continues to use the existing compiler-backed behavior unchanged.
+
+`dcl.languageServer.path`
+
+Optional path to a custom `dcl-lsp` executable. Leave empty to use a local extension `bin/dcl-lsp` development build when present, then a bundled language server when available, falling back to `dcl-lsp` on PATH.
+
+`dcl.languageServer.trace`
+
+Controls experimental language server protocol logging. The default `off` keeps the `DCL Language Server` output channel user-friendly. Use `messages` or `verbose` only when debugging raw LSP traffic.
+
 ## DCL Explorer
 
 The DCL Explorer is an Activity Bar view for architecture navigation. It is built from compiler semantic summary data and keeps capabilities as the primary architectural unit.
@@ -91,7 +104,7 @@ All graphs are built from the compiler semantic summary. The extension does not 
 
 Graph nodes use human-readable display labels for diagram readability while retaining the exact DCL source name in the details panel.
 
-`DCL: Open Graph Workspace` opens a single graph workbench where you can switch between graph types without opening new panels.
+`DCL: Open Graph Workspace` opens a single graph workbench in the active editor area where you can switch between graph types without opening new panels or forcing a split editor.
 
 The workspace includes:
 
@@ -103,10 +116,12 @@ The workspace includes:
 - SVG and PNG export controls
 - refresh from the latest compiled semantic summary
 - compile workspace action when no compiled summary is available
-- legend, node details, relationship summary, zoom limits, and source navigation
+- legend, node details, relationship summary, zoom limits, and explicit source navigation
 - semantic `Show in...` actions for moving the selected element between graph types
 
 Existing graph commands still work as shortcuts into the Graph Workspace with the relevant graph type pre-selected.
+
+Single-click a node to select it and update the details panel. To reveal DCL source, double-click the node or use the `Open Source` action shown in the details panel when compiler source locations are available.
 
 When a selected node can be represented in another graph, the details panel shows `Show in...` actions. These use compiler-backed semantic identity, not display labels, and switch the workspace to the target graph with the matching node highlighted.
 
@@ -169,9 +184,17 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 `DCL: Show Context Map` shows DCL contexts as semantic boundaries. It can display compiler-provided parent/child context hierarchy and explicit context dependencies. Contexts are not treated as services, modules, folders, or deployments.
 
+## Experimental Language Server
+
+v0.5.5 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
+
+The language server does not provide hover, completion, formatting, graph data, or graph navigation yet. LSP diagnostics, document symbols, workspace symbols, definition navigation, and references are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
+
+To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
+
 ## Installing From VSIX
 
-The extension is currently distributed as a VSIX package. The VSIX includes the DCL compiler for macOS arm64, macOS x64, Linux x64, and Windows x64.
+The extension is currently distributed as a VSIX package. The VSIX includes the DCL compiler and experimental DCL language server for macOS arm64, macOS x64, Linux x64, and Windows x64.
 
 1. Download the `.vsix` file from the project website or GitHub Actions artifact.
 2. In VS Code, open the Command Palette.
@@ -191,7 +214,7 @@ The extension is not published to the VS Code Marketplace yet. Marketplace publi
 
 ## Known Limitations
 
-- No Language Server Protocol implementation yet.
+- The Language Server Protocol implementation is experimental and currently supports lifecycle, workspace/document tracking, compiler-backed diagnostics, document symbols, workspace symbols, definition navigation, and find references only.
 - No TypeScript-side DCL parser.
 - No inferred graph relationships from folders or source text.
 - Graphs only show relationships exposed by the compiler semantic summary.

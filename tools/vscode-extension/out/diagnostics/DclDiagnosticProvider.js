@@ -39,13 +39,16 @@ exports.uriForDiagnostic = uriForDiagnostic;
 const path = __importStar(require("path"));
 const vscode = __importStar(require("vscode"));
 class DclDiagnosticProvider {
-    constructor(compiler) {
+    constructor(compiler, options = {}) {
         this.compiler = compiler;
+        this.options = options;
         this.collection = vscode.languages.createDiagnosticCollection("dcl");
     }
     async compileFiles(files) {
         const result = await this.compiler.compileFiles(files);
-        this.publish(result, files);
+        if (this.options.publishDiagnostics ?? true) {
+            this.publish(result, files);
+        }
         return result;
     }
     clear() {
