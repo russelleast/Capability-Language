@@ -4,7 +4,6 @@ import { DclGraphExportFormat } from "../graphs/DclGraphExport";
 import { DclGraphModel } from "../graphs/DclGraphModel";
 import { DclGraphWorkspaceSelection, DclGraphWorkspaceState, DclGraphWorkspaceType } from "../graphs/DclGraphWorkspaceState";
 import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "../graphs/DclSemanticIdentity";
-import { revealSourceLocation } from "../source/DclSourceLocation";
 
 type GraphWorkspaceMessage = {
   type: "selectionChanged";
@@ -46,6 +45,7 @@ type GraphWorkspaceCallbacks = {
   onSelectionChanged(selection: DclGraphWorkspaceSelection): void;
   onRefresh(): void;
   onCompileWorkspace(): void;
+  onRevealSource(location: NonNullable<DclGraphModel["nodes"][number]["source"]>): void;
 };
 
 export class DclGraphWorkspacePanel {
@@ -64,7 +64,7 @@ export class DclGraphWorkspacePanel {
         extensionUri,
         state,
       );
-      DclGraphWorkspacePanel.currentPanel.reveal();
+      DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Active);
       return;
     }
 
@@ -110,10 +110,18 @@ export class DclGraphWorkspacePanel {
     DclGraphWorkspacePanel.callbacks?.onRefresh();
   }
 
-  static focusSemanticIdentity(identity: DclSemanticIdentity | undefined): boolean {
+  static isVisible(): boolean {
+    return DclGraphWorkspacePanel.currentPanel?.visible === true;
+  }
+
+  static focusSemanticIdentity(identity: DclSemanticIdentity | undefined, options: { reveal?: boolean } = {}): boolean {
     const node = findGraphNodeBySemanticIdentity(DclGraphWorkspacePanel.currentGraph, identity);
     if (!node || !DclGraphWorkspacePanel.currentPanel) return false;
-    DclGraphWorkspacePanel.currentPanel.reveal();
+    if (options.reveal !== false) {
+      DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Active);
+    } else if (!DclGraphWorkspacePanel.currentPanel.visible) {
+      return false;
+    }
     void DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "focusNode", nodeId: node.id });
     return true;
   }
@@ -147,7 +155,7 @@ export class DclGraphWorkspacePanel {
 
     if (DclGraphWorkspacePanel.currentPanel) {
       DclGraphWorkspacePanel.currentPanel.webview.html = renderEmptyHtml(title, message, true);
-      DclGraphWorkspacePanel.currentPanel.reveal();
+      DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Active);
       return;
     }
 
@@ -222,10 +230,7 @@ export class DclGraphWorkspacePanel {
       return;
     }
 
-    const result = await revealSourceLocation(node.source, "oneBased");
-    if (!result.ok) {
-      void vscode.window.showWarningMessage(result.reason);
-    }
+    DclGraphWorkspacePanel.callbacks?.onRevealSource(node.source);
   }
 }
 

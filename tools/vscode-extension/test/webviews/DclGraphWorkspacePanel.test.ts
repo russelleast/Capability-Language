@@ -23,7 +23,7 @@ describe("DclGraphWorkspacePanel", () => {
 
     expect(vscode.window.createdWebviewPanels).toHaveLength(1);
     expect(vscode.window.createdWebviewPanels[0].showOptions).toBe(vscode.ViewColumn.Active);
-    expect(vscode.window.createdWebviewPanels[0].revealCalls).toEqual([undefined]);
+    expect(vscode.window.createdWebviewPanels[0].revealCalls).toEqual([vscode.ViewColumn.Active]);
   });
 
   it("does not reveal source for ordinary node selection", () => {
@@ -38,12 +38,14 @@ describe("DclGraphWorkspacePanel", () => {
   it("reveals source only when the webview sends an explicit source action", async () => {
     const sourceFile = path.join(__dirname, "..", "..", "test-fixtures", "valid-basic.dcl");
     vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file(path.dirname(sourceFile)) }];
-    DclGraphWorkspacePanel.show(extensionUri(), workspaceState("architecture", sourceFile), callbacksMock());
+    const callbacks = callbacksMock();
+    DclGraphWorkspacePanel.show(extensionUri(), workspaceState("architecture", sourceFile), callbacks);
     const panel = vscode.window.createdWebviewPanels[0];
 
     panel.webview.emitMessage({ type: "revealSource", nodeId: "capability:acceptorder" });
 
-    await vi.waitFor(() => expect(vscode.window.lastShownDocument).toBeDefined());
+    await vi.waitFor(() => expect(callbacks.onRevealSource).toHaveBeenCalledWith({ file: sourceFile, line: 1, column: 1 }));
+    expect(vscode.window.lastShownDocument).toBeUndefined();
   });
 });
 
@@ -52,6 +54,7 @@ function callbacksMock() {
     onSelectionChanged: vi.fn(),
     onRefresh: vi.fn(),
     onCompileWorkspace: vi.fn(),
+    onRevealSource: vi.fn(),
   };
 }
 

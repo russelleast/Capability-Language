@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.5"
+const serverVersion = "0.5.6"
 
 type Server struct {
 	host             *WorkspaceHost
@@ -138,41 +138,64 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
-		s.log("document symbols requested", map[string]any{"uri": request.TextDocument.URI})
-		return s.symbols.DocumentSymbols(request.TextDocument.URI), nil
+		symbols, reason := s.symbols.DocumentSymbolsWithReason(request.TextDocument.URI)
+		s.log("document symbols requested", map[string]any{"uri": request.TextDocument.URI, "resultCount": len(symbols), "reason": reason})
+		return symbols, nil
 	case "workspace/symbol":
 		var request workspaceSymbolParams
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
 		symbols := s.workspaceSymbols.WorkspaceSymbols(request.Query)
-		s.log("workspace symbols requested", map[string]any{"query": request.Query, "symbolCount": len(symbols)})
+		reason := ""
+		if len(symbols) == 0 {
+			reason = s.workspaceSymbolZeroReason(request.Query)
+		}
+		s.log("workspace symbols requested", map[string]any{"query": request.Query, "resultCount": len(symbols), "symbolCount": len(symbols), "reason": reason})
 		return symbols, nil
 	case "textDocument/definition":
 		var request definitionParams
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
-		s.log("definition requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character})
-		location, ok := s.definitions.Definition(request.TextDocument.URI, request.Position)
+		location, reason, ok := s.definitions.DefinitionWithReason(request.TextDocument.URI, request.Position)
+		s.log("definition requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "resultCount": boolCount(ok), "reason": reason})
 		if !ok {
-			s.log("symbol unresolved", map[string]any{"uri": request.TextDocument.URI})
+			s.log("symbol unresolved", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "reason": reason})
 			return nil, nil
 		}
-		s.log("symbol resolved", map[string]any{"uri": request.TextDocument.URI, "targetUri": location.URI, "line": location.Range.Start.Line, "character": location.Range.Start.Character})
+		s.log("symbol resolved", map[string]any{"uri": request.TextDocument.URI, "targetUri": location.URI, "line": location.Range.Start.Line, "character": location.Range.Start.Character, "reason": reason})
 		return location, nil
 	case "textDocument/references":
 		var request referenceParams
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
-		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character})
-		locations := s.references.References(request.TextDocument.URI, request.Position, request.Context.IncludeDeclaration)
-		s.log("references found", map[string]any{"uri": request.TextDocument.URI, "referencesCount": len(locations)})
+		locations, reason := s.references.ReferencesWithReason(request.TextDocument.URI, request.Position, request.Context.IncludeDeclaration)
+		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "resultCount": len(locations), "reason": reason})
+		s.log("references found", map[string]any{"uri": request.TextDocument.URI, "resultCount": len(locations), "referencesCount": len(locations), "reason": reason})
 		return locations, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
+}
+
+func (s *Server) workspaceSymbolZeroReason(query string) string {
+	sources, _ := WorkspaceSources(s.host)
+	if len(sources) == 0 {
+		return "no compiled workspace model"
+	}
+	if strings.TrimSpace(query) == "" {
+		return "no symbols in workspace"
+	}
+	return "no matching symbols"
+}
+
+func boolCount(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func (s *Server) log(event string, fields map[string]any) {

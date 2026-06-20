@@ -15,12 +15,20 @@ func NewReferenceProvider(host *WorkspaceHost) *ReferenceProvider {
 }
 
 func (p *ReferenceProvider) References(uri string, position Position, includeDeclaration bool) []Location {
+	locations, _ := p.ReferencesWithReason(uri, position, includeDeclaration)
+	return locations
+}
+
+func (p *ReferenceProvider) ReferencesWithReason(uri string, position Position, includeDeclaration bool) ([]Location, string) {
 	path, ok := fileURIToPath(uri)
 	if !ok {
-		return nil
+		return nil, "invalid file URI"
 	}
 	absolute, _ := filepath.Abs(path)
 	sources, pathToURI := WorkspaceSources(p.host)
+	if len(sources) == 0 {
+		return nil, "no compiled workspace model"
+	}
 	references := compiler.ReferencesAt(sources, absolute, position.Line+1, position.Character+1, includeDeclaration)
 	locations := make([]Location, 0, len(references))
 	for _, reference := range references {
@@ -30,7 +38,10 @@ func (p *ReferenceProvider) References(uri string, position Position, includeDec
 		}
 		locations = append(locations, Location{URI: targetURI, Range: RangeFromSpan(reference.Span)})
 	}
-	return locations
+	if len(locations) == 0 {
+		return locations, "no semantic references found"
+	}
+	return locations, ""
 }
 
 type referenceParams struct {

@@ -74,6 +74,10 @@ Available values:
 
 When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace. Enabled by default. This uses compiler semantic summary source locations and does not parse DCL source in the extension.
 
+`dcl.graph.autoRevealFromSource`
+
+When enabled, source cursor movement can reveal the Graph Workspace from a DCL editor. Disabled by default so opening source from a graph, or manually switching to source, does not jump focus back to the graph.
+
 `dcl.languageServer.enabled`
 
 Enables the experimental DCL Language Server for compiler-backed diagnostics, document symbols, workspace symbols, definition navigation, and find references. Disabled by default. When disabled, the extension continues to use the existing compiler-backed behavior unchanged.
@@ -96,7 +100,7 @@ Explorer context actions can open the relevant graph directly, including capabil
 
 Selecting a capability, event, context, or lifecycle in DCL Explorer focuses the matching node in the open Graph Workspace when that node exists. If the current graph cannot show the selected item, the extension opens the most relevant existing graph view and highlights the matching node.
 
-When `dcl.graph.followSourceSelection` is enabled, moving the cursor through `.dcl` source also focuses matching graph nodes for compiler-known capabilities, contexts, events, effects, policies, lifecycle items, and lifecycle transitions where source locations are available.
+When `dcl.graph.followSourceSelection` is enabled, moving the cursor through `.dcl` source updates matching graph nodes for compiler-known capabilities, contexts, events, effects, policies, lifecycle items, and lifecycle transitions where source locations are available. By default this only updates an already visible Graph Workspace; set `dcl.graph.autoRevealFromSource` to `true` if you want source cursor movement to reveal the graph.
 
 ## Graph Workspace
 
@@ -186,11 +190,20 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 ## Experimental Language Server
 
-v0.5.5 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
+v0.5.6 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
 
 The language server does not provide hover, completion, formatting, graph data, or graph navigation yet. LSP diagnostics, document symbols, workspace symbols, definition navigation, and references are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
 
-To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
+To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status`, `DCL: Show LSP Feature Status`, and the `DCL Language Server` output channel to inspect health, last feature requests, result counts, zero-result reasons, and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
+
+### LSP Testing
+
+- Diagnostics: break a DCL file and check the Problems panel for compiler-backed LSP diagnostics.
+- Outline: open `View: Outline` for a `.dcl` file with capabilities, contexts, or shapes.
+- Workspace Symbols: run `Go to Symbol in Workspace` or press `Cmd+T` and search for a DCL symbol.
+- Definition: place the cursor on a referenced event, shape, or outcome and press `F12`.
+- References: place the cursor on a declaration or reference and run `Find All References`.
+- Troubleshooting: run `DCL: Show LSP Feature Status` and inspect `DCL Language Server` output for request logs, result counts, and reasons for empty results.
 
 ## Installing From VSIX
 

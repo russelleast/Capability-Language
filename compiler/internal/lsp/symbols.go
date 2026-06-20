@@ -31,13 +31,22 @@ func NewSymbolProvider(host *WorkspaceHost) *SymbolProvider {
 }
 
 func (p *SymbolProvider) DocumentSymbols(uri string) []DocumentSymbol {
+	symbols, _ := p.DocumentSymbolsWithReason(uri)
+	return symbols
+}
+
+func (p *SymbolProvider) DocumentSymbolsWithReason(uri string) ([]DocumentSymbol, string) {
 	source, ok := p.documentSource(uri)
 	if !ok {
-		return nil
+		return nil, "document not found in workspace model"
 	}
 	parsed := compiler.ParseSources([]compiler.SourceFile{source})
 	builder := DocumentSymbolBuilder{path: source.Path}
-	return builder.Build(parsed.Program)
+	symbols := builder.Build(parsed.Program)
+	if len(symbols) == 0 {
+		return symbols, "no symbols for document"
+	}
+	return symbols, ""
 }
 
 func (p *SymbolProvider) documentSource(uri string) (compiler.SourceFile, bool) {

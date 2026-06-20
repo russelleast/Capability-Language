@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.6
+
+- Stabilised Graph Workspace source navigation so explicit `Open Source` reveals stay on the DCL source file instead of immediately refocusing the graph.
+- Kept source-to-graph sync passive by default with `dcl.graph.autoRevealFromSource`, so manually switching to a DCL file no longer jumps back to Graph Workspace.
+- Added `DCL: Show LSP Feature Status` with last request and result-count telemetry for diagnostics, document symbols, workspace symbols, definitions, and references.
+- Added result-count and zero-result reason logging for `textDocument/documentSymbol`, `workspace/symbol`, `textDocument/definition`, and `textDocument/references`.
+- Hardened definition/reference logs for declaration, resolved-reference, unresolved-symbol, and no-reference cases.
+- Added LSP server regression tests for real document-symbol fixtures and zero-result troubleshooting logs.
+
 ## 0.5.5
 
 - Added experimental compiler-backed LSP Find References through `textDocument/references`.

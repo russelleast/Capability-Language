@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -36,6 +36,7 @@
     "onCommand:dcl.showSemanticSummary",
     "onCommand:dcl.showCompilerInfo",
     "onCommand:dcl.showLanguageServerStatus",
+    "onCommand:dcl.showLspFeatureStatus",
     "onCommand:dcl.openGraphWorkspace",
     "onCommand:dcl.exportCurrentGraph",
     "onCommand:dcl.formatDocument",
@@ -113,6 +114,11 @@
       {
         "command": "dcl.showLanguageServerStatus",
         "title": "DCL: Show Language Server Status",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showLspFeatureStatus",
+        "title": "DCL: Show LSP Feature Status",
         "category": "DCL"
       },
       {
@@ -234,6 +240,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "When enabled, moving the cursor inside compiler-known DCL semantic items focuses the matching node in the open Graph Workspace."
+        },
+        "dcl.graph.autoRevealFromSource": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When enabled, moving the cursor inside compiler-known DCL semantic items can reveal the Graph Workspace. Disabled by default so manually switching to source does not jump back to the graph."
         }
       }
     },
