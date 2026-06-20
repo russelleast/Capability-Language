@@ -48,6 +48,13 @@ class DclLanguageServerClient {
         this.stdoutBuffer = "";
         this.stderrBuffer = "";
         this.diagnosticsCount = 0;
+        this.featureTelemetry = {
+            diagnostics: { supported: true },
+            documentSymbols: { supported: true },
+            workspaceSymbols: { supported: true },
+            definitions: { supported: true },
+            references: { supported: true },
+        };
         this.output = vscode.window.createOutputChannel("DCL Language Server");
     }
     startIfEnabled() {
@@ -136,6 +143,24 @@ class DclLanguageServerClient {
             status.lastValidationTimestamp ? `Last validation: ${status.lastValidationTimestamp}` : undefined,
             status.lastError ? `Last error: ${status.lastError}` : undefined,
         ].filter(Boolean).join("\n");
+        void vscode.window.showInformationMessage(lines, { modal: true });
+    }
+    showFeatureStatus() {
+        const lines = [
+            "DCL Language Server feature status",
+            "",
+            `Diagnostics enabled: ${yesNo(this.featureTelemetry.diagnostics.supported)}`,
+            `Document symbols supported: ${yesNo(this.featureTelemetry.documentSymbols.supported)}`,
+            `Workspace symbols supported: ${yesNo(this.featureTelemetry.workspaceSymbols.supported)}`,
+            `Definitions supported: ${yesNo(this.featureTelemetry.definitions.supported)}`,
+            `References supported: ${yesNo(this.featureTelemetry.references.supported)}`,
+            "",
+            featureLine("Diagnostics", this.featureTelemetry.diagnostics),
+            featureLine("Document symbols", this.featureTelemetry.documentSymbols),
+            featureLine("Workspace symbols", this.featureTelemetry.workspaceSymbols),
+            featureLine("Definitions", this.featureTelemetry.definitions),
+            featureLine("References", this.featureTelemetry.references),
+        ].join("\n");
         void vscode.window.showInformationMessage(lines, { modal: true });
     }
     dispose() {
@@ -250,6 +275,7 @@ class DclLanguageServerClient {
             const trimmed = line.trim();
             if (!trimmed)
                 continue;
+            this.recordServerLogTelemetry(trimmed);
             this.output.appendLine(formatServerLog(trimmed));
         }
     }
@@ -267,6 +293,12 @@ class DclLanguageServerClient {
         if (message.method === "dcl/validationStatus") {
             this.diagnosticsCount = message.params?.diagnosticsCount ?? 0;
             this.lastValidationTimestamp = message.params?.lastValidationTimestamp;
+            this.featureTelemetry.diagnostics = {
+                ...this.featureTelemetry.diagnostics,
+                lastRequest: "workspace validation",
+                lastResultCount: this.diagnosticsCount,
+                lastReason: "",
+            };
         }
         if (message.error) {
             this.output.appendLine(`DCL language server protocol error: ${JSON.stringify(message.error)}`);
@@ -281,6 +313,26 @@ class DclLanguageServerClient {
             return;
         }
         this.output.appendLine(`LSP ${direction}: ${message}`);
+    }
+    recordServerLogTelemetry(line) {
+        let record;
+        try {
+            record = JSON.parse(line);
+        }
+        catch {
+            return;
+        }
+        const feature = featureFromServerEvent(record.event);
+        if (!feature)
+            return;
+        const resultCount = record.resultCount ?? record.symbolCount ?? record.referencesCount;
+        const request = requestLabel(record);
+        this.featureTelemetry[feature] = {
+            ...this.featureTelemetry[feature],
+            lastRequest: request,
+            lastResultCount: typeof resultCount === "number" ? resultCount : this.featureTelemetry[feature].lastResultCount,
+            lastReason: record.reason || "",
+        };
     }
 }
 exports.DclLanguageServerClient = DclLanguageServerClient;
@@ -327,5 +379,34 @@ function formatServerLog(line) {
     catch {
         return line;
     }
+}
+function featureFromServerEvent(event) {
+    switch (event) {
+        case "document symbols requested":
+            return "documentSymbols";
+        case "workspace symbols requested":
+            return "workspaceSymbols";
+        case "definition requested":
+            return "definitions";
+        case "references requested":
+        case "references found":
+            return "references";
+        default:
+            return undefined;
+    }
+}
+function requestLabel(record) {
+    if (record.query !== undefined)
+        return `query "${record.query}"`;
+    const position = typeof record.line === "number" && typeof record.character === "number"
+        ? `:${record.line}:${record.character}`
+        : "";
+    return `${record.uri ?? "(unknown uri)"}${position}`;
+}
+function yesNo(value) {
+    return value ? "yes" : "no";
+}
+function featureLine(label, telemetry) {
+    return `${label}: last request ${telemetry.lastRequest ?? "(none)"}, last result count ${telemetry.lastResultCount ?? "(none)"}${telemetry.lastReason ? `, reason: ${telemetry.lastReason}` : ""}`;
 }
 //# sourceMappingURL=DclLanguageServerClient.js.map

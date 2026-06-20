@@ -205,6 +205,49 @@ capability PlaceOrder {
 	if !strings.Contains(logs.String(), `"event":"document symbols requested"`) {
 		t.Fatalf("expected document symbols log event in %s", logs.String())
 	}
+	if !strings.Contains(logs.String(), `"resultCount":1`) {
+		t.Fatalf("expected document symbols result count in %s", logs.String())
+	}
+}
+
+func TestServerLogsDocumentSymbolZeroReason(t *testing.T) {
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/empty.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text":       "language dcl 0.9\n",
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "textDocument/documentSymbol",
+			"params":  map[string]any{"textDocument": map[string]any{"uri": "file:///workspace/empty.dcl"}},
+		}),
+	}, nil)
+
+	if err := server.Serve(bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+	logText := logs.String()
+	if !strings.Contains(logText, `"resultCount":0`) || !strings.Contains(logText, `"reason":"no symbols for document"`) {
+		t.Fatalf("expected zero-result document symbol reason in %s", logText)
+	}
 }
 
 func TestServerHandlesWorkspaceSymbolRequest(t *testing.T) {
@@ -264,7 +307,7 @@ capability CapturePayment {
 	logText := logs.String()
 	if !strings.Contains(logText, `"event":"workspace symbols requested"`) ||
 		!strings.Contains(logText, `"query":"payment"`) ||
-		!strings.Contains(logText, `"symbolCount":`) {
+		!strings.Contains(logText, `"resultCount":`) {
 		t.Fatalf("expected workspace symbol log fields in %s", logText)
 	}
 }
@@ -347,6 +390,59 @@ capability CapturePayment {
 			t.Fatalf("expected log event %q in %s", event, logText)
 		}
 	}
+	if !strings.Contains(logText, `"resultCount":1`) ||
+		!strings.Contains(logText, `"reason":"resolved reference"`) ||
+		!strings.Contains(logText, `"reason":"not on a symbol or unresolved reference"`) {
+		t.Fatalf("expected definition result counts and reasons in %s", logText)
+	}
+}
+
+func TestServerLogsDefinitionDeclarationReason(t *testing.T) {
+	source := `language dcl 0.9
+
+shape PaymentInput {
+  paymentId: Uuid required
+}
+`
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/payment.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text":       source,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "textDocument/definition",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///workspace/payment.dcl"},
+				"position":     positionOf(t, source, "shape PaymentInput", "PaymentInput"),
+			},
+		}),
+	}, nil)
+
+	if err := server.Serve(bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+	if !strings.Contains(logs.String(), `"reason":"on declaration"`) {
+		t.Fatalf("expected declaration reason in %s", logs.String())
+	}
 }
 
 func TestServerHandlesReferencesRequest(t *testing.T) {
@@ -416,8 +512,58 @@ capability CapturePayment {
 	logText := logs.String()
 	if !strings.Contains(logText, `"event":"references requested"`) ||
 		!strings.Contains(logText, `"event":"references found"`) ||
-		!strings.Contains(logText, `"referencesCount":2`) {
+		!strings.Contains(logText, `"resultCount":2`) {
 		t.Fatalf("expected references log fields in %s", logText)
+	}
+}
+
+func TestServerLogsReferenceZeroReason(t *testing.T) {
+	source := `language dcl 0.9
+
+shape PaymentRequest {
+  paymentId: Uuid required
+}
+`
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/payment.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text":       source,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "textDocument/references",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///workspace/payment.dcl"},
+				"position":     positionOf(t, source, "shape PaymentRequest", "PaymentRequest"),
+				"context":      map[string]any{"includeDeclaration": false},
+			},
+		}),
+	}, nil)
+
+	if err := server.Serve(bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+	logText := logs.String()
+	if !strings.Contains(logText, `"resultCount":0`) || !strings.Contains(logText, `"reason":"no semantic references found"`) {
+		t.Fatalf("expected reference zero-result reason in %s", logText)
 	}
 }
 
