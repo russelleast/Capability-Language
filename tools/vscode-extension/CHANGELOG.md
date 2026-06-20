@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.6
+
+- Stabilised Graph Workspace source navigation so explicit `Open Source` reveals stay on the DCL source file instead of being pulled back to the graph.
+- Added `dcl.graph.autoRevealFromSource`, disabled by default, so passive source cursor movement updates only an already-visible Graph Workspace unless users opt into auto-reveal.
+- Added `dcl-lsp` stdio server entry point with advertised diagnostics, document symbols, workspace symbols, definitions, and references capabilities plus structured request/result logging.
+- Added `DCL: Show LSP Feature Status` and language-server settings for local observability.
+- Added `npm run build:lsp` for local extension development builds.
+
 ## 0.4.3
 
 - Added Graph Workspace `Show in...` actions so selected semantic nodes can jump to the same element in another graph type.

@@ -1,2 +1,4 @@
 node_modules/
 .vscode-test/
+bin/dcl-lsp
+bin/dcl-lsp.exe

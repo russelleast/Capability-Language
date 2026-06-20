@@ -4,6 +4,7 @@ import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdap
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
+import { DclLspFeatureBridge } from "./lsp/DclLspFeatureBridge";
 import { buildArchitectureOverviewGraphs } from "./graphs/DclArchitectureOverviewGraphBuilder";
 import { buildCapabilityGraph } from "./graphs/DclCapabilityGraphBuilder";
 import { buildContextMapGraph } from "./graphs/DclContextMapGraphBuilder";
@@ -31,6 +32,8 @@ import { DclGraphWorkspacePanel } from "./webviews/DclGraphWorkspacePanel";
 import { DclLifecycleGraphPanel } from "./webviews/DclLifecycleGraphPanel";
 
 const DCL_SELECTOR: vscode.DocumentSelector = { language: "dcl", scheme: "file" };
+const GRAPH_SOURCE_REVEAL_SUPPRESSION_MS = 750;
+let suppressSourceToGraphUntil = 0;
 
 export function activate(context: vscode.ExtensionContext): void {
   const compiler = new DclCompilerAdapter(vscode.workspace.workspaceFolders, {
@@ -40,6 +43,10 @@ export function activate(context: vscode.ExtensionContext): void {
   const summary = new DclSummaryProvider();
   const explorer = new DclExplorerProvider();
   const explorerView = vscode.window.createTreeView("dclExplorer", { treeDataProvider: explorer });
+  const lspBridge = vscode.workspace.getConfiguration("dcl.languageServer").get<boolean>("enabled", false)
+    ? new DclLspFeatureBridge(context.extensionUri.fsPath)
+    : undefined;
+  lspBridge?.register();
   let sourceSelectionTimer: ReturnType<typeof setTimeout> | undefined;
   const compileOnSave = new DclCompileOnSaveScheduler({
     compileWorkspace: () => compileWorkspace(diagnostics, summary, explorer, { showCompletionNotification: false }),
@@ -56,6 +63,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.compileWorkspace", () => compileWorkspace(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.showSemanticSummary", () => compileCurrentFile(diagnostics, summary, explorer, true)),
     vscode.commands.registerCommand("dcl.showCompilerInfo", () => showCompilerInfo(compiler)),
+    vscode.commands.registerCommand("dcl.showLspFeatureStatus", () => showLspFeatureStatus(lspBridge)),
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),
@@ -71,6 +79,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.showEventFlowGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "event-flow", subject: node?.eventName })),
     vscode.commands.registerCommand("dcl.showLifecycleGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "lifecycle", subject: node?.capabilityName })),
     compileOnSave,
+    ...(lspBridge ? [lspBridge] : []),
     explorerView.onDidChangeSelection((event) => {
       const node = event.selection[0];
       if (node) focusExplorerNodeInGraph(context.extensionUri, diagnostics, summary, explorer, node, false);
@@ -78,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeTextEditorSelection((event) => {
       if (sourceSelectionTimer) clearTimeout(sourceSelectionTimer);
       sourceSelectionTimer = setTimeout(() => {
-        followSourceSelection(event, explorer);
+        followSourceSelection(event, explorer, suppressSourceToGraphUntil);
       }, 250);
     }),
     { dispose: () => { if (sourceSelectionTimer) clearTimeout(sourceSelectionTimer); } },
@@ -171,14 +180,17 @@ async function revealAndFocusSemanticItem(item: DclSemanticNavigationItem): Prom
   if (item.identity) DclGraphWorkspacePanel.focusSemanticIdentity(item.identity);
 }
 
-function followSourceSelection(event: vscode.TextEditorSelectionChangeEvent, explorer: DclExplorerProvider): void {
+function followSourceSelection(event: vscode.TextEditorSelectionChangeEvent, explorer: DclExplorerProvider, suppressUntil: number): void {
   const document = event.textEditor.document;
   if (document.languageId !== "dcl" || document.uri.scheme !== "file") return;
+  if (Date.now() < suppressUntil) return;
   if (!vscode.workspace.getConfiguration("dcl.graph").get<boolean>("followSourceSelection", true)) return;
+  const autoReveal = vscode.workspace.getConfiguration("dcl.graph").get<boolean>("autoRevealFromSource", false);
+  if (!autoReveal && !DclGraphWorkspacePanel.isVisible()) return;
   const position = event.selections[0]?.active;
   if (!position) return;
   const identity = semanticIdentityAtSourcePosition(explorer.getSummary(), document.uri, position);
-  if (identity) DclGraphWorkspacePanel.focusSemanticIdentity(identity);
+  if (identity) DclGraphWorkspacePanel.focusSemanticIdentity(identity, { reveal: autoReveal });
 }
 
 function focusExplorerNodeInGraph(
@@ -243,6 +255,9 @@ function openGraphWorkspace(
         }
       });
     },
+    async onRevealSource(location: DclSourceLocation) {
+      await revealGraphSource(location);
+    },
   };
 
   const compiledSummary = explorer.getSummary();
@@ -252,6 +267,12 @@ function openGraphWorkspace(
   }
 
   DclGraphWorkspacePanel.show(extensionUri, buildGraphWorkspaceState(compiledSummary, selection), callbacks);
+}
+
+async function revealGraphSource(location: DclSourceLocation): Promise<void> {
+  suppressSourceToGraphUntil = Date.now() + GRAPH_SOURCE_REVEAL_SUPPRESSION_MS;
+  const result = await revealSourceLocation(location, "oneBased");
+  if (!result.ok) void vscode.window.showWarningMessage(result.reason);
 }
 
 function showCompilerInfo(compiler: DclCompilerAdapter): void {
@@ -267,6 +288,29 @@ function showCompilerInfo(compiler: DclCompilerAdapter): void {
     `Bundled compiler available: ${info.bundledAvailable ? "yes" : "no"}`,
   ].filter(Boolean).join("\n");
 
+  void vscode.window.showInformationMessage(lines, { modal: true });
+}
+
+function showLspFeatureStatus(lspBridge?: DclLspFeatureBridge): void {
+  const config = vscode.workspace.getConfiguration("dcl.languageServer");
+  const enabled = config.get<boolean>("enabled", false);
+  const path = config.get<string>("path", "");
+  const trace = config.get<string>("trace", "off");
+  const bridgeStatus = lspBridge?.featureStatus();
+  const lines = [
+    `DCL Language Server enabled: ${enabled ? "yes" : "no"}`,
+    `Configured path: ${path || "(auto)"}`,
+    `Trace: ${trace}`,
+    "",
+    bridgeStatus ?? "DCL Language Server providers are not active. Enable dcl.languageServer.enabled and reload the extension host to register experimental LSP providers.",
+    "",
+    "Advertised feature support when the language server is running:",
+    "Document symbols: supported",
+    "Workspace symbols: supported",
+    "Definitions: supported",
+    "References: supported",
+    "Request telemetry is also written to the DCL Language Server output.",
+  ].join("\n");
   void vscode.window.showInformationMessage(lines, { modal: true });
 }
 

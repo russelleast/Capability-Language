@@ -21,6 +21,12 @@ For continuous TypeScript builds:
 npm run watch
 ```
 
+To build the experimental language server for local extension testing:
+
+```bash
+npm run build:lsp
+```
+
 ## Lint
 
 The extension does not currently use a separate ESLint configuration. The `lint` script runs TypeScript in no-emit mode:
@@ -98,6 +104,7 @@ Packaged runtime assets include:
 - `bin/dcl-darwin-x64`
 - `bin/dcl-linux-x64`
 - `bin/dcl-win32-x64.exe`
+- `bin/dcl-lsp` or `bin/dcl-lsp.exe` during local language-server development
 - `media/cytoscape.min.js`
 - `syntaxes/`
 - `snippets/`
