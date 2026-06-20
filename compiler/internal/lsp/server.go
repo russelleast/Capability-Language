@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.3"
+const serverVersion = "0.5.4"
 
 type Server struct {
 	host             *WorkspaceHost
@@ -20,6 +20,7 @@ type Server struct {
 	validator        *WorkspaceValidator
 	symbols          *SymbolProvider
 	workspaceSymbols *WorkspaceSymbolProvider
+	definitions      *DefinitionProvider
 	out              io.Writer
 	outMu            sync.Mutex
 }
@@ -32,6 +33,7 @@ func NewServer(host *WorkspaceHost, logger *Logger) *Server {
 	server.validator = NewWorkspaceValidator(host, NewDiagnosticPublisher(server.sendNotification), logger)
 	server.symbols = NewSymbolProvider(host)
 	server.workspaceSymbols = NewWorkspaceSymbolProvider(host)
+	server.definitions = NewDefinitionProvider(host)
 	return server
 }
 
@@ -144,6 +146,19 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		symbols := s.workspaceSymbols.WorkspaceSymbols(request.Query)
 		s.log("workspace symbols requested", map[string]any{"query": request.Query, "symbolCount": len(symbols)})
 		return symbols, nil
+	case "textDocument/definition":
+		var request definitionParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		s.log("definition requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character})
+		location, ok := s.definitions.Definition(request.TextDocument.URI, request.Position)
+		if !ok {
+			s.log("symbol unresolved", map[string]any{"uri": request.TextDocument.URI})
+			return nil, nil
+		}
+		s.log("symbol resolved", map[string]any{"uri": request.TextDocument.URI, "targetUri": location.URI, "line": location.Range.Start.Line, "character": location.Range.Start.Character})
+		return location, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
@@ -222,6 +237,7 @@ func initializeResult() map[string]any {
 			},
 			"documentSymbolProvider":  true,
 			"workspaceSymbolProvider": true,
+			"definitionProvider":      true,
 		},
 	}
 }

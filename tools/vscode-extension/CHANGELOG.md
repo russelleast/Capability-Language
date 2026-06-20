@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4
+
+- Added experimental compiler-backed LSP Go To Definition through `textDocument/definition`.
+- Supported definition navigation for shape, event, outcome, capability, context, and lifecycle references where compiler semantic data is available.
+- Reused compiler workspace parsing, symbol resolution, source ranges, and semantic context rules for definition targets.
+- Returned no result for unresolved symbols without surfacing protocol errors.
+- Added tests for event, outcome, shape, cross-file, unresolved, duplicate-context, and server definition request handling.
+
 ## 0.5.3
 
 - Added experimental compiler-backed LSP workspace symbols through `workspace/symbol`.

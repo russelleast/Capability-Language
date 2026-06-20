@@ -1,6 +1,6 @@
 # Declarative Capability Language for VS Code
 
-Current extension version: `0.5.3`
+Current extension version: `0.5.4`
 
 Declarative Capability Language (DCL) is a compiler-backed language for describing business capabilities, semantic boundaries, policies, effects, events, and lifecycles.
 
@@ -76,7 +76,7 @@ When enabled, moving the cursor inside compiler-known DCL semantic items focuses
 
 `dcl.languageServer.enabled`
 
-Enables the experimental DCL Language Server for compiler-backed diagnostics, document symbols, and workspace symbols. Disabled by default. When disabled, the extension continues to use the existing compiler-backed behavior unchanged.
+Enables the experimental DCL Language Server for compiler-backed diagnostics, document symbols, workspace symbols, and definition navigation. Disabled by default. When disabled, the extension continues to use the existing compiler-backed behavior unchanged.
 
 `dcl.languageServer.path`
 
@@ -186,9 +186,9 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 ## Experimental Language Server
 
-v0.5.3 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, logs open/change/save/close events, and shuts down cleanly.
+v0.5.4 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, logs open/change/save/close events, and shuts down cleanly.
 
-The language server does not provide hover, completion, definition, formatting, graph data, or graph navigation yet. LSP diagnostics, document symbols, and workspace symbols are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
+The language server does not provide hover, completion, formatting, graph data, or graph navigation yet. LSP diagnostics, document symbols, workspace symbols, and definition navigation are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
 
 To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status` and the `DCL Language Server` output channel to inspect health and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
 
@@ -214,7 +214,7 @@ The extension is not published to the VS Code Marketplace yet. Marketplace publi
 
 ## Known Limitations
 
-- The Language Server Protocol implementation is experimental and currently supports lifecycle, workspace/document tracking, compiler-backed diagnostics, document symbols, and workspace symbols only.
+- The Language Server Protocol implementation is experimental and currently supports lifecycle, workspace/document tracking, compiler-backed diagnostics, document symbols, workspace symbols, and definition navigation only.
 - No TypeScript-side DCL parser.
 - No inferred graph relationships from folders or source text.
 - Graphs only show relationships exposed by the compiler semantic summary.

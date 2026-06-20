@@ -100,6 +100,9 @@ func TestServerLifecycleAndDocumentNotifications(t *testing.T) {
 	if capabilities["workspaceSymbolProvider"] != true {
 		t.Fatalf("expected workspaceSymbolProvider capability, got %+v", capabilities)
 	}
+	if capabilities["definitionProvider"] != true {
+		t.Fatalf("expected definitionProvider capability, got %+v", capabilities)
+	}
 
 	logText := logs.String()
 	for _, event := range []string{"startup", "initialization", "initialized", "file opened", "file changed", "file saved", "shutdown"} {
@@ -260,6 +263,86 @@ capability CapturePayment {
 		!strings.Contains(logText, `"query":"payment"`) ||
 		!strings.Contains(logText, `"symbolCount":`) {
 		t.Fatalf("expected workspace symbol log fields in %s", logText)
+	}
+}
+
+func TestServerHandlesDefinitionRequest(t *testing.T) {
+	source := `language dcl 0.9
+
+shape PaymentInput {
+  paymentId: Uuid required
+}
+
+capability CapturePayment {
+  intent PaymentInput from Customer
+}
+`
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/payment.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text":       source,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "textDocument/definition",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///workspace/payment.dcl"},
+				"position":     positionOf(t, source, "intent PaymentInput", "PaymentInput"),
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      3,
+			"method":  "textDocument/definition",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///workspace/payment.dcl"},
+				"position":     Position{Line: 7, Character: 22},
+			},
+		}),
+	}, nil)
+	var output bytes.Buffer
+
+	if err := server.Serve(bytes.NewReader(input), &output); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+
+	responses := decodeResponses(t, output.Bytes())
+	if len(responses) != 3 {
+		t.Fatalf("expected initialize and definition responses, got %d", len(responses))
+	}
+	var location Location
+	payload, _ := json.Marshal(responses[1]["result"])
+	if err := json.Unmarshal(payload, &location); err != nil {
+		t.Fatalf("decode definition location: %v", err)
+	}
+	assertLocation(t, location, "file:///workspace/payment.dcl", 2, 0)
+	if responses[2]["result"] != nil {
+		t.Fatalf("expected unresolved definition result to be null, got %+v", responses[2]["result"])
+	}
+
+	logText := logs.String()
+	for _, event := range []string{"definition requested", "symbol resolved", "symbol unresolved"} {
+		if !strings.Contains(logText, `"event":"`+event+`"`) {
+			t.Fatalf("expected log event %q in %s", event, logText)
+		}
 	}
 }
 
