@@ -44,6 +44,17 @@ func (p *ReferenceProvider) ReferencesWithReason(uri string, position Position, 
 	return locations, ""
 }
 
+func (p *ReferenceProvider) TokenAt(uri string, position Position) string {
+	path, ok := fileURIToPath(uri)
+	if !ok {
+		return ""
+	}
+	absolute, _ := filepath.Abs(path)
+	sources, _ := WorkspaceSources(p.host)
+	token, _ := compiler.TokenTextAt(sources, absolute, position.Line+1, position.Character+1)
+	return token
+}
+
 type referenceParams struct {
 	TextDocument textDocumentIdentifier `json:"textDocument"`
 	Position     Position               `json:"position"`

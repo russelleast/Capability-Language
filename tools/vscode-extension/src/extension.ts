@@ -64,6 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.showCompilerInfo", () => showCompilerInfo(compiler)),
     vscode.commands.registerCommand("dcl.showLanguageServerStatus", () => languageServer.showStatus()),
     vscode.commands.registerCommand("dcl.showLspFeatureStatus", () => languageServer.showFeatureStatus()),
+    vscode.commands.registerCommand("dcl.inspectSymbolAtCursor", () => languageServer.inspectSymbolAtCursor()),
     vscode.commands.registerCommand("dcl.formatDocument", () => vscode.commands.executeCommand("editor.action.formatDocument")),
     vscode.commands.registerCommand("dcl.refreshExplorer", () => refreshExplorer(diagnostics, summary, explorer)),
     vscode.commands.registerCommand("dcl.revealSemanticItemInSource", (location?: DclSourceLocation) => revealSemanticItemInSource(location)),

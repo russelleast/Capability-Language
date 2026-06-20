@@ -35,6 +35,8 @@ This extension provides end-user VS Code support for `.dcl` files. It intentiona
 - `DCL: Show Semantic Summary`: compile the active `.dcl` file and focus the semantic summary tree.
 - `DCL: Show Compiler Info`: show which compiler the extension will run.
 - `DCL: Show Language Server Status`: show experimental language server running/stopped state and tracked workspace/document counts.
+- `DCL: Show LSP Feature Status`: show last LSP feature requests, result counts, and empty-result reasons.
+- `DCL: Inspect Symbol At Cursor`: inspect compiler-backed semantic resolution for the token under the cursor.
 - `DCL: Format Document`: delegate formatting to the compiler.
 - `DCL: Refresh Explorer`: refresh the DCL Explorer from the latest compiler summary.
 - `DCL: Navigate Symbol`: fuzzy-search compiler-known DCL symbols and reveal their source.
@@ -190,11 +192,11 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 ## Experimental Language Server
 
-v0.5.6 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
+v0.5.7 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
 
 The language server does not provide hover, completion, formatting, graph data, or graph navigation yet. LSP diagnostics, document symbols, workspace symbols, definition navigation, and references are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
 
-To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status`, `DCL: Show LSP Feature Status`, and the `DCL Language Server` output channel to inspect health, last feature requests, result counts, zero-result reasons, and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
+To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is available through `dcl.languageServer.path`, a local extension `bin/dcl-lsp` build, a bundled extension binary, or PATH. Use `DCL: Show Language Server Status`, `DCL: Show LSP Feature Status`, `DCL: Inspect Symbol At Cursor`, and the `DCL Language Server` output channel to inspect health, last feature requests, result counts, zero-result reasons, and friendly lifecycle logs. Set `dcl.languageServer.trace` to `messages` or `verbose` only when you need protocol debugging.
 
 ### LSP Testing
 
@@ -203,6 +205,7 @@ To try it, set `dcl.languageServer.enabled` to `true` and ensure `dcl-lsp` is av
 - Workspace Symbols: run `Go to Symbol in Workspace` or press `Cmd+T` and search for a DCL symbol.
 - Definition: place the cursor on a referenced event, shape, or outcome and press `F12`.
 - References: place the cursor on a declaration or reference and run `Find All References`.
+- Symbol Inspector: place the cursor on a DCL token and run `DCL: Inspect Symbol At Cursor` to see token text, semantic identity, definition location, and reference count.
 - Troubleshooting: run `DCL: Show LSP Feature Status` and inspect `DCL Language Server` output for request logs, result counts, and reasons for empty results.
 
 ## Installing From VSIX

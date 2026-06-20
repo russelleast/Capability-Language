@@ -20,6 +20,63 @@ export class Range {
 
 export class Selection extends Range {}
 
+export class Location {
+  constructor(
+    public readonly uri: Uri,
+    public readonly range: Range,
+  ) {}
+}
+
+export enum SymbolKind {
+  File = 0,
+  Module = 1,
+  Namespace = 2,
+  Package = 3,
+  Class = 4,
+  Method = 5,
+  Property = 6,
+  Field = 7,
+  Constructor = 8,
+  Enum = 9,
+  Interface = 10,
+  Function = 11,
+  Variable = 12,
+  Constant = 13,
+  String = 14,
+  Number = 15,
+  Boolean = 16,
+  Array = 17,
+  Object = 18,
+  Key = 19,
+  Null = 20,
+  EnumMember = 21,
+  Struct = 22,
+  Event = 23,
+  Operator = 24,
+  TypeParameter = 25,
+}
+
+export class DocumentSymbol {
+  children: DocumentSymbol[] = [];
+
+  constructor(
+    public readonly name: string,
+    public readonly detail: string,
+    public readonly kind: SymbolKind,
+    public readonly range: Range,
+    public readonly selectionRange: Range,
+  ) {}
+}
+
+export class SymbolInformation {
+  constructor(
+    public readonly name: string,
+    public readonly kind: SymbolKind,
+    public readonly containerName: string,
+    public readonly location: Location,
+  ) {}
+}
+
 export enum DiagnosticSeverity {
   Error = 0,
   Warning = 1,
@@ -81,14 +138,27 @@ export class EventEmitter<T> {
 }
 
 export class Uri {
+  scheme = "file";
+
   constructor(public readonly fsPath: string) {}
 
   static file(file: string): Uri {
     return new Uri(path.resolve(file));
   }
 
+  static parse(value: string): Uri {
+    if (value.startsWith("file://")) {
+      return new Uri(value.replace(/^file:\/\//, ""));
+    }
+    return new Uri(value);
+  }
+
   static joinPath(base: Uri, ...segments: string[]): Uri {
     return new Uri(path.join(base.fsPath, ...segments));
+  }
+
+  toString(): string {
+    return `file://${this.fsPath}`;
   }
 }
 
@@ -153,6 +223,8 @@ export type TextDocument = {
 
 export const window = {
   lastShownDocument: undefined as unknown,
+  activeTextEditor: undefined as { document: TextDocument; selection: { active: Position } } | undefined,
+  informationMessages: [] as string[],
   outputChannels: [] as MockOutputChannel[],
   createdWebviewPanels: [] as MockWebviewPanel[],
   async showTextDocument(document: unknown) {
@@ -164,7 +236,9 @@ export const window = {
   },
   showWarningMessage(_message: string): void {},
   showErrorMessage(_message: string): void {},
-  showInformationMessage(_message: string): void {},
+  showInformationMessage(message: string): void {
+    window.informationMessages.push(message);
+  },
   createOutputChannel(name: string): MockOutputChannel {
     const channel = new MockOutputChannel(name);
     window.outputChannels.push(channel);
@@ -254,6 +328,10 @@ export class MockWebviewPanel {
 }
 
 export const languages = {
+  documentSymbolProviders: [] as unknown[],
+  workspaceSymbolProviders: [] as unknown[],
+  definitionProviders: [] as unknown[],
+  referenceProviders: [] as unknown[],
   createDiagnosticCollection() {
     const entries = new Map<string, Diagnostic[]>();
     return {
@@ -268,5 +346,21 @@ export const languages = {
         entries.clear();
       },
     };
+  },
+  registerDocumentSymbolProvider(_selector: unknown, provider: unknown): { dispose(): void } {
+    languages.documentSymbolProviders.push(provider);
+    return { dispose() {} };
+  },
+  registerWorkspaceSymbolProvider(provider: unknown): { dispose(): void } {
+    languages.workspaceSymbolProviders.push(provider);
+    return { dispose() {} };
+  },
+  registerDefinitionProvider(_selector: unknown, provider: unknown): { dispose(): void } {
+    languages.definitionProviders.push(provider);
+    return { dispose() {} };
+  },
+  registerReferenceProvider(_selector: unknown, provider: unknown): { dispose(): void } {
+    languages.referenceProviders.push(provider);
+    return { dispose() {} };
   },
 };

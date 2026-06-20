@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.6"
+const serverVersion = "0.5.7"
 
 type Server struct {
 	host             *WorkspaceHost
@@ -22,6 +22,7 @@ type Server struct {
 	workspaceSymbols *WorkspaceSymbolProvider
 	definitions      *DefinitionProvider
 	references       *ReferenceProvider
+	inspector        *SymbolInspector
 	out              io.Writer
 	outMu            sync.Mutex
 }
@@ -36,6 +37,7 @@ func NewServer(host *WorkspaceHost, logger *Logger) *Server {
 	server.workspaceSymbols = NewWorkspaceSymbolProvider(host)
 	server.definitions = NewDefinitionProvider(host)
 	server.references = NewReferenceProvider(host)
+	server.inspector = NewSymbolInspector(host)
 	return server
 }
 
@@ -151,30 +153,49 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if len(symbols) == 0 {
 			reason = s.workspaceSymbolZeroReason(request.Query)
 		}
-		s.log("workspace symbols requested", map[string]any{"query": request.Query, "resultCount": len(symbols), "symbolCount": len(symbols), "reason": reason})
+		s.log("workspace symbols requested", map[string]any{"query": request.Query, "matchedSymbols": workspaceSymbolNames(symbols), "resultCount": len(symbols), "symbolCount": len(symbols), "reason": reason})
 		return symbols, nil
 	case "textDocument/definition":
 		var request definitionParams
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		token := s.definitions.TokenAt(request.TextDocument.URI, request.Position)
 		location, reason, ok := s.definitions.DefinitionWithReason(request.TextDocument.URI, request.Position)
-		s.log("definition requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "resultCount": boolCount(ok), "reason": reason})
+		s.log("definition requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "token": token, "resultCount": boolCount(ok), "reason": reason})
 		if !ok {
-			s.log("symbol unresolved", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "reason": reason})
+			s.log("symbol unresolved", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "token": token, "reason": reason})
 			return nil, nil
 		}
-		s.log("symbol resolved", map[string]any{"uri": request.TextDocument.URI, "targetUri": location.URI, "line": location.Range.Start.Line, "character": location.Range.Start.Character, "reason": reason})
+		s.log("symbol resolved", map[string]any{"uri": request.TextDocument.URI, "targetUri": location.URI, "line": location.Range.Start.Line, "character": location.Range.Start.Character, "token": token, "reason": reason})
 		return location, nil
 	case "textDocument/references":
 		var request referenceParams
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		token := s.references.TokenAt(request.TextDocument.URI, request.Position)
 		locations, reason := s.references.ReferencesWithReason(request.TextDocument.URI, request.Position, request.Context.IncludeDeclaration)
-		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "resultCount": len(locations), "reason": reason})
-		s.log("references found", map[string]any{"uri": request.TextDocument.URI, "resultCount": len(locations), "referencesCount": len(locations), "reason": reason})
+		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "token": token, "resultCount": len(locations), "reason": reason})
+		s.log("references found", map[string]any{"uri": request.TextDocument.URI, "token": token, "resultCount": len(locations), "referencesCount": len(locations), "reason": reason})
 		return locations, nil
+	case "dcl/inspectSymbol":
+		var request inspectSymbolParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		inspection, reason := s.inspector.Inspect(request.TextDocument.URI, request.Position)
+		s.log("symbol inspection requested", map[string]any{
+			"uri":            request.TextDocument.URI,
+			"line":           request.Position.Line,
+			"character":      request.Position.Character,
+			"token":          inspection.Token,
+			"kind":           inspection.Kind,
+			"resultCount":    boolCount(reason == ""),
+			"referenceCount": inspection.ReferenceCount,
+			"reason":         reason,
+		})
+		return inspection, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
@@ -196,6 +217,14 @@ func boolCount(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func workspaceSymbolNames(symbols []WorkspaceSymbol) []string {
+	names := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		names = append(names, symbol.Detail+": "+symbol.Name)
+	}
+	return names
 }
 
 func (s *Server) log(event string, fields map[string]any) {
