@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.7
+
+- Consolidated experimental LSP semantic resolution by registering VS Code document symbol, workspace symbol, definition, and reference providers against the running `dcl-lsp` process.
+- Added `DCL: Inspect Symbol At Cursor` for compiler-backed symbol debugging, including token text, semantic kind, identity, definition location, and reference count.
+- Added compiler-backed semantic inspection plumbing used by the language server without adding TypeScript-side DCL parsing.
+- Improved LSP request logs with cursor token text and workspace symbol match names to make empty Outline, Cmd+T, F12, and references results diagnosable.
+- Fixed LSP-to-VS Code symbol kind conversion so semantic symbols are adapted correctly for Outline and workspace symbol UI.
+- Added tests for the extension LSP provider bridge, cursor inspector, server-side symbol inspection, and cross-feature semantic resolution logging.
+
 ## 0.5.6
 
 - Stabilised Graph Workspace source navigation so explicit `Open Source` reveals stay on the DCL source file instead of immediately refocusing the graph.

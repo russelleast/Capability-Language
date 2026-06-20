@@ -606,6 +606,78 @@ func TestServerPublishesDiagnosticsForOpenedDocuments(t *testing.T) {
 	}
 }
 
+func TestServerHandlesSymbolInspectionRequest(t *testing.T) {
+	source := `language dcl 0.9
+
+event PaymentCaptured is {
+  paymentId: Uuid required
+}
+
+capability CapturePayment {
+  intent PaymentInput from Customer
+  events {
+    emits PaymentCaptured
+  }
+}
+`
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/payment.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text":       source,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "dcl/inspectSymbol",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///workspace/payment.dcl"},
+				"position":     positionOf(t, source, "emits PaymentCaptured", "PaymentCaptured"),
+			},
+		}),
+	}, nil)
+	var output bytes.Buffer
+
+	if err := server.Serve(bytes.NewReader(input), &output); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+	responses := decodeResponses(t, output.Bytes())
+	if len(responses) != 2 {
+		t.Fatalf("expected initialize and inspect responses, got %d", len(responses))
+	}
+	var inspection SymbolInspection
+	payload, _ := json.Marshal(responses[1]["result"])
+	if err := json.Unmarshal(payload, &inspection); err != nil {
+		t.Fatalf("decode symbol inspection: %v", err)
+	}
+	if inspection.Token != "PaymentCaptured" || inspection.Kind != "EventReference" || inspection.ReferenceCount != 2 {
+		t.Fatalf("unexpected inspection: %+v", inspection)
+	}
+	if inspection.Definition == nil {
+		t.Fatalf("expected definition location in inspection: %+v", inspection)
+	}
+	if !strings.Contains(logs.String(), `"event":"symbol inspection requested"`) ||
+		!strings.Contains(logs.String(), `"token":"PaymentCaptured"`) {
+		t.Fatalf("expected symbol inspection logs in %s", logs.String())
+	}
+}
+
 func decodeResponses(t *testing.T, framed []byte) []map[string]any {
 	t.Helper()
 	var responses []map[string]any

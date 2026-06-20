@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"sort"
+	"strings"
 
 	"capabilitylanguage/internal/ast"
 	"capabilitylanguage/internal/diagnostic"
@@ -13,6 +14,50 @@ type DefinitionLocation struct {
 	Name    string
 	Context string
 	Span    diagnostic.Span
+}
+
+type SemanticInspection struct {
+	Token          string
+	Kind           string
+	Name           string
+	Context        string
+	Definition     DefinitionLocation
+	ReferenceCount int
+	Reason         string
+}
+
+func TokenTextAt(sources []SourceFile, path string, line, column int) (string, bool) {
+	source, ok := sourceByPath(sources, path)
+	if !ok {
+		return "", false
+	}
+	tokens, _ := lexer.Lex(source.Path, source.Text)
+	tokenIndex, ok := tokenAt(tokens, line, column)
+	if !ok {
+		return "", false
+	}
+	return tokens[tokenIndex].Text, true
+}
+
+func InspectSemanticAt(sources []SourceFile, path string, line, column int) SemanticInspection {
+	token, tokenOK := TokenTextAt(sources, path, line, column)
+	inspection := SemanticInspection{Token: token}
+	if !tokenOK {
+		inspection.Reason = "No semantic symbol found"
+		return inspection
+	}
+	definition, ok := DefinitionAt(sources, path, line, column)
+	if !ok {
+		inspection.Reason = "No semantic symbol found"
+		return inspection
+	}
+	references := ReferencesAt(sources, path, line, column, true)
+	inspection.Kind = semanticInspectionKind(definition, path, line)
+	inspection.Name = definition.Name
+	inspection.Context = definition.Context
+	inspection.Definition = definition
+	inspection.ReferenceCount = len(references)
+	return inspection
 }
 
 func DefinitionAt(sources []SourceFile, path string, line, column int) (DefinitionLocation, bool) {
@@ -43,6 +88,19 @@ func DefinitionAt(sources []SourceFile, path string, line, column int) (Definiti
 		return def, true
 	}
 	return DefinitionLocation{}, false
+}
+
+func semanticInspectionKind(definition DefinitionLocation, path string, line int) string {
+	suffix := "Reference"
+	if definition.Span.File == path && definition.Span.Line == line {
+		suffix = "Declaration"
+	}
+	switch definition.Kind {
+	case "":
+		return "Symbol" + suffix
+	default:
+		return strings.Title(definition.Kind) + suffix
+	}
 }
 
 func sourceByPath(sources []SourceFile, path string) (SourceFile, bool) {

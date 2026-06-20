@@ -47,6 +47,8 @@ class DclLanguageServerClient {
         this.state = "stopped";
         this.stdoutBuffer = "";
         this.stderrBuffer = "";
+        this.pendingRequests = new Map();
+        this.featureProvidersRegistered = false;
         this.diagnosticsCount = 0;
         this.featureTelemetry = {
             diagnostics: { supported: true },
@@ -102,7 +104,7 @@ class DclLanguageServerClient {
             if (this.state !== "failed")
                 this.state = code && code !== 0 ? "failed" : "stopped";
         });
-        this.initializeRequestId = this.sendRequest("initialize", {
+        this.initializeRequestId = this.sendRequestMessage("initialize", {
             processId: process.pid,
             rootUri: vscode.workspace.workspaceFolders?.[0]?.uri.toString(),
             workspaceFolders: vscode.workspace.workspaceFolders?.map((folder) => ({
@@ -113,6 +115,7 @@ class DclLanguageServerClient {
         });
         this.sendNotification("initialized", {});
         this.registerDocumentForwarding();
+        this.registerFeatureProviders();
         for (const document of vscode.workspace.textDocuments ?? []) {
             if (isDclFileDocument(document))
                 this.didOpen(document);
@@ -163,11 +166,54 @@ class DclLanguageServerClient {
         ].join("\n");
         void vscode.window.showInformationMessage(lines, { modal: true });
     }
+    async inspectSymbolAtCursor() {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || !isDclFileDocument(editor.document)) {
+            void vscode.window.showWarningMessage("Open a .dcl file before inspecting a DCL symbol.");
+            return;
+        }
+        const position = editor.selection.active;
+        const inspection = await this.request("dcl/inspectSymbol", {
+            textDocument: { uri: editor.document.uri.toString() },
+            position: toLspPosition(position),
+        });
+        if (!inspection)
+            return;
+        const lines = [
+            "URI:",
+            inspection.uri,
+            "",
+            "Line:",
+            String(inspection.line + 1),
+            "",
+            "Column:",
+            String(inspection.column + 1),
+            "",
+            "Token:",
+            inspection.token || "(none)",
+            "",
+            "Kind:",
+            inspection.kind || "(unresolved)",
+            "",
+            "Symbol identity:",
+            inspection.symbolIdentity ? JSON.stringify(inspection.symbolIdentity) : "(none)",
+            "",
+            "Definition:",
+            inspection.definition ? formatLocation(inspection.definition) : "(none)",
+            "",
+            "ReferenceCount:",
+            String(inspection.referenceCount ?? 0),
+            inspection.reason ? "" : undefined,
+            inspection.reason ? "Reason:" : undefined,
+            inspection.reason,
+        ].filter((line) => line !== undefined).join("\n");
+        void vscode.window.showInformationMessage(lines, { modal: true });
+    }
     dispose() {
         for (const disposable of this.disposables.splice(0))
             disposable.dispose();
         if (this.process) {
-            this.sendRequest("shutdown", null);
+            this.sendRequestMessage("shutdown", null);
             this.sendNotification("exit", {});
             this.process.kill();
             this.process = undefined;
@@ -206,6 +252,42 @@ class DclLanguageServerClient {
                 this.didClose(document);
         }));
     }
+    registerFeatureProviders() {
+        if (this.featureProvidersRegistered)
+            return;
+        this.featureProvidersRegistered = true;
+        this.disposables.push(vscode.languages.registerDocumentSymbolProvider(DCL_SELECTOR, {
+            provideDocumentSymbols: async (document) => {
+                const symbols = await this.request("textDocument/documentSymbol", {
+                    textDocument: { uri: document.uri.toString() },
+                });
+                return (symbols ?? []).map(toDocumentSymbol);
+            },
+        }), vscode.languages.registerWorkspaceSymbolProvider({
+            provideWorkspaceSymbols: async (query) => {
+                const symbols = await this.request("workspace/symbol", { query });
+                return (symbols ?? []).flatMap(toSymbolInformation);
+            },
+        }), vscode.languages.registerDefinitionProvider(DCL_SELECTOR, {
+            provideDefinition: async (document, position) => {
+                const result = await this.request("textDocument/definition", {
+                    textDocument: { uri: document.uri.toString() },
+                    position: toLspPosition(position),
+                });
+                const locations = Array.isArray(result) ? result : result ? [result] : [];
+                return locations.map(toLocation);
+            },
+        }), vscode.languages.registerReferenceProvider(DCL_SELECTOR, {
+            provideReferences: async (document, position, context) => {
+                const locations = await this.request("textDocument/references", {
+                    textDocument: { uri: document.uri.toString() },
+                    position: toLspPosition(position),
+                    context: { includeDeclaration: context.includeDeclaration },
+                });
+                return (locations ?? []).map(toLocation);
+            },
+        }));
+    }
     didOpen(document) {
         this.openDocuments.set(document.uri.toString(), document.version);
         this.sendNotification("textDocument/didOpen", {
@@ -239,10 +321,35 @@ class DclLanguageServerClient {
             textDocument: { uri: document.uri.toString() },
         });
     }
-    sendRequest(method, params) {
+    sendRequestMessage(method, params) {
         const id = this.nextId++;
         this.write({ jsonrpc: "2.0", id, method, params });
         return id;
+    }
+    request(method, params) {
+        if (!this.process || this.state !== "running") {
+            this.output.appendLine(`DCL language server request skipped because the server is ${this.state}.`);
+            return Promise.resolve(undefined);
+        }
+        const id = this.nextId++;
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                this.pendingRequests.delete(id);
+                const error = new Error(`${method} timed out`);
+                this.output.appendLine(`DCL language server request failed: ${error.message}`);
+                reject(error);
+            }, 10000);
+            this.pendingRequests.set(id, {
+                method,
+                timeout,
+                resolve: (value) => resolve(value),
+                reject,
+            });
+            this.write({ jsonrpc: "2.0", id, method, params });
+        }).catch((error) => {
+            void vscode.window.showWarningMessage(`DCL language server request failed: ${error instanceof Error ? error.message : String(error)}`);
+            return undefined;
+        });
     }
     sendNotification(method, params) {
         this.write({ jsonrpc: "2.0", method, params });
@@ -289,6 +396,19 @@ class DclLanguageServerClient {
         }
         if (message.id === this.initializeRequestId && message.result && !message.error) {
             this.output.appendLine("DCL language server initialized.");
+        }
+        if (message.id !== undefined && this.pendingRequests.has(Number(message.id))) {
+            const pending = this.pendingRequests.get(Number(message.id));
+            if (pending) {
+                clearTimeout(pending.timeout);
+                this.pendingRequests.delete(Number(message.id));
+                if (message.error) {
+                    pending.reject(new Error(JSON.stringify(message.error)));
+                }
+                else {
+                    pending.resolve(message.result);
+                }
+            }
         }
         if (message.method === "dcl/validationStatus") {
             this.diagnosticsCount = message.params?.diagnosticsCount ?? 0;
@@ -339,6 +459,7 @@ exports.DclLanguageServerClient = DclLanguageServerClient;
 function isDclFileDocument(document) {
     return document.languageId === "dcl" && document.uri.scheme === "file";
 }
+const DCL_SELECTOR = { language: "dcl", scheme: "file" };
 function languageServerTrace() {
     const value = vscode.workspace.getConfiguration("dcl.languageServer").get("trace", "off");
     return value === "messages" || value === "verbose" ? value : "off";
@@ -408,5 +529,30 @@ function yesNo(value) {
 }
 function featureLine(label, telemetry) {
     return `${label}: last request ${telemetry.lastRequest ?? "(none)"}, last result count ${telemetry.lastResultCount ?? "(none)"}${telemetry.lastReason ? `, reason: ${telemetry.lastReason}` : ""}`;
+}
+function toDocumentSymbol(symbol) {
+    const item = new vscode.DocumentSymbol(symbol.name, symbol.detail ?? "", toVsCodeSymbolKind(symbol.kind), toRange(symbol.range), toRange(symbol.selectionRange));
+    item.children = (symbol.children ?? []).map(toDocumentSymbol);
+    return item;
+}
+function toSymbolInformation(symbol) {
+    if (!symbol.location)
+        return [];
+    return [new vscode.SymbolInformation(symbol.name, toVsCodeSymbolKind(symbol.kind), symbol.containerName ?? "", toLocation(symbol.location))];
+}
+function toLocation(location) {
+    return new vscode.Location(vscode.Uri.parse(location.uri), toRange(location.range));
+}
+function toRange(range) {
+    return new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character);
+}
+function toLspPosition(position) {
+    return { line: position.line, character: position.character };
+}
+function toVsCodeSymbolKind(kind) {
+    return Math.max(0, kind - 1);
+}
+function formatLocation(location) {
+    return `${location.uri}:${location.range.start.line + 1}:${location.range.start.character + 1}`;
 }
 //# sourceMappingURL=DclLanguageServerClient.js.map
