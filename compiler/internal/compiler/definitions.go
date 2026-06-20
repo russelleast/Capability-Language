@@ -78,7 +78,7 @@ func definitionInCapability(c *compiler, cap ast.CapabilityDecl, tokens []lexer.
 			}
 		case "lifecycle":
 			if cap.Lifecycle != nil && (cap.Lifecycle.Name == token.Text || (cap.Lifecycle.Name == "" && token.Text == "lifecycle")) {
-				return DefinitionLocation{Kind: "lifecycle", Name: token.Text, Context: context, Span: cap.Lifecycle.Span}, true
+				return DefinitionLocation{Kind: "lifecycle", Name: lifecycleName(cap), Context: context, Span: cap.Lifecycle.Span}, true
 			}
 		default:
 			if info, ok := c.resolve(kind, token.Text, context, token.Span, false); ok {
@@ -124,6 +124,10 @@ func referenceKind(tokens []lexer.Token, tokenIndex int) (string, bool) {
 	prev2 := previousIdent(tokens, tokenIndex, 2)
 	prev3 := previousIdent(tokens, tokenIndex, 3)
 	switch {
+	case prev == "shape":
+		return "shape", true
+	case prev == "context":
+		return "context", true
 	case prev == "emits":
 		return "event", true
 	case prev == "event":

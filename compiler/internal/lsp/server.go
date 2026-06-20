@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.4"
+const serverVersion = "0.5.5"
 
 type Server struct {
 	host             *WorkspaceHost
@@ -21,6 +21,7 @@ type Server struct {
 	symbols          *SymbolProvider
 	workspaceSymbols *WorkspaceSymbolProvider
 	definitions      *DefinitionProvider
+	references       *ReferenceProvider
 	out              io.Writer
 	outMu            sync.Mutex
 }
@@ -34,6 +35,7 @@ func NewServer(host *WorkspaceHost, logger *Logger) *Server {
 	server.symbols = NewSymbolProvider(host)
 	server.workspaceSymbols = NewWorkspaceSymbolProvider(host)
 	server.definitions = NewDefinitionProvider(host)
+	server.references = NewReferenceProvider(host)
 	return server
 }
 
@@ -159,6 +161,15 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		}
 		s.log("symbol resolved", map[string]any{"uri": request.TextDocument.URI, "targetUri": location.URI, "line": location.Range.Start.Line, "character": location.Range.Start.Character})
 		return location, nil
+	case "textDocument/references":
+		var request referenceParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character})
+		locations := s.references.References(request.TextDocument.URI, request.Position, request.Context.IncludeDeclaration)
+		s.log("references found", map[string]any{"uri": request.TextDocument.URI, "referencesCount": len(locations)})
+		return locations, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
@@ -238,6 +249,7 @@ func initializeResult() map[string]any {
 			"documentSymbolProvider":  true,
 			"workspaceSymbolProvider": true,
 			"definitionProvider":      true,
+			"referencesProvider":      true,
 		},
 	}
 }

@@ -103,6 +103,9 @@ func TestServerLifecycleAndDocumentNotifications(t *testing.T) {
 	if capabilities["definitionProvider"] != true {
 		t.Fatalf("expected definitionProvider capability, got %+v", capabilities)
 	}
+	if capabilities["referencesProvider"] != true {
+		t.Fatalf("expected referencesProvider capability, got %+v", capabilities)
+	}
 
 	logText := logs.String()
 	for _, event := range []string{"startup", "initialization", "initialized", "file opened", "file changed", "file saved", "shutdown"} {
@@ -343,6 +346,78 @@ capability CapturePayment {
 		if !strings.Contains(logText, `"event":"`+event+`"`) {
 			t.Fatalf("expected log event %q in %s", event, logText)
 		}
+	}
+}
+
+func TestServerHandlesReferencesRequest(t *testing.T) {
+	source := `language dcl 0.9
+
+event PaymentCaptured is {
+  paymentId: Uuid required
+}
+
+capability CapturePayment {
+  intent PaymentInput from Customer
+  events {
+    emits PaymentCaptured
+  }
+}
+`
+	host := NewWorkspaceHost()
+	var logs bytes.Buffer
+	server := NewServer(host, NewLogger(&logs))
+	input := bytes.Join([][]byte{
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///workspace/payment.dcl",
+					"languageId": "dcl",
+					"version":    1,
+					"text":       source,
+				},
+			},
+		}),
+		EncodeMessage(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      2,
+			"method":  "textDocument/references",
+			"params": map[string]any{
+				"textDocument": map[string]any{"uri": "file:///workspace/payment.dcl"},
+				"position":     positionOf(t, source, "event PaymentCaptured is", "PaymentCaptured"),
+				"context":      map[string]any{"includeDeclaration": true},
+			},
+		}),
+	}, nil)
+	var output bytes.Buffer
+
+	if err := server.Serve(bytes.NewReader(input), &output); err != nil {
+		t.Fatalf("Serve returned error: %v", err)
+	}
+
+	responses := decodeResponses(t, output.Bytes())
+	if len(responses) != 2 {
+		t.Fatalf("expected initialize and references responses, got %d", len(responses))
+	}
+	var locations []Location
+	payload, _ := json.Marshal(responses[1]["result"])
+	if err := json.Unmarshal(payload, &locations); err != nil {
+		t.Fatalf("decode references locations: %v", err)
+	}
+	assertReferenceLines(t, locations, "file:///workspace/payment.dcl", []int{2, 9})
+
+	logText := logs.String()
+	if !strings.Contains(logText, `"event":"references requested"`) ||
+		!strings.Contains(logText, `"event":"references found"`) ||
+		!strings.Contains(logText, `"referencesCount":2`) {
+		t.Fatalf("expected references log fields in %s", logText)
 	}
 }
 

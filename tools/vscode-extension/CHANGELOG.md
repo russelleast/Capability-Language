@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.5
+
+- Added experimental compiler-backed LSP Find References through `textDocument/references`.
+- Returned semantic references for shapes, events, outcomes, capabilities, lifecycles, and contexts across workspace files.
+- Reused compiler workspace parsing, symbol resolution, source ranges, and semantic context rules to avoid textual reference search.
+- Supported declaration inclusion through the LSP references context and returned empty results for unresolved or unreferenced symbols.
+- Added tests for event, outcome, shape, cross-file, duplicate-context, no-reference, and server references request handling.
+
 ## 0.5.4
 
 - Added experimental compiler-backed LSP Go To Definition through `textDocument/definition`.
