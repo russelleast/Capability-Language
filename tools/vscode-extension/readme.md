@@ -12,28 +12,28 @@ Declarative Capability Language (DCL) is a language for modelling software syste
 
 ## Version
 
-- Extension version: `1.0.1`
+- Extension version: `1.0.2`
 - DCL language version: `0.9`
 
-The extension is available on the VS Code Marketplace once the v1.0.1 release is published. The DCL language is still evolving independently of the extension.
+The extension is available on the VS Code Marketplace and can also be downloaded from the DCL website. The DCL language is still evolving independently of the extension.
 
 ## Screenshots
 
 DCL authoring with syntax highlighting, hover help, and compiler diagnostics:
 
-![DCL authoring](images/dcl-authoring.png)
+![DCL authoring](https://raw.githubusercontent.com/russelleast/Capability-Language/main/tools/vscode-extension/images/dcl-authoring.png)
 
 DCL Explorer for contexts, capabilities, and events:
 
-![DCL Explorer](images/dcl-explorer.png)
+![DCL Explorer](https://raw.githubusercontent.com/russelleast/Capability-Language/main/tools/vscode-extension/images/dcl-explorer.png)
 
 Graph Workspace with Architecture Overview:
 
-![DCL Architecture Overview](images/architecture-overview.png)
+![DCL Architecture Overview](https://raw.githubusercontent.com/russelleast/Capability-Language/main/tools/vscode-extension/images/architecture-overview.png)
 
 Event Flow and Lifecycle graph views:
 
-![DCL Event Flow or Lifecycle Graph](images/event-flow-or-lifecycle.png)
+![DCL Event Flow or Lifecycle Graph](https://raw.githubusercontent.com/russelleast/Capability-Language/main/tools/vscode-extension/images/event-flow-or-lifecycle.png)
 
 ## Features
 
@@ -138,7 +138,7 @@ Use `dcl.compilerPath` or `dcl.languageServer.path` only when you need to run a 
 ## Known Limitations
 
 - The DCL language is still evolving.
-- The Marketplace extension is v1.0.1, while the DCL language may remain pre-1.0.
+- The Marketplace extension is v1.0.2, while the DCL language may remain pre-1.0.
 - Some advanced semantic cases may change as compiler analysis evolves.
 - Graphs and navigation use compiler-provided semantic data; unavailable relationships are not inferred by the extension.
 
