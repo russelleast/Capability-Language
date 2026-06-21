@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Workbench support for Declarative Capability Language: authoring, diagnostics, semantic navigation, and architecture graphs.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {

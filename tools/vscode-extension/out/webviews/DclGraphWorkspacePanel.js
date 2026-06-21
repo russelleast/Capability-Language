@@ -226,17 +226,22 @@ function renderHtml(webview, extensionUri, state) {
   <title>DCL Graph Workspace</title>
   <style nonce="${nonce}">
     html, body { height: 100%; margin: 0; padding: 0; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font-family: var(--vscode-font-family); overflow: hidden; }
-    .toolbar { box-sizing: border-box; min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border); font-size: 13px; overflow: hidden; }
-    .toolbar label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--vscode-descriptionForeground); }
-    .toolbar select, .toolbar button { border: 1px solid var(--vscode-button-border, transparent); border-radius: 3px; padding: 4px 8px; font: inherit; white-space: nowrap; }
-    .toolbar select { max-width: 190px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border-color: var(--vscode-dropdown-border); }
-    .toolbar button { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
+    body { display: flex; flex-direction: column; }
+    .toolbar { box-sizing: border-box; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 10px; border-bottom: 1px solid var(--vscode-panel-border); font-size: 12px; overflow: visible; }
+    .control-group, .action-group { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+    .control-group { flex: 1 1 540px; }
+    .action-group { flex: 0 1 auto; justify-content: flex-end; margin-left: auto; }
+    .toolbar label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--vscode-descriptionForeground); min-width: 0; }
+    .toolbar select, .toolbar button { border: 1px solid var(--vscode-button-border, transparent); border-radius: 3px; padding: 3px 7px; font: inherit; line-height: 18px; white-space: nowrap; }
+    .toolbar select { max-width: 170px; min-width: 92px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border-color: var(--vscode-dropdown-border); }
+    #subject { max-width: 220px; }
+    .toolbar button { min-width: 32px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; text-align: center; }
     .toolbar button:hover { background: var(--vscode-button-secondaryHoverBackground); }
-    .toolbar button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+    .toolbar button.primary { min-width: 58px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
     .toolbar button.primary:hover { background: var(--vscode-button-hoverBackground); }
-    .toolbar-spacer { flex: 1 1 auto; }
-    .counts { color: var(--vscode-descriptionForeground); white-space: nowrap; }
-    .content { display: grid; grid-template-columns: minmax(0, 1fr) 290px; width: 100vw; height: calc(100vh - 48px); min-height: 0; }
+    .toolbar button:disabled { opacity: 0.55; cursor: default; }
+    .graph-status { box-sizing: border-box; min-height: 22px; display: flex; align-items: center; gap: 12px; padding: 3px 10px; border-bottom: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .content { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) 290px; width: 100vw; min-height: 0; }
     #graph { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
     .empty-state { display: grid; place-items: center; height: 100%; padding: 24px; box-sizing: border-box; text-align: center; }
     .empty-state h1 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
@@ -270,37 +275,40 @@ function renderHtml(webview, extensionUri, state) {
   </style>
 </head>
 <body>
-  <header class="toolbar">
-    <label for="graph-type">Graph
-      <select id="graph-type">${optionsHtml(state.graphTypes, state.graphType)}</select>
-    </label>
-    <label id="subject-label" for="subject" class="${state.subjects.length ? "" : "hidden"}">Subject
-      <select id="subject">${optionsHtml(state.subjects, state.subject)}</select>
-    </label>
-    <label id="detail-label-control" for="architecture-detail" class="${state.graphType === "architecture" ? "" : "hidden"}">Detail
-      <select id="architecture-detail">${optionsHtml([
+  <header class="toolbar" aria-label="Graph workspace controls">
+    <div class="control-group">
+      <label for="graph-type">Graph
+        <select id="graph-type">${optionsHtml(state.graphTypes, state.graphType)}</select>
+      </label>
+      <label id="subject-label" for="subject" class="${state.subjects.length ? "" : "hidden"}">Subject
+        <select id="subject">${optionsHtml(state.subjects, state.subject)}</select>
+      </label>
+      <label id="detail-label-control" for="architecture-detail" class="${state.graphType === "architecture" ? "" : "hidden"}">Detail
+        <select id="architecture-detail">${optionsHtml([
         { label: "Overview", value: "overview" },
         { label: "Detailed", value: "detailed" },
         { label: "Full", value: "full" },
     ], state.architectureDetailLevel)}</select>
-    </label>
-    <label id="layout-label-control" for="layout-mode" class="${state.graphType === "capability" && graph ? "" : "hidden"}">Layout
-      <select id="layout-mode">
-        <option value="default">Default</option>
-        <option value="layered">Layered</option>
-        <option value="radial">Radial</option>
-      </select>
-    </label>
-    <span class="counts">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships` : "No graph"}</span>
-    <span class="toolbar-spacer"></span>
-    <button id="refresh" type="button">Refresh</button>
-    <button id="compile-workspace" class="primary" type="button">Compile Workspace</button>
-    <button id="export-svg" type="button"${graph ? "" : " disabled"}>Export SVG</button>
-    <button id="export-png" type="button"${graph ? "" : " disabled"}>Export PNG</button>
-    <button id="fit-graph" type="button"${graph ? "" : " disabled"}>Fit</button>
-    <button id="reset-layout" type="button"${graph ? "" : " disabled"}>Reset Layout</button>
-    <button id="center-selection" type="button"${graph ? "" : " disabled"}>Center Selection</button>
+      </label>
+      <label id="layout-label-control" for="layout-mode" class="${state.graphType === "capability" && graph ? "" : "hidden"}">Layout
+        <select id="layout-mode">
+          <option value="default">Default</option>
+          <option value="layered">Layered</option>
+          <option value="radial">Radial</option>
+        </select>
+      </label>
+    </div>
+    <div class="action-group" aria-label="Graph actions">
+      <button id="refresh" type="button" title="Refresh graph data" aria-label="Refresh graph data">↻</button>
+      <button id="compile-workspace" class="primary" type="button" title="Compile workspace" aria-label="Compile workspace">Compile</button>
+      <button id="export-svg" type="button" title="Export graph as SVG" aria-label="Export graph as SVG"${graph ? "" : " disabled"}>SVG</button>
+      <button id="export-png" type="button" title="Export graph as PNG" aria-label="Export graph as PNG"${graph ? "" : " disabled"}>PNG</button>
+      <button id="fit-graph" type="button" title="Fit graph to view" aria-label="Fit graph to view"${graph ? "" : " disabled"}>Fit</button>
+      <button id="reset-layout" type="button" title="Reset graph layout" aria-label="Reset graph layout"${graph ? "" : " disabled"}>Reset</button>
+      <button id="center-selection" type="button" title="Center selected node" aria-label="Center selected node"${graph ? "" : " disabled"}>Center</button>
+    </div>
   </header>
+  <div class="graph-status" aria-live="polite">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships` : "No graph"}</div>
   <main class="content">
     <section id="graph" aria-label="DCL graph workspace">
       ${graph ? "" : `<div class="empty-state"><div><h1>${escapeHtml(state.emptyTitle ?? "No Graph Available")}</h1><p>${escapeHtml(state.emptyMessage ?? "Compile DCL or choose another graph subject.")}</p><button id="empty-compile" class="primary" type="button">Compile Workspace</button></div></div>`}
@@ -309,6 +317,7 @@ function renderHtml(webview, extensionUri, state) {
       <h2 class="details-title">Node Details</h2>
       <p id="details-empty" class="empty-detail">Select a node to inspect it.</p>
       <div id="details-content" class="hidden">
+        <p class="detail-row"><span class="detail-label">Graph Size</span><span class="detail-value">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships` : "No graph"}</span></p>
         <p class="detail-row"><span class="detail-label">Display Label</span><span id="detail-label" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Source Name</span><span id="detail-source-name" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Kind</span><span id="detail-kind" class="detail-value"></span></p>
@@ -383,7 +392,7 @@ function renderHtml(webview, extensionUri, state) {
         style: styleSheet(),
         minZoom: 0.25,
         maxZoom: 2.5,
-        wheelSensitivity: 1.8,
+        wheelSensitivity: 2.0,
         userZoomingEnabled: true,
         userPanningEnabled: true,
         boxSelectionEnabled: false
@@ -457,9 +466,11 @@ function renderHtml(webview, extensionUri, state) {
     function fitVisible() {
       const visible = cy?.elements().filter((element) => element.visible());
       if (!visible?.length) return;
-      cy.fit(visible, 72);
-      if (visible.nodes().length <= 35 && cy.zoom() < 0.55) {
-        cy.zoom(0.55);
+      const fitPadding = workspaceState.graphType === 'architecture' ? 36 : 48;
+      const minimumInitialZoom = workspaceState.graphType === 'architecture' ? 0.68 : 0.58;
+      cy.fit(visible, fitPadding);
+      if (visible.nodes().length <= 35 && cy.zoom() < minimumInitialZoom) {
+        cy.zoom(minimumInitialZoom);
         cy.center(visible);
       }
     }
