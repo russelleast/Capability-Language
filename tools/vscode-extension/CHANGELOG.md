@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.1
+
+- Made the Graph Workspace toolbar compact and responsive for laptop-width screenshots.
+- Replaced wide graph action buttons with short accessible controls while preserving refresh, compile, export, fit, reset, and center actions.
+- Moved graph node and relationship counts out of the main toolbar row.
+- Improved initial graph fitting so Architecture Overview uses more of the visible canvas.
+- Kept graph export, source navigation, graph switching, and existing graph workspace state behaviour intact.
+
+## 1.0.0
+
+- Prepared the extension for a v1.0 VS Code Marketplace release with an end-user focused README.
+- Updated Marketplace metadata, keywords, homepage, and extension version.
+- Added tag-triggered Marketplace publishing through GitHub Actions using the `VSCE_PAT` secret.
+- Kept the GitHub Release VSIX artifact flow for website downloads and manual installs.
+- Documented release steps, required publishing secret, and the `vscode-extension-vX.Y.Z` tag convention.
+- Highlighted the bundled DCL compiler, bundled DCL language server, graph workbench, and semantic navigation features.
+
 ## 0.5.8
 
 - Added a compiler-derived `SemanticSourceIndex` that maps DCL declaration and reference token ranges to semantic identities.

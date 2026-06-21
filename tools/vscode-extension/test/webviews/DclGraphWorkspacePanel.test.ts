@@ -35,6 +35,44 @@ describe("DclGraphWorkspacePanel", () => {
     expect(vscode.window.lastShownDocument).toBeUndefined();
   });
 
+  it("renders compact accessible graph action controls without putting counts in the toolbar row", () => {
+    DclGraphWorkspacePanel.show(extensionUri(), workspaceState("architecture"), callbacksMock());
+    const html = vscode.window.createdWebviewPanels[0].webview.html;
+
+    expect(html).toContain('class="action-group" aria-label="Graph actions"');
+    expect(html).toContain('id="refresh" type="button" title="Refresh graph data" aria-label="Refresh graph data">↻</button>');
+    expect(html).toContain('id="compile-workspace" class="primary" type="button" title="Compile workspace" aria-label="Compile workspace">Compile</button>');
+    expect(html).toContain('id="export-svg" type="button" title="Export graph as SVG" aria-label="Export graph as SVG">SVG</button>');
+    expect(html).toContain('id="export-png" type="button" title="Export graph as PNG" aria-label="Export graph as PNG">PNG</button>');
+    expect(html).toContain('id="fit-graph" type="button" title="Fit graph to view" aria-label="Fit graph to view">Fit</button>');
+    expect(html).toContain('id="reset-layout" type="button" title="Reset graph layout" aria-label="Reset graph layout">Reset</button>');
+    expect(html).toContain('id="center-selection" type="button" title="Center selected node" aria-label="Center selected node">Center</button>');
+    expect(html).toContain('<div class="graph-status" aria-live="polite">1 nodes, 1 relationships</div>');
+    expect(html).not.toContain('class="counts"');
+  });
+
+  it("keeps toolbar action message and export mappings available", () => {
+    DclGraphWorkspacePanel.show(extensionUri(), workspaceState("architecture"), callbacksMock());
+    const html = vscode.window.createdWebviewPanels[0].webview.html;
+
+    expect(html).toContain("document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }))");
+    expect(html).toContain("document.getElementById('compile-workspace').addEventListener('click', () => vscode.postMessage({ type: 'compileWorkspace' }))");
+    expect(html).toContain("document.getElementById('export-svg').addEventListener('click', () => exportGraph('svg'))");
+    expect(html).toContain("document.getElementById('export-png').addEventListener('click', () => exportGraph('png'))");
+    expect(html).toContain("document.getElementById('fit-graph').addEventListener('click', () => fitVisible())");
+    expect(html).toContain("document.getElementById('reset-layout').addEventListener('click', () => runLayout(true))");
+    expect(html).toContain("document.getElementById('center-selection').addEventListener('click', () => centerSelection())");
+  });
+
+  it("requests export from the visible graph panel", async () => {
+    DclGraphWorkspacePanel.show(extensionUri(), workspaceState("architecture"), callbacksMock());
+    const panel = vscode.window.createdWebviewPanels[0];
+
+    await DclGraphWorkspacePanel.exportCurrentGraph("svg");
+
+    expect(panel.webview.postedMessages).toContainEqual({ type: "requestExport", format: "svg" });
+  });
+
   it("reveals source only when the webview sends an explicit source action", async () => {
     const sourceFile = path.join(__dirname, "..", "..", "test-fixtures", "valid-basic.dcl");
     vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file(path.dirname(sourceFile)) }];
@@ -87,6 +125,12 @@ function graph(sourceFile?: string): DclGraphModel {
       kind: "capability",
       source: sourceFile ? { file: sourceFile, line: 1, column: 1 } : undefined,
     }],
-    edges: [],
+    edges: [{
+      id: "edge:acceptorder:accepted",
+      source: "capability:acceptorder",
+      target: "capability:acceptorder",
+      label: "emits",
+      kind: "emits",
+    }],
   };
 }

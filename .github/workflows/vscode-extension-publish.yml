@@ -1,0 +1,72 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    tags:
+      - "vscode-extension-v*"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type publish-vscode-extension to publish the current package version."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Package and Publish Marketplace VSIX
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.confirmation == 'publish-vscode-extension'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/vscode-extension/package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: compiler/go.mod
+          cache-dependency-path: compiler/go.mod
+
+      - name: Install extension dependencies
+        run: npm ci
+        working-directory: tools/vscode-extension
+
+      - name: Test extension
+        run: npm test
+        working-directory: tools/vscode-extension
+
+      - name: Compile extension
+        run: npm run compile
+        working-directory: tools/vscode-extension
+
+      - name: Package extension
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          npx vsce package --out "dcl-vscode-extension-v${VERSION}.vsix"
+          echo "VSIX_PATH=tools/vscode-extension/dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
+          echo "VSIX_NAME=dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
+          echo "VSIX_ARTIFACT=dcl-vscode-extension-v${VERSION}" >> "$GITHUB_ENV"
+        working-directory: tools/vscode-extension
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.VSIX_ARTIFACT }}
+          path: ${{ env.VSIX_PATH }}
+          if-no-files-found: error
+
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --packagePath "$VSIX_NAME" -p "$VSCE_PAT"
+        working-directory: tools/vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
