@@ -134,9 +134,9 @@ capability PlaceOrder {
 	if actor.Location.URI != "file:///workspace/order.dcl" {
 		t.Fatalf("unexpected actor URI: %s", actor.Location.URI)
 	}
-	assertPosition(t, actor.Location.Range.Start, 2, 0)
-	assertPosition(t, capability.Location.Range.Start, 4, 0)
-	assertPosition(t, intent.Location.Range.Start, 5, 2)
+	assertPosition(t, actor.Location.Range.Start, 2, 6)
+	assertPosition(t, capability.Location.Range.Start, 4, 11)
+	assertPosition(t, intent.Location.Range.Start, 5, 9)
 }
 
 func writeDCLFile(t *testing.T, dir, name, content string) {

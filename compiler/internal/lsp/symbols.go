@@ -36,13 +36,16 @@ func (p *SymbolProvider) DocumentSymbols(uri string) []DocumentSymbol {
 }
 
 func (p *SymbolProvider) DocumentSymbolsWithReason(uri string) ([]DocumentSymbol, string) {
-	source, ok := p.documentSource(uri)
+	path, ok := sourcePathForURI(uri)
 	if !ok {
 		return nil, "document not found in workspace model"
 	}
-	parsed := compiler.ParseSources([]compiler.SourceFile{source})
-	builder := DocumentSymbolBuilder{path: source.Path}
-	symbols := builder.Build(parsed.Program)
+	index, _, sources := BuildSemanticSourceIndex(p.host)
+	if len(sources) == 0 {
+		return nil, "no compiled workspace model"
+	}
+	entries := index.SymbolsForDocument(path)
+	symbols := sourceEntriesToDocumentSymbols(entries)
 	if len(symbols) == 0 {
 		return symbols, "no symbols for document"
 	}

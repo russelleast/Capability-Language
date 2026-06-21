@@ -1,8 +1,6 @@
 package lsp
 
 import (
-	"path/filepath"
-
 	"capabilitylanguage/internal/compiler"
 )
 
@@ -20,23 +18,18 @@ func (p *ReferenceProvider) References(uri string, position Position, includeDec
 }
 
 func (p *ReferenceProvider) ReferencesWithReason(uri string, position Position, includeDeclaration bool) ([]Location, string) {
-	path, ok := fileURIToPath(uri)
+	path, ok := sourcePathForURI(uri)
 	if !ok {
 		return nil, "invalid file URI"
 	}
-	absolute, _ := filepath.Abs(path)
-	sources, pathToURI := WorkspaceSources(p.host)
+	index, pathToURI, sources := BuildSemanticSourceIndex(p.host)
 	if len(sources) == 0 {
 		return nil, "no compiled workspace model"
 	}
-	references := compiler.ReferencesAt(sources, absolute, position.Line+1, position.Character+1, includeDeclaration)
+	references := index.ReferencesForPosition(path, position.Line+1, position.Character+1, includeDeclaration)
 	locations := make([]Location, 0, len(references))
 	for _, reference := range references {
-		targetURI := pathToURI[reference.Span.File]
-		if targetURI == "" {
-			targetURI = pathToFileURI(reference.Span.File)
-		}
-		locations = append(locations, Location{URI: targetURI, Range: RangeFromSpan(reference.Span)})
+		locations = append(locations, locationFromEntry(reference, pathToURI))
 	}
 	if len(locations) == 0 {
 		return locations, "no semantic references found"
@@ -45,13 +38,12 @@ func (p *ReferenceProvider) ReferencesWithReason(uri string, position Position, 
 }
 
 func (p *ReferenceProvider) TokenAt(uri string, position Position) string {
-	path, ok := fileURIToPath(uri)
+	path, ok := sourcePathForURI(uri)
 	if !ok {
 		return ""
 	}
-	absolute, _ := filepath.Abs(path)
 	sources, _ := WorkspaceSources(p.host)
-	token, _ := compiler.TokenTextAt(sources, absolute, position.Line+1, position.Character+1)
+	token, _ := compiler.TokenTextAt(sources, path, position.Line+1, position.Character+1)
 	return token
 }
 

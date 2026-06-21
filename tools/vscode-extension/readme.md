@@ -192,7 +192,7 @@ The graph includes fit, reset, center, capability switching, policy/lifecycle/ru
 
 ## Experimental Language Server
 
-v0.5.7 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
+v0.5.8 includes an optional `dcl-lsp` executable and VS Code launcher. The language server starts over stdio, initializes, records workspace folders, tracks opened `.dcl` documents in memory, validates the workspace with the compiler, publishes experimental diagnostics, provides compiler-backed document symbols for Outline, breadcrumbs, and Ctrl+Shift+O, provides fuzzy workspace symbols for Ctrl+T and Go to Symbol in Workspace, supports F12/Ctrl+Click definition navigation for supported semantic references, supports Shift+F12 Find All References, logs open/change/save/close events, and shuts down cleanly.
 
 The language server does not provide hover, completion, formatting, graph data, or graph navigation yet. LSP diagnostics, document symbols, workspace symbols, definition navigation, and references are experimental and compiler-backed. The DCL compiler remains the single source of truth for parsing, validation, semantic summaries, diagnostics, formatting, and graph generation.
 

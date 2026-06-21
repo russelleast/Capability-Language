@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"capabilitylanguage/internal/ast"
-	"capabilitylanguage/internal/compiler"
 	"capabilitylanguage/internal/diagnostic"
 )
 
@@ -18,13 +17,16 @@ func NewWorkspaceSymbolProvider(host *WorkspaceHost) *WorkspaceSymbolProvider {
 }
 
 func (p *WorkspaceSymbolProvider) WorkspaceSymbols(query string) []WorkspaceSymbol {
-	sources, pathToURI := WorkspaceSources(p.host)
+	index, pathToURI, sources := BuildSemanticSourceIndex(p.host)
 	if len(sources) == 0 {
 		return nil
 	}
-	parsed := compiler.ParseSources(sources)
-	builder := WorkspaceSymbolBuilder{pathToURI: pathToURI}
-	return builder.Build(parsed.Program, query)
+	entries := index.SymbolsForWorkspace(query)
+	var symbols []WorkspaceSymbol
+	for _, entry := range entries {
+		symbols = append(symbols, sourceEntryToWorkspaceSymbol(entry, pathToURI)...)
+	}
+	return symbols
 }
 
 type WorkspaceSymbolBuilder struct {

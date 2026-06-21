@@ -1,8 +1,6 @@
 package lsp
 
 import (
-	"path/filepath"
-
 	"capabilitylanguage/internal/compiler"
 )
 
@@ -15,35 +13,34 @@ func NewSymbolInspector(host *WorkspaceHost) *SymbolInspector {
 }
 
 func (p *SymbolInspector) Inspect(uri string, position Position) (SymbolInspection, string) {
-	path, ok := fileURIToPath(uri)
+	path, ok := sourcePathForURI(uri)
 	if !ok {
 		return SymbolInspection{URI: uri, Line: position.Line, Column: position.Character}, "invalid file URI"
 	}
-	absolute, _ := filepath.Abs(path)
-	sources, pathToURI := WorkspaceSources(p.host)
+	index, pathToURI, sources := BuildSemanticSourceIndex(p.host)
 	if len(sources) == 0 {
 		return SymbolInspection{URI: uri, Line: position.Line, Column: position.Character}, "no compiled workspace model"
 	}
-	inspection := compiler.InspectSemanticAt(sources, absolute, position.Line+1, position.Character+1)
+	token, _ := compiler.TokenTextAt(sources, path, position.Line+1, position.Character+1)
+	entry, ok := index.EntryAtPosition(path, position.Line+1, position.Character+1)
 	result := SymbolInspection{
-		URI:            uri,
-		Line:           position.Line,
-		Column:         position.Character,
-		Token:          inspection.Token,
-		Kind:           inspection.Kind,
-		SymbolIdentity: semanticIdentity(inspection.Definition.Kind, inspection.Definition.Context, inspection.Definition.Name),
-		ReferenceCount: inspection.ReferenceCount,
-		Reason:         inspection.Reason,
+		URI:    uri,
+		Line:   position.Line,
+		Column: position.Character,
+		Token:  token,
 	}
-	if inspection.Definition.Span.File != "" {
-		targetURI := pathToURI[inspection.Definition.Span.File]
-		if targetURI == "" {
-			targetURI = pathToFileURI(inspection.Definition.Span.File)
-		}
-		result.Definition = &Location{URI: targetURI, Range: RangeFromSpan(inspection.Definition.Span)}
-	}
-	if result.Reason != "" {
+	if !ok {
+		result.Reason = "No semantic symbol found"
 		return result, result.Reason
+	}
+	target, targetOK := index.DefinitionForPosition(path, position.Line+1, position.Character+1)
+	refs := index.ReferencesForPosition(path, position.Line+1, position.Character+1, true)
+	result.Kind = displayKind(entry.Kind) + upperFirst(string(entry.Role))
+	result.SymbolIdentity = map[string]string{"semanticId": entry.SemanticID, "kind": entry.Kind, "name": entry.Name, "context": entry.ContainerContext}
+	result.ReferenceCount = len(refs)
+	if targetOK {
+		location := locationFromEntry(target, pathToURI)
+		result.Definition = &location
 	}
 	return result, ""
 }
