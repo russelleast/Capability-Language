@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-const serverVersion = "0.5.7"
+const serverVersion = "0.5.8"
 
 type Server struct {
 	host             *WorkspaceHost
@@ -140,6 +140,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		s.logSemanticIndexSnapshot()
 		symbols, reason := s.symbols.DocumentSymbolsWithReason(request.TextDocument.URI)
 		s.log("document symbols requested", map[string]any{"uri": request.TextDocument.URI, "resultCount": len(symbols), "reason": reason})
 		return symbols, nil
@@ -148,6 +149,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		s.logSemanticIndexSnapshot()
 		symbols := s.workspaceSymbols.WorkspaceSymbols(request.Query)
 		reason := ""
 		if len(symbols) == 0 {
@@ -160,6 +162,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		s.logSemanticIndexSnapshot()
 		token := s.definitions.TokenAt(request.TextDocument.URI, request.Position)
 		location, reason, ok := s.definitions.DefinitionWithReason(request.TextDocument.URI, request.Position)
 		s.log("definition requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "token": token, "resultCount": boolCount(ok), "reason": reason})
@@ -174,6 +177,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		s.logSemanticIndexSnapshot()
 		token := s.references.TokenAt(request.TextDocument.URI, request.Position)
 		locations, reason := s.references.ReferencesWithReason(request.TextDocument.URI, request.Position, request.Context.IncludeDeclaration)
 		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "token": token, "resultCount": len(locations), "reason": reason})
@@ -184,6 +188,7 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		if err := json.Unmarshal(params, &request); err != nil {
 			return nil, invalidParams(err)
 		}
+		s.logSemanticIndexSnapshot()
 		inspection, reason := s.inspector.Inspect(request.TextDocument.URI, request.Position)
 		s.log("symbol inspection requested", map[string]any{
 			"uri":            request.TextDocument.URI,
@@ -198,6 +203,32 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		return inspection, nil
 	default:
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
+	}
+}
+
+func (s *Server) logSemanticIndexSnapshot() {
+	s.log("index build started", s.healthFields())
+	index, _, sources := BuildSemanticSourceIndex(s.host)
+	declarations := 0
+	references := 0
+	perFile := map[string]int{}
+	for _, entry := range index.Entries() {
+		switch string(entry.Role) {
+		case "declaration":
+			declarations++
+			perFile[entry.File]++
+		case "reference":
+			references++
+		}
+	}
+	s.log("index build completed", map[string]any{
+		"sourceCount":      len(sources),
+		"declarationCount": declarations,
+		"referenceCount":   references,
+		"perFileSymbols":   perFile,
+	})
+	for _, reason := range index.UnsupportedReasons() {
+		s.log("unsupported reference kind", map[string]any{"reason": reason})
 	}
 }
 

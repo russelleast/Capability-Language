@@ -27,7 +27,7 @@ capability CapturePayment {
 	if !ok {
 		t.Fatal("expected event definition")
 	}
-	assertLocation(t, location, uri, 2, 0)
+	assertLocation(t, location, uri, 2, 6)
 }
 
 func TestDefinitionProviderOutcomeDefinition(t *testing.T) {
@@ -49,7 +49,7 @@ capability CapturePayment {
 	if !ok {
 		t.Fatal("expected outcome definition")
 	}
-	assertLocation(t, location, uri, 4, 2)
+	assertLocation(t, location, uri, 4, 10)
 }
 
 func TestDefinitionProviderShapeDefinition(t *testing.T) {
@@ -70,7 +70,7 @@ capability CapturePayment {
 	if !ok {
 		t.Fatal("expected shape definition")
 	}
-	assertLocation(t, location, uri, 2, 0)
+	assertLocation(t, location, uri, 2, 6)
 }
 
 func TestDefinitionProviderCrossFileDefinition(t *testing.T) {
@@ -97,7 +97,7 @@ capability CapturePayment {
 	if !ok {
 		t.Fatal("expected cross-file event definition")
 	}
-	assertLocation(t, location, pathToFileURI(events), 2, 0)
+	assertLocation(t, location, pathToFileURI(events), 2, 6)
 }
 
 func TestDefinitionProviderUnresolvedSymbol(t *testing.T) {
@@ -141,7 +141,7 @@ context Refunds {
 	if !ok {
 		t.Fatal("expected local context shape definition")
 	}
-	assertLocation(t, location, uri, 3, 2)
+	assertLocation(t, location, uri, 3, 8)
 }
 
 func writeDefinitionFixture(t *testing.T, dir, name, content string) string {

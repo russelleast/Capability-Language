@@ -379,7 +379,7 @@ capability CapturePayment {
 	if err := json.Unmarshal(payload, &location); err != nil {
 		t.Fatalf("decode definition location: %v", err)
 	}
-	assertLocation(t, location, "file:///workspace/payment.dcl", 2, 0)
+	assertLocation(t, location, "file:///workspace/payment.dcl", 2, 6)
 	if responses[2]["result"] != nil {
 		t.Fatalf("expected unresolved definition result to be null, got %+v", responses[2]["result"])
 	}

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.8
+
+- Added a compiler-derived `SemanticSourceIndex` that maps DCL declaration and reference token ranges to semantic identities.
+- Switched LSP document symbols, workspace symbols, go to definition, find references, and symbol inspection to consume the shared semantic source index.
+- Added token-range based source locations so Outline, Cmd+T, F12, references, and symbol inspection resolve cursor positions consistently.
+- Added compiler tests for document symbols, workspace symbols, entry-at-position, event/shape definitions, references, cross-file references, duplicate names, empty indexes, and unsupported reference reasons.
+- Added LSP index build logs for declaration/reference counts, per-file symbol counts, and unsupported reference kinds.
+
 ## 0.5.7
 
 - Consolidated experimental LSP semantic resolution by registering VS Code document symbol, workspace symbol, definition, and reference providers against the running `dcl-lsp` process.
