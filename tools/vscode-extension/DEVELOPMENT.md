@@ -159,20 +159,46 @@ For each extension release:
 
 1. Update `package.json` version.
 2. Update `CHANGELOG.md`.
-3. Keep `readme.md` end-user focused.
+3. Keep `README.md` end-user focused.
 4. Move contributor setup, test, and packaging notes here.
 5. Run `npm run lint`, `npm test`, and `npm run package:smoke`.
 
-## GitHub Release VSIX
+## Marketplace Release
 
-Marketplace publishing is not implemented yet. Until then, the recommended distribution path is:
+The VS Code Marketplace release workflow publishes only from explicit extension version tags. It does not publish from pushes to `main` or pull requests.
 
 1. Update `tools/vscode-extension/package.json`.
 2. Update `tools/vscode-extension/CHANGELOG.md`.
-3. Run `npm run package:smoke`.
-4. Push a tag named `vscode-extension-v0.3.x`.
-5. The `Release VS Code Extension` workflow packages the VSIX and attaches it to the GitHub Release.
-6. The website download link targets the latest release asset named `dcl-vscode-extension-v0.3.x.vsix`.
+3. Run `npm run lint`, `npm test`, and `npm run package:smoke`.
+4. Package the VSIX locally if desired with `npm run package`.
+5. Create and push a version tag:
+
+```bash
+git tag vscode-extension-v1.0.0
+git push origin vscode-extension-v1.0.0
+```
+
+6. GitHub Actions packages the VSIX, uploads it as an artifact, attaches it to a GitHub Release, and publishes it to the VS Code Marketplace.
+7. Verify the Marketplace listing.
+8. Verify the website download link and install copy.
+
+The release tag convention is `vscode-extension-vX.Y.Z`, for example `vscode-extension-v1.0.0`. This keeps extension releases distinct from language, compiler, and website tags in the monorepo.
+
+Required GitHub Actions secret:
+
+- `VSCE_PAT`: a VS Code Marketplace publishing token for the configured publisher.
+
+Create the Marketplace publishing token in the Visual Studio Marketplace publisher management area, grant it permission to publish extensions for the DCL publisher, then store it as a repository or environment secret named `VSCE_PAT`. Never commit publishing tokens, publisher secrets, or Marketplace credentials to the repository.
+
+The publish workflow also supports manual `workflow_dispatch`. Manual runs require typing `publish-vscode-extension` into the confirmation input.
+
+## GitHub Release VSIX
+
+The GitHub Release VSIX flow remains available for website downloads and manual installs:
+
+1. Push a tag named `vscode-extension-vX.Y.Z`.
+2. The `Release VS Code Extension` workflow packages the VSIX and attaches it to the GitHub Release.
+3. The website download link targets the latest release asset named `dcl-vscode-extension-vX.Y.Z.vsix`.
 
 Do not add personal access tokens, publisher secrets, or Marketplace credentials to the repository.
 
@@ -182,14 +208,7 @@ CI already packages a VSIX artifact for successful workflow runs. Users can down
 
 ## Future Marketplace Publishing
 
-Marketplace publishing can be added later with an explicit release workflow. Keep that work separate from normal graph and extension feature work.
-
-Before adding Marketplace automation:
-
-- choose and verify the publisher identity
-- store publishing tokens only as GitHub Actions secrets
-- keep manual release testing with `npm run package:smoke`
-- document Marketplace installation separately from VSIX installation
+Marketplace automation now lives in `.github/workflows/vscode-extension-publish.yml`. Keep release automation changes separate from normal graph and extension feature work, and continue to store publishing credentials only as GitHub Actions secrets.
 
 ## Architecture Boundaries
 

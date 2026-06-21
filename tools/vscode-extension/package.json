@@ -1,8 +1,8 @@
 {
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
-  "description": "Compiler-backed VS Code language support and architecture navigation for Declarative Capability Language files.",
-  "version": "0.5.8",
+  "description": "Workbench support for Declarative Capability Language: authoring, diagnostics, semantic navigation, and architecture graphs.",
+  "version": "1.0.0",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -13,6 +13,7 @@
   "bugs": {
     "url": "https://github.com/russelleast/Capability-Language/issues"
   },
+  "homepage": "https://russelleast.github.io/Capability-Language/",
   "engines": {
     "vscode": "^1.86.0"
   },
@@ -23,9 +24,16 @@
   "icon": "resources/dcl-extension.png",
   "keywords": [
     "dcl",
+    "DCL",
     "declarative capability language",
     "capability",
     "architecture",
+    "modelling",
+    "language",
+    "software architecture",
+    "diagrams",
+    "graph",
+    "LSP",
     "compiler",
     "diagnostics"
   ],
