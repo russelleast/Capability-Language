@@ -6,6 +6,8 @@
 - Replaced wide graph action buttons with short accessible controls while preserving refresh, compile, export, fit, reset, and center actions.
 - Moved graph node and relationship counts out of the main toolbar row.
 - Improved initial graph fitting so Architecture Overview uses more of the visible canvas.
+- Added Marketplace README screenshots for authoring, DCL Explorer, Architecture Overview, and event/lifecycle graph views.
+- Prepared the website extension section for Marketplace installation while keeping the VSIX download path.
 - Kept graph export, source navigation, graph switching, and existing graph workspace state behaviour intact.
 
 ## 1.0.0

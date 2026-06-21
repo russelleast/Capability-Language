@@ -15,18 +15,25 @@ Declarative Capability Language (DCL) is a language for modelling software syste
 - Extension version: `1.0.1`
 - DCL language version: `0.9`
 
-The Marketplace extension is v1.0.1. The DCL language is still evolving independently of the extension.
+The extension is available on the VS Code Marketplace once the v1.0.1 release is published. The DCL language is still evolving independently of the extension.
 
 ## Screenshots
 
-Screenshots are coming soon for the v1.0 Marketplace listing:
+DCL authoring with syntax highlighting, hover help, and compiler diagnostics:
 
-- DCL authoring with syntax highlighting, hover help, and diagnostics
-- DCL Explorer for contexts, capabilities, and events
-- Graph Workspace with Architecture Overview
-- Event Flow and Lifecycle Graphs
+![DCL authoring](images/dcl-authoring.png)
 
-When available, screenshots will live under `images/` in this extension package.
+DCL Explorer for contexts, capabilities, and events:
+
+![DCL Explorer](images/dcl-explorer.png)
+
+Graph Workspace with Architecture Overview:
+
+![DCL Architecture Overview](images/architecture-overview.png)
+
+Event Flow and Lifecycle graph views:
+
+![DCL Event Flow or Lifecycle Graph](images/event-flow-or-lifecycle.png)
 
 ## Features
 

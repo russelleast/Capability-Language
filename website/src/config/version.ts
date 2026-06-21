@@ -9,3 +9,5 @@ export const compilerVersion = version.compiler.version;
 export const vscodeExtensionVersion = extensionPackage.version;
 export const vscodeExtensionVsixName = `dcl-vscode-extension-v${vscodeExtensionVersion}.vsix`;
 export const vscodeExtensionReleaseUrl = `https://github.com/russelleast/Capability-Language/releases/latest/download/${vscodeExtensionVsixName}`;
+export const vscodeExtensionMarketplaceUrl = "https://marketplace.visualstudio.com/items?itemName=dcl.dcl-vscode-extension";
+export const vscodeExtensionSourceUrl = "https://github.com/russelleast/Capability-Language/tree/main/tools/vscode-extension";

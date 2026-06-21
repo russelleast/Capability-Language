@@ -1,7 +1,15 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import CodeBlock from "../components/CodeBlock.astro";
-import { languageLabel, languageStatus, vscodeExtensionReleaseUrl, vscodeExtensionVersion, vscodeExtensionVsixName } from "../config/version";
+import {
+  languageLabel,
+  languageStatus,
+  vscodeExtensionMarketplaceUrl,
+  vscodeExtensionReleaseUrl,
+  vscodeExtensionSourceUrl,
+  vscodeExtensionVersion,
+  vscodeExtensionVsixName,
+} from "../config/version";
 import example from "../examples/register-customer.dcl?raw";
 import { playgroundExamplePath } from "../lib/playground/links";
 
@@ -149,25 +157,27 @@ const path = (href) => `${base}${href}`;
         Explorer, and opening semantic graphs from your workspace.
       </p>
       <p>
-        Marketplace publishing is configured for version tags. Until the public
-        Marketplace listing is live, install the extension from a VSIX package.
+        Install the extension from the VS Code Marketplace. The VSIX package
+        remains available from GitHub Releases for offline installs and release
+        verification.
       </p>
       <div class="actions">
-        <a class="button primary" href={vscodeExtensionReleaseUrl}>Download VS Code Extension</a>
-        <a class="button secondary" href="https://github.com/russelleast/Capability-Language/actions/workflows/build.yml">GitHub Actions Artifact</a>
+        <a class="button primary" href={vscodeExtensionMarketplaceUrl}>Install from Marketplace</a>
+        <a class="button secondary" href={vscodeExtensionReleaseUrl}>Download VSIX</a>
+        <a class="button secondary" href={vscodeExtensionSourceUrl}>View source on GitHub</a>
       </div>
       <p class="download-note">
-        Latest VSIX: <code>{vscodeExtensionVsixName}</code>. If the latest
-        release asset is not attached yet, use the GitHub Actions artifact link.
+        Latest VSIX: <code>{vscodeExtensionVsixName}</code>. If the Marketplace
+        listing has not refreshed yet, use the VSIX release asset.
       </p>
     </div>
     <div class="notice install-card">
       <strong>Install v{vscodeExtensionVersion}</strong>
       <ol class="tight-list">
-        <li>Download the VSIX file.</li>
-        <li>In VS Code, run <code>Extensions: Install from VSIX...</code>.</li>
-        <li>Select the downloaded <code>.vsix</code>.</li>
-        <li>Reload VS Code when prompted.</li>
+        <li>Open the VS Code Marketplace listing.</li>
+        <li>Install Declarative Capability Language (DCL).</li>
+        <li>Reload VS Code if prompted.</li>
+        <li>For VSIX installs, run <code>Extensions: Install from VSIX...</code>.</li>
         <li>Run <code>DCL: Show Compiler Info</code> if you need to inspect the bundled compiler.</li>
       </ol>
     </div>
