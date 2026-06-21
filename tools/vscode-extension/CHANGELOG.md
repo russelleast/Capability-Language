@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed Marketplace README screenshot rendering by switching screenshot links to raw GitHub URLs.
+- Updated Marketplace availability wording.
+
 ## 1.0.1
 
 - Made the Graph Workspace toolbar compact and responsive for laptop-width screenshots.
