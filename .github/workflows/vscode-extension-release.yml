@@ -34,18 +34,36 @@ jobs:
         run: npm ci
         working-directory: tools/vscode-extension
 
+      - name: Test extension
+        run: npm test
+        working-directory: tools/vscode-extension
+
+      - name: Compile extension
+        run: npm run compile
+        working-directory: tools/vscode-extension
+
       - name: Package extension
         run: |
           VERSION="$(node -p "require('./package.json').version")"
-          npm run build:compiler-binaries
-          npm run copy:vendor
-          npm run compile
           npx vsce package --out "dcl-vscode-extension-v${VERSION}.vsix"
           echo "VSIX_PATH=tools/vscode-extension/dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
           echo "VSIX_NAME=dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
+          echo "VSIX_ARTIFACT=dcl-vscode-extension-v${VERSION}" >> "$GITHUB_ENV"
         working-directory: tools/vscode-extension
 
-      - name: Create GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" "$VSIX_PATH" --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.VSIX_ARTIFACT }}
+          path: ${{ env.VSIX_PATH }}
+          if-no-files-found: error
+
+      - name: Create or update GitHub Release
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$VSIX_PATH" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$VSIX_PATH" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

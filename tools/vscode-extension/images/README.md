@@ -1,3 +1,8 @@
 # DCL Extension Screenshots
 
-Marketplace screenshots for DCL authoring, DCL Explorer, Graph Workspace, Event Flow, and Lifecycle Graph views will be added here when final assets are captured.
+Screenshot assets used by the VS Code Marketplace README:
+
+- `dcl-authoring.png`
+- `dcl-explorer.png`
+- `architecture-overview.png`
+- `event-flow-or-lifecycle.png`

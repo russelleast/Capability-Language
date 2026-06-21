@@ -159,9 +159,10 @@ For each extension release:
 
 1. Update `package.json` version.
 2. Update `CHANGELOG.md`.
-3. Keep `README.md` end-user focused.
-4. Move contributor setup, test, and packaging notes here.
-5. Run `npm run lint`, `npm test`, and `npm run package:smoke`.
+3. Ensure Marketplace screenshots are committed under `tools/vscode-extension/images/`.
+4. Keep `README.md` end-user focused.
+5. Move contributor setup, test, and packaging notes here.
+6. Run `npm run lint`, `npm test`, and `npm run package:smoke`.
 
 ## Marketplace Release
 
@@ -169,20 +170,30 @@ The VS Code Marketplace release workflow publishes only from explicit extension 
 
 1. Update `tools/vscode-extension/package.json`.
 2. Update `tools/vscode-extension/CHANGELOG.md`.
-3. Run `npm run lint`, `npm test`, and `npm run package:smoke`.
-4. Package the VSIX locally if desired with `npm run package`.
-5. Create and push a version tag:
+3. Ensure the four Marketplace screenshots are present:
+   - `tools/vscode-extension/images/dcl-authoring.png`
+   - `tools/vscode-extension/images/dcl-explorer.png`
+   - `tools/vscode-extension/images/architecture-overview.png`
+   - `tools/vscode-extension/images/event-flow-or-lifecycle.png`
+4. Commit the release changes and merge them to `main`.
+5. Run `npm run lint`, `npm test`, and `npm run package:smoke`.
+6. Package the VSIX locally if desired with `npm run package`.
+7. Create and push the release tag:
 
 ```bash
-git tag vscode-extension-v1.0.0
-git push origin vscode-extension-v1.0.0
+git tag vscode-extension-v1.0.1
+git push origin vscode-extension-v1.0.1
 ```
 
-6. GitHub Actions packages the VSIX, uploads it as an artifact, attaches it to a GitHub Release, and publishes it to the VS Code Marketplace.
-7. Verify the Marketplace listing.
-8. Verify the website download link and install copy.
+8. Confirm GitHub Actions publishes the Marketplace extension using `VSCE_PAT`.
+9. Confirm the GitHub Release contains `dcl-vscode-extension-v1.0.1.vsix`.
+10. Download and install the VSIX if release verification needs a manual package check.
+11. Uninstall any local VSIX build from VS Code.
+12. Install the extension from the VS Code Marketplace.
+13. Verify the extension version in VS Code is `1.0.1`.
+14. Verify the website Marketplace and VSIX links.
 
-The release tag convention is `vscode-extension-vX.Y.Z`, for example `vscode-extension-v1.0.0`. This keeps extension releases distinct from language, compiler, and website tags in the monorepo.
+The release tag convention is `vscode-extension-vX.Y.Z`, for example `vscode-extension-v1.0.1`. This keeps extension releases distinct from language, compiler, and website tags in the monorepo.
 
 Required GitHub Actions secret:
 
