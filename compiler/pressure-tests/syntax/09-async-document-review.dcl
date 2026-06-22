@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Author is human
 actor Reviewer is human
@@ -7,10 +7,11 @@ effect StoreDocument is persistence
 effect SendReviewRequest is notification
 
 policy ReviewQueuePolicy {
-  family scalability
-  queue allowed
-  backpressure delay
-  concurrency 5
+  scalability {
+    queue allowed
+    backpressure delay
+    concurrency 5
+  }
 }
 
 shape DocumentReviewInput {

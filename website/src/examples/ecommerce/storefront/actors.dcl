@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 context Ecommerce.Storefront {
   actor Customer is human

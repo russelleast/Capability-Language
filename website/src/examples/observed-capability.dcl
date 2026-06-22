@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Operator is human
 

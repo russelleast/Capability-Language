@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 context SharedSecurity {
   actor Operator is human
@@ -15,7 +15,7 @@ context Reviews {
     intent SecretReviewInput from Operator
     outcome ReviewOpened
     when {
-      always then ReviewOpened
+      always ReviewOpened
     }
   }
 }

@@ -42,7 +42,8 @@ effect SaveRegistration is persist
 effect SendVerification is notify
 
 policy SafeRetry {
-  family reliability
+  reliability {
+  }
 }
 
 shape RegisterCustomerInput {
@@ -202,7 +203,7 @@ func TestDocumentedExamplesCompile(t *testing.T) {
 }
 
 func TestLanguageVersionDeclaration(t *testing.T) {
-	src := `language dcl 0.9
+	src := `language dcl 1.0
 actor User is human
 shape Input {}
 capability Versioned {
@@ -215,8 +216,8 @@ capability Versioned {
 		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
 	}
 	assertNoDiagnostic(t, result.Diagnostics, "DCL_VERSION_DECL_MISSING")
-	if result.IR.Version.Language != "0.9" {
-		t.Fatalf("expected IR language version 0.9, got %#v", result.IR.Version)
+	if result.IR.Version.Language != "1.0" {
+		t.Fatalf("expected IR language version 1.0, got %#v", result.IR.Version)
 	}
 }
 
@@ -226,7 +227,7 @@ func TestMissingLanguageVersionWarns(t *testing.T) {
 }
 
 func TestNewerLanguageVersionIsRejected(t *testing.T) {
-	src := `language dcl 1.0
+	src := `language dcl 1.1
 actor User is human
 shape Input {}
 capability FutureVersion {
@@ -257,7 +258,8 @@ func TestSingularAndBlockFormsCompileEquivalently(t *testing.T) {
 actor User is human
 effect SendEmail is notify
 policy SafeRetry {
-  family reliability
+  reliability {
+  }
 }
 shape Input { email: Email required }
 
@@ -288,6 +290,40 @@ capability NotifyUser {
 	}
 }
 
+func TestAlwaysWithoutThenCompiles(t *testing.T) {
+	src := `
+actor User is human
+shape Input {}
+capability AlwaysAccepted {
+  intent Input from User
+  outcome Accepted
+  when { always Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	if len(result.IR.Capabilities[0].Analysis.OutcomeCauses) != 1 {
+		t.Fatalf("expected always causation, got %#v", result.IR.Capabilities[0].Analysis.OutcomeCauses)
+	}
+}
+
+func TestInvalidActorAndEffectKindsAreRejected(t *testing.T) {
+	src := `
+actor LegacySystem is external_system
+effect SendMessage is request
+shape Input {}
+capability InvalidKinds {
+  intent Input from LegacySystem
+  outcome Accepted
+  effect SendMessage
+  when { always Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_ACTOR_KIND_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_EFFECT_KIND_UNKNOWN")
+}
+
 func TestRemovedFormsAreRejected(t *testing.T) {
 	for name, src := range map[string]string{
 		"input": `
@@ -304,20 +340,6 @@ shape Input {}
 capability Old { intent Input from User outcome Accepted when { otherwise => Accepted } }`,
 		"old-policy": `
 policy SafeRetry is retry`,
-		"applies": `
-actor User is human
-effect SendEmail is notify
-policy SafeRetry {
-  family reliability
-}
-shape Input {}
-capability Old {
-  intent Input from User
-  outcome Accepted
-  effect SendEmail
-  policies { SafeRetry applies to effect SendEmail }
-  when { otherwise then Accepted }
-}`,
 		"emits": `
 actor User is human
 shape Input {}

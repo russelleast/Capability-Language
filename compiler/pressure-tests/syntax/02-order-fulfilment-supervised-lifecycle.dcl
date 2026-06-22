@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Customer is human
 actor WarehouseOperator is human
@@ -8,13 +8,14 @@ effect CapturePaymentRecord is persistence
 effect DispatchParcel is notification
 
 policy FulfilmentReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 2 hours
   }
-  idempotency required
-  timeout 2 hours
 }
 
 shape OrderInput {
@@ -86,7 +87,7 @@ capability FulfilOrder {
   }
 
   when {
-    always then FulfilmentOpened
+    always FulfilmentOpened
   }
 
   supervises lifecycle OrderFulfilment {

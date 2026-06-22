@@ -9,6 +9,7 @@ import contextShared from "../../examples/context-shared.dcl?raw";
 import contextSales from "../../examples/context-sales.dcl?raw";
 import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
 import paymentProcessing from "../../examples/payment-processing.dcl?raw";
+import agenticCustomerSupport from "../../examples/agentic-customer-support.dcl?raw";
 import { playgroundExamplePath, sitePath } from "../../lib/playground/links";
 
 const frontmatter = {
@@ -47,7 +48,7 @@ const frontmatter = {
     <a class="button secondary" href={playgroundExamplePath("hello-world")}>Open in Playground</a>
   </p>
   <p><strong>Expected outcome:</strong> <code>GreetingPrepared</code>.</p>
-  <p><strong>Key concepts:</strong> actor, shape, intent, outcome, <code>always then</code>.</p>
+  <p><strong>Key concepts:</strong> actor, shape, intent, outcome, <code>always</code>.</p>
 
   <h2>Register Customer</h2>
   <p>
@@ -93,6 +94,23 @@ const frontmatter = {
     <code>InvoicePublishDeferred</code>.
   </p>
   <p><strong>Key concepts:</strong> policy family, governance targets, observation metrics.</p>
+
+  <h2>Agentic Customer Support</h2>
+  <p>
+    Agentic support models a support agent, tool-use effects, confidence
+    thresholding, escalation, and a local support-question lifecycle without
+    introducing model/provider/runtime semantics.
+  </p>
+  <CodeBlock title="agentic-customer-support.dcl" code={agenticCustomerSupport} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("agentic-customer-support")}>Open in Playground</a>
+  </p>
+  <p>
+    <strong>Expected outcomes:</strong> <code>AnswerPrepared</code>,
+    <code>InsufficientConfidence</code>, <code>ToolUnavailable</code>, or
+    <code>EscalationCreated</code>.
+  </p>
+  <p><strong>Key concepts:</strong> agent actor, tool effects, confidence policy, escalation lifecycle.</p>
 
   <h2>Context / Multi-file Example</h2>
   <p>

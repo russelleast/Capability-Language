@@ -155,8 +155,24 @@ function topLevelItems(items, kind, symbolLocations) {
             return undefined;
         if (!item.name)
             return undefined;
-        return { label: item.name, location: symbolLocation(symbolLocations, kind, item.name, undefined) };
+        return { label: formatTopLevelItem(item, kind), location: symbolLocation(symbolLocations, kind, item.name, undefined) };
     }));
+}
+function formatTopLevelItem(item, kind) {
+    const detail = kind === "actor"
+        ? item.classification
+        : kind === "effect"
+            ? item.type
+            : kind === "policy"
+                ? formatPolicyDetail(item)
+                : undefined;
+    return detail ? `${item.name} (${detail})` : item.name ?? "";
+}
+function formatPolicyDetail(item) {
+    if (item.kind === "confidence" && typeof item.threshold === "number") {
+        return `confidence threshold ${item.threshold}`;
+    }
+    return item.kind;
 }
 function formatLifecycleItem(capability) {
     const lifecycle = capability.lifecycle;

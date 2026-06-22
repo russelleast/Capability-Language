@@ -233,7 +233,7 @@
         "dcl.languageServer.enabled": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Enable the experimental DCL Language Server for compiler-backed diagnostics, document symbols, workspace symbols, definition navigation, and find references. Disabled by default; existing compiler-backed extension behavior remains unchanged when this is off."
+          "markdownDescription": "Enable the DCL Language Server for compiler-backed diagnostics, document symbols, workspace symbols, definition navigation, and find references. Disabled by default; existing compiler-backed extension behavior remains unchanged when this is off."
         },
         "dcl.languageServer.path": {
           "type": "string",
@@ -248,7 +248,7 @@
             "verbose"
           ],
           "default": "off",
-          "markdownDescription": "Controls experimental DCL Language Server protocol logging. `off` keeps the output channel user-friendly, `messages` logs JSON-RPC payloads, and `verbose` logs framed protocol messages."
+          "markdownDescription": "Controls DCL Language Server protocol logging. `off` keeps the output channel user-friendly, `messages` logs JSON-RPC payloads, and `verbose` logs framed protocol messages."
         },
         "dcl.graph.followSourceSelection": {
           "type": "boolean",

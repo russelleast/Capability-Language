@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Buyer is human
 actor InventorySystem is system
@@ -7,12 +7,13 @@ effect LockStock is persistence
 effect ReleaseStock is persistence
 
 policy InventoryReliability {
-  family reliability
-  retry {
-    attempts 4
-    backoff exponential
+  reliability {
+    retry {
+      attempts 4
+      backoff exponential
+    }
+    idempotency required
   }
-  idempotency required
 }
 
 shape ReservationInput {

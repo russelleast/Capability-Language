@@ -63,7 +63,7 @@ or another fixed compiler command prefix such as:
 }
 ```
 
-## Test The Experimental Language Server Locally
+## Test The Language Server Locally
 
 The language server is disabled by default. To test it in an Extension Development Host, first build a local LSP binary into the extension `bin/` directory:
 

@@ -15,19 +15,16 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
 >
   <section class="content-wrap playground-page">
     <article class="prose playground-intro">
-      <p class="eyebrow">Experimental</p>
+      <p class="eyebrow">Stable Core</p>
       <h1>DCL Playground</h1>
       <p>
-        Choose a validated example, edit the DCL source, and use the stable
-        compiler adapter boundary that will host browser compilation.
+        Choose a validated example, edit the DCL source, and inspect compiler
+        diagnostics, IR, summaries, and visualisations for the stable language
+        core.
       </p>
       <p class="version-line">
         Current language: <strong>{languageLabel}</strong>. Compiler:
         <code>dcl {compilerVersion}</code>.
-      </p>
-      <p>
-        The website is statically hosted on GitHub Pages. The compiler runs in
-        your browser through Go WASM; no backend compile service is used.
       </p>
     </article>
 
@@ -124,7 +121,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         <aside class="diagnostics-panel" aria-live="polite">
           <div class="pane-heading">
             <h2>Compiler results</h2>
-            <span>Browser WASM</span>
+            <span>Compiler</span>
           </div>
           <div class="status-card" data-result-status>
             Ready. Select an example or edit the source.
@@ -212,25 +209,6 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     </section>
 
     <article class="prose playground-notes">
-      <div class="notice">
-        <strong>Browser compiler status</strong>
-        <p>
-          The Compile button calls <code>compileDcl(source)</code>, which loads
-          the static WASM compiler from <code>/compiler/dcl.wasm</code>. If the
-          WASM runtime cannot load, the adapter reports that clearly in
-          diagnostics.
-        </p>
-      </div>
-
-      <h2>Next extension points</h2>
-      <ul>
-        <li>Editor diagnostics and completion suggestions.</li>
-        <li>Compiler WASM loading behind the existing adapter.</li>
-        <li>IR view for compiler output.</li>
-        <li>Capability graph and lifecycle diagram views.</li>
-        <li>Policy and diagnostic explanations.</li>
-      </ul>
-
       <p>
         Continue with <a href={sitePath("/examples/")}>Examples</a> or the
         <a href={sitePath("/docs/")}>Reference</a>.
@@ -239,7 +217,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
   </section>
 
   <script>
-    import { compileDcl, browserCompilerAvailable, type Diagnostic } from "../lib/playground/compiler";
+    import { compileDcl, type Diagnostic } from "../lib/playground/compiler";
     import { formatDcl } from "../lib/playground/formatDcl";
     import { playgroundExamples } from "../lib/playground/examples";
     import { playgroundExamplePath } from "../lib/playground/links";
@@ -1605,7 +1583,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     });
 
     compileButton?.addEventListener("click", async () => {
-      setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
+      setStatus("Compiling...", "pending");
       sourceEditor.setDiagnostics([]);
 
       const result = await compileDcl(sourceEditor.getValue());

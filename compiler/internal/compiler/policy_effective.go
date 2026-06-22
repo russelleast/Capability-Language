@@ -207,7 +207,7 @@ func (c *compiler) applyPolicyCausation(cap ast.CapabilityDecl, envelopes []ir.E
 		if branch.Otherwise {
 			continue
 		}
-		isPolicy := branch.SourceKind == "policy" || branch.Decision == "denied" || branch.Decision == "denies"
+		isPolicy := branch.SourceKind == "policy" || branch.Decision == "denied" || branch.Decision == "denies" || branch.Decision == "fails"
 		if !isPolicy {
 			continue
 		}
@@ -257,7 +257,7 @@ func (c *compiler) attachedPolicyConcerns(cap ast.CapabilityDecl, targetKind, ta
 			continue
 		}
 		attachment := ir.PolicyAttachmentIR{Capability: cap.Name, TargetKind: use.TargetKind, TargetName: policyTargetName(cap, use)}
-		for _, concern := range policy.Concerns {
+		for _, concern := range policyConcerns(policy) {
 			out = append(out, attachedPolicyConcern{Policy: policy, Use: use, Attachment: attachment, Concern: concern})
 		}
 	}
@@ -281,11 +281,11 @@ func (c *compiler) policyEventTargets(cap ast.CapabilityDecl) []string {
 func effectiveConcernIR(item attachedPolicyConcern, targetKind, targetSymbol, mode string) ir.EffectiveConcernIR {
 	return ir.EffectiveConcernIR{
 		Name:                item.Concern.Name,
-		Family:              item.Policy.Family,
+		Family:              policyConcernFamily(item.Policy, item.Concern),
 		TargetKind:          targetKind,
 		TargetSymbol:        targetSymbol,
 		SourcePolicies:      []string{item.Policy.Name},
-		EffectiveParameters: concernIR(item.Policy.Family, item.Concern).Parameters,
+		EffectiveParameters: concernIR(policyConcernFamily(item.Policy, item.Concern), item.Concern).Parameters,
 		CompositionMode:     mode,
 	}
 }
@@ -614,6 +614,8 @@ func policyConcernCanProduceState(concern, state string) bool {
 		return concern == "degradation"
 	case policyStateFallbackUsed:
 		return concern == "fallback"
+	case policyStateFails:
+		return concern == "confidence"
 	default:
 		return false
 	}
@@ -621,7 +623,7 @@ func policyConcernCanProduceState(concern, state string) bool {
 
 func knownPolicyState(state string) bool {
 	switch state {
-	case policyStateDenies, policyStateExhausted, policyStateTimesOut, policyStateOpen, policyStateDegraded, policyStateFallbackUsed:
+	case policyStateDenies, policyStateExhausted, policyStateTimesOut, policyStateOpen, policyStateDegraded, policyStateFallbackUsed, policyStateFails:
 		return true
 	default:
 		return false

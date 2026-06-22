@@ -8,7 +8,7 @@
       "  outcome ${4:OutcomeName}",
       "",
       "  when {",
-      "    always then ${4:OutcomeName}",
+      "    always ${4:OutcomeName}",
       "  }",
       "}"
     ],
@@ -17,7 +17,7 @@
   "Actor": {
     "prefix": "actor",
     "body": [
-      "actor ${1:ActorName} is ${2|human,system|}"
+      "actor ${1:ActorName} is ${2|human,system,agent,scheduled_process|}"
     ],
     "description": "DCL actor"
   },
@@ -42,7 +42,7 @@
   "Effect": {
     "prefix": "effect",
     "body": [
-      "effect ${1:EffectName} is ${2|persistence,notification,invocation|}"
+      "effect ${1:EffectName} is ${2|persistence,notification,invocation,tool|}"
     ],
     "description": "DCL effect"
   },
@@ -50,17 +50,29 @@
     "prefix": "policy",
     "body": [
       "policy ${1:PolicyName} {",
-      "  family ${2:reliability}",
-      "  ${3:idempotency required}",
+      "  ${2:reliability} {",
+      "    ${3:idempotency required}",
+      "  }",
       "}"
     ],
     "description": "DCL policy"
+  },
+  "Confidence Policy": {
+    "prefix": "confidence-policy",
+    "body": [
+      "policy ${1:MinimumConfidence} {",
+      "  confidence {",
+      "    threshold ${2:0.8}",
+      "  }",
+      "}"
+    ],
+    "description": "DCL confidence threshold policy"
   },
   "When": {
     "prefix": "when",
     "body": [
       "when {",
-      "  ${1:Condition} then ${2:OutcomeName}",
+      "  ${1:RuleName} violated then ${2:OutcomeName}",
       "  otherwise then ${3:DefaultOutcome}",
       "}"
     ],

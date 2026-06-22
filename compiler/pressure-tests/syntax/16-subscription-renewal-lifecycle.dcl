@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Subscriber is human
 actor BillingSystem is system
@@ -7,13 +7,14 @@ effect ChargeSubscription is persistence
 effect SendRenewalNotice is notification
 
 policy RenewalReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 1 day
   }
-  idempotency required
-  timeout 1 day
 }
 
 shape RenewalInput {

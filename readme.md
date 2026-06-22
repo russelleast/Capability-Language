@@ -9,10 +9,12 @@ Rather than modelling systems as controllers, services, endpoints, queues, or in
 
 Current versions:
 
-* Language: v0.9
+* Language: v1.0
 * Compiler: v0.1.0
 
 See [version.json](version.json) for the current project versions.
+
+DCL v1.0 defines the stable core language for describing capabilities, intents, outcomes, rules, effects, events, lifecycles, actors, policies, observations, and contexts.
 
 ## Why DCL?
 
@@ -36,7 +38,7 @@ DCL brings them together into a single declarative model.
 ## Example
 
 ```dcl
-language dcl 0.9
+language dcl 1.0
 
 actor Customer is human
 
@@ -44,13 +46,14 @@ effect PersistRegistration is persistence
 effect SendVerificationMessage is notification
 
 policy RegistrationReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 30 seconds
   }
-  idempotency required
-  timeout 30 seconds
 }
 
 shape RegistrationInput {
@@ -155,13 +158,11 @@ The language aims to reduce ambiguity and make architectural intent explicit.
 
 The broader DCL ecosystem will include:
 
-* Documentation website
-* Interactive playground
-* VS Code extension with language server support
-* Model Content Protocol (MCP)
-* Diagram generation
-* AI-assisted authoring
-* Multi-runtime projections
+* MCP server as the next tooling milestone
+* Detailed use cases added over time
+* Planned event-driven architecture use case
+* Possible AI and LLM evaluation exploration after v1.0
+* Continued diagram generation, documentation generation, and runtime projection work
 
 ## Contributing
 
@@ -182,12 +183,10 @@ See LICENSE for details.
 
 ## Status
 
-DCL is currently pre-1.0 and under active development.
+DCL v1.0 defines the stable language core.
 
-Language syntax and semantics may evolve between releases as the language continues to mature.
+Tooling, integrations, examples, and ecosystem support continue to evolve around that stable core.
 
 ## Creator
 
 Declarative Capability Language (DCL) was created by Russell East.
-
-

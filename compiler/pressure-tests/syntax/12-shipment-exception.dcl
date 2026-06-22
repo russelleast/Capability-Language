@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor WarehouseOperator is human
 actor CarrierSystem is system
@@ -7,10 +7,11 @@ effect BookCarrierPickup is notification
 effect RecordShipmentException is persistence
 
 policy CarrierAvailability {
-  family availability
-  degradation allowed
-  fallback ShipmentExceptionRaised
-  dependency_tolerance allowed
+  availability {
+    degradation allowed
+    fallback ShipmentExceptionRaised
+    dependency_tolerance allowed
+  }
 }
 
 shape ShipmentInput {

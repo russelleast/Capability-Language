@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Analyst is human
 actor ModelService is system
@@ -7,10 +7,11 @@ effect StoreModelRecommendation is persistence
 effect NotifyAnalyst is notification
 
 policy ModelReviewSecurity {
-  family security
-  authentication required
-  authorization required
-  classification confidential
+  security {
+    authentication required
+    authorization required
+    classification confidential
+  }
 }
 
 shape ReviewInput {
@@ -58,7 +59,7 @@ capability SuperviseAssistedReview {
   }
 
   when {
-    always then ReviewOpened
+    always ReviewOpened
   }
 
   supervises lifecycle AssistedReview {

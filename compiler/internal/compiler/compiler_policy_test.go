@@ -9,60 +9,67 @@ import (
 func TestPolicyConcernExamplesCompileToIR(t *testing.T) {
 	src := `
 policy RegisterCustomerReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    timeout 30s
+    idempotency required
   }
-  timeout 30s
-  idempotency required
 }
 
 policy RegisterCustomerAvailability {
-  family availability
-  degradation allowed
-  fallback RegistrationDeferred
-  dependency_tolerance required
+  availability {
+    degradation allowed
+    fallback RegistrationDeferred
+    dependency_tolerance required
+  }
 }
 
 policy RegisterCustomerScalability {
-  family scalability
-  concurrency 100
-  rate_limit 1000 per minute
-  queue allowed
-  backpressure defer
+  scalability {
+    concurrency 100
+    rate_limit 1000 per minute
+    queue allowed
+    backpressure defer
+  }
 }
 
 policy RegisterCustomerPerformance {
-  family performance
-  latency p95 under 500ms
-  throughput above 100 per second
-  budget 1s
+  performance {
+    latency p95 under 500ms
+    throughput above 100 per second
+    budget 1s
+  }
 }
 
 policy CustomerSecurity {
-  family security
-  authentication required
-  authorization required
-  classification confidential
-  encryption required
+  security {
+    authentication required
+    authorization required
+    classification confidential
+    encryption required
+  }
 }
 
 policy CustomerGovernance {
-  family compliance
-  audit required
-  retention 7 years
-  approval required
-  evidence required
+  compliance {
+    audit required
+    retention 7 years
+    approval required
+    evidence required
+  }
 }
 
 policy CustomerDataProtection {
-  family data_protection
-  sensitivity personal
-  masking required
-  minimization required
-  retention 2 years
-  deletion required
+  data_protection {
+    sensitivity personal
+    masking required
+    minimization required
+    retention 2 years
+    deletion required
+  }
 }`
 	result := CompileFiles([]string{writeTempDCL(t, src)})
 	if HasErrors(result.Diagnostics) {
@@ -95,11 +102,154 @@ policy CustomerDataProtection {
 	}
 }
 
+func TestAgenticVocabularyCompilesToIR(t *testing.T) {
+	src := `
+actor SupportAgent is agent
+effect SearchKnowledgeBase is tool
+shape CustomerQuestion { question: Text required }
+
+policy MinimumAnswerConfidence {
+  confidence {
+    threshold 0.8
+  }
+}
+
+capability AnswerCustomerQuestion {
+  intent CustomerQuestion from SupportAgent
+  outcomes { AnswerPrepared InsufficientConfidence ToolUnavailable }
+  effect SearchKnowledgeBase
+  policies {
+    MinimumAnswerConfidence applies to outcome AnswerPrepared
+  }
+  when {
+    SearchKnowledgeBase failed then ToolUnavailable
+    policy MinimumAnswerConfidence fails then InsufficientConfidence
+    otherwise then AnswerPrepared
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	if result.IR.Actors[0].Classification != "agent" {
+		t.Fatalf("expected actor kind agent, got %#v", result.IR.Actors[0])
+	}
+	if result.IR.Effects[0].Type != "tool" {
+		t.Fatalf("expected effect kind tool, got %#v", result.IR.Effects[0])
+	}
+	policy := result.IR.Policies[0]
+	if policy.Kind != "confidence" || policy.Threshold == nil || *policy.Threshold != 0.8 {
+		t.Fatalf("expected confidence policy threshold in IR, got %#v", policy)
+	}
+}
+
+func TestConfidenceThresholdValidation(t *testing.T) {
+	for name, threshold := range map[string]string{
+		"zero":       "0",
+		"one":        "1",
+		"fractional": "0.8",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `
+policy MinimumAnswerConfidence {
+  confidence {
+    threshold ` + threshold + `
+  }
+}`
+			result := CompileFiles([]string{writeTempDCL(t, src)})
+			if HasErrors(result.Diagnostics) {
+				t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+			}
+		})
+	}
+
+	for name, tc := range map[string]struct {
+		body string
+		code string
+	}{
+		"missing":     {"", "DCL_SEM_CONFIDENCE_THRESHOLD_REQUIRED"},
+		"non-numeric": {"threshold high", "DCL_SEM_CONFIDENCE_THRESHOLD_NOT_NUMERIC"},
+		"below":       {"threshold -0.1", "DCL_SEM_CONFIDENCE_THRESHOLD_BELOW_MIN"},
+		"above":       {"threshold 1.1", "DCL_SEM_CONFIDENCE_THRESHOLD_ABOVE_MAX"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `
+policy MinimumAnswerConfidence {
+  confidence {
+    ` + tc.body + `
+  }
+}`
+			result := CompileFiles([]string{writeTempDCL(t, src)})
+			assertDiagnostic(t, result.Diagnostics, tc.code)
+		})
+	}
+}
+
+func TestPolicyMultipleFamiliesCompileToIR(t *testing.T) {
+	src := `
+policy SupportExecution {
+  reliability {
+    retry { attempts 2 }
+    idempotency required
+  }
+
+  governance {
+    audit required
+    evidence required
+  }
+
+  confidence {
+    threshold 0.8
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	policy := result.IR.Policies[0]
+	wantFamilies := []string{"reliability", "governance", "confidence"}
+	if len(policy.Families) != len(wantFamilies) {
+		t.Fatalf("expected families %#v, got %#v", wantFamilies, policy.Families)
+	}
+	for i, want := range wantFamilies {
+		if policy.Families[i] != want {
+			t.Fatalf("expected families %#v, got %#v", wantFamilies, policy.Families)
+		}
+	}
+	concernFamilies := map[string]string{}
+	for _, concern := range policy.Concerns {
+		concernFamilies[concern.Name] = concern.Family
+	}
+	for concern, family := range map[string]string{
+		"retry":       "reliability",
+		"idempotency": "reliability",
+		"audit":       "governance",
+		"evidence":    "governance",
+		"confidence":  "confidence",
+	} {
+		if concernFamilies[concern] != family {
+			t.Fatalf("expected %s in family %s, got %#v", concern, family, policy.Concerns)
+		}
+	}
+}
+
+func TestUnsupportedGroupedPolicyFamilyIsRejected(t *testing.T) {
+	src := `
+policy UnsupportedFamily {
+  observability {
+    audit required
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_FAMILY_UNKNOWN")
+}
+
 func TestInlineBlockConcernParses(t *testing.T) {
 	src := `
 policy InlineRetry {
-  family reliability
-  retry { attempts 3 backoff exponential }
+  reliability {
+    retry { attempts 3 backoff exponential }
+  }
 }`
 	result := CompileFiles([]string{writeTempDCL(t, src)})
 	if HasErrors(result.Diagnostics) {
@@ -114,32 +264,37 @@ policy InlineRetry {
 func TestPolicyConcernSemanticFailures(t *testing.T) {
 	src := `
 policy UnknownConcern {
-  family reliability
-  hedging allowed
+  reliability {
+    hedging allowed
+  }
 }
 
 policy WrongFamily {
-  family security
-  timeout 30s
+  security {
+    timeout 30s
+  }
 }
 
 policy InvalidValues {
-  family scalability
-  concurrency 0
-  rate_limit 0 per minute
+  scalability {
+    concurrency 0
+    rate_limit 0 per minute
+  }
 }
 
 policy Conflicting {
-  family availability
-  queue allowed
-  queue forbidden
+  availability {
+    queue allowed
+    queue forbidden
+  }
 }
 
 policy UnsupportedParam {
-  family reliability
-  retry {
-    attempts 3
-    window 1m
+  reliability {
+    retry {
+      attempts 3
+      window 1m
+    }
   }
 }`
 	result := CompileFiles([]string{writeTempDCL(t, src)})
@@ -153,8 +308,9 @@ policy UnsupportedParam {
 func TestBackoffRequiresRetry(t *testing.T) {
 	src := `
 policy BadRetry {
-  family reliability
-  backoff exponential
+  reliability {
+    backoff exponential
+  }
 }`
 	result := CompileFiles([]string{writeTempDCL(t, src)})
 	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_POLICY_CONCERN_PARAM_REQUIRED")
@@ -164,14 +320,15 @@ policy BadRetry {
 func TestCircuitBreakerProtectsOnlyEffects(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input { email: Email required }
 
 policy PaymentDependencyProtection {
-  family reliability
-  circuit_breaker {
-    opens after 5 failures
-    resets after 30s
+  reliability {
+    circuit_breaker {
+      opens after 5 failures
+      resets after 30s
+    }
   }
 }
 
@@ -203,29 +360,32 @@ capability RegisterCustomer {
 func TestCircuitBreakerAttachmentAndParameterFailures(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input {}
 
 policy BadCircuitTarget {
-  family reliability
-  circuit_breaker {
-    opens after 5 failures
-    resets after 30s
+  reliability {
+    circuit_breaker {
+      opens after 5 failures
+      resets after 30s
+    }
   }
 }
 
 policy BadCircuitParams {
-  family reliability
-  circuit_breaker {
-    opens after 0 failures
+  reliability {
+    circuit_breaker {
+      opens after 0 failures
+    }
   }
 }
 
 policy WrongCircuitFamily {
-  family availability
-  circuit_breaker {
-    opens after 5 failures
-    resets after 30s
+  availability {
+    circuit_breaker {
+      opens after 5 failures
+      resets after 30s
+    }
   }
 }
 
@@ -254,9 +414,10 @@ actor Customer is human
 shape Input {}
 
 policy Availability {
-  family availability
-  degradation allowed
-  fallback MissingOutcome
+  availability {
+    degradation allowed
+    fallback MissingOutcome
+  }
 }
 
 capability RegisterCustomer {
@@ -276,19 +437,21 @@ capability RegisterCustomer {
 func TestEffectivePolicyEnvelopeNarrowsAndDerivesObligations(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input { email: Email required }
 
 policy CapabilityReliability {
-  family reliability
-  timeout 30s
-  idempotency allowed
+  reliability {
+    timeout 30s
+    idempotency allowed
+  }
 }
 
 policy PaymentReliability {
-  family reliability
-  timeout 5s
-  retry { attempts 3 }
+  reliability {
+    timeout 5s
+    retry { attempts 3 }
+  }
 }
 
 capability RegisterCustomer {
@@ -333,17 +496,19 @@ capability RegisterCustomer {
 func TestPolicyNarrowingViolation(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input {}
 
 policy CapabilityReliability {
-  family reliability
-  timeout 30s
+  reliability {
+    timeout 30s
+  }
 }
 
 policy SlowPaymentReliability {
-  family reliability
-  timeout 60s
+  reliability {
+    timeout 60s
+  }
 }
 
 capability RegisterCustomer {
@@ -370,13 +535,15 @@ effect SendVerification is notify
 shape Input {}
 
 policy RequiredIdempotency {
-  family reliability
-  idempotency required
+  reliability {
+    idempotency required
+  }
 }
 
 policy WeakenedIdempotency {
-  family reliability
-  idempotency allowed
+  reliability {
+    idempotency allowed
+  }
 }
 
 capability RegisterCustomer {
@@ -403,8 +570,9 @@ effect SendVerification is notify
 shape Input {}
 
 policy RetryEmail {
-  family reliability
-  retry { attempts 3 }
+  reliability {
+    retry { attempts 3 }
+  }
 }
 
 capability RegisterCustomer {
@@ -429,8 +597,9 @@ actor Customer is human
 shape Input {}
 
 policy CustomerSecurity {
-  family security
-  authorization required
+  security {
+    authorization required
+  }
 }
 
 capability RegisterCustomer {

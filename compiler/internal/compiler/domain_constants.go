@@ -31,4 +31,5 @@ const (
 	policyStateOpen         = "open"
 	policyStateDegraded     = "degraded"
 	policyStateFallbackUsed = "fallback_used"
+	policyStateFails        = "fails"
 )

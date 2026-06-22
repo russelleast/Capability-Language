@@ -10,7 +10,8 @@ func TestPolicyAttachmentsAndObservationIR(t *testing.T) {
 actor Customer is human
 effect SendVerification is notify
 policy QualityEnvelope {
-  family reliability
+  reliability {
+  }
 }
 shape Input { email: Email required }
 event CustomerRegistered is Input
@@ -136,7 +137,8 @@ func TestWhenDecisionInferenceFailures(t *testing.T) {
 actor Customer is human
 effect SendVerification is notify
 policy SafeRetry {
-  family reliability
+  reliability {
+  }
 }
 shape Input { email: Email required }
 capability RegisterCustomer {
@@ -164,7 +166,9 @@ effect SendVerification is notify
 policy MissingFamily {
 }
 policy UnknownFamily {
-  family resilience
+  resilience {
+    audit required
+  }
 }
 shape Input { email: Email required }
 event CustomerRegistered is Input

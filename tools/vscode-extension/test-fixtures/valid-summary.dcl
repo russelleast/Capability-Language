@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Operator is human
 
@@ -13,8 +13,9 @@ event BatchArchived is {
 effect PersistBatch is persistence
 
 policy BatchReliability {
-  family reliability
-  idempotency required
+  reliability {
+    idempotency required
+  }
 }
 
 capability ArchiveBatch {

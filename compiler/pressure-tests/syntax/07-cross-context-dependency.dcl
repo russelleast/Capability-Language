@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 context Shared {
   actor Customer is human
@@ -19,9 +19,10 @@ context Sales {
   effect PersistSalesOrder is persistence
 
   policy SalesAuditPolicy {
-    family governance
-    audit required
-    retention 7 years
+    governance {
+      audit required
+      retention 7 years
+    }
   }
 
   capability AcceptSalesOrder {

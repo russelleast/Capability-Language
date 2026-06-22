@@ -232,6 +232,8 @@ func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 	for _, actor := range c.program.Actors {
 		if actor.Kind == "" {
 			c.diags.Error("DCL_SEM_ACTOR_KIND_REQUIRED", "actor must declare kind", actor.Span, actor.Name)
+		} else if !validActorKind(actor.Kind) {
+			c.diags.Error("DCL_SEM_ACTOR_KIND_UNKNOWN", "unknown actor kind "+actor.Kind, actor.Span, actor.Kind)
 		}
 		out.Actors = append(out.Actors, ir.ActorIR{ID: id("actor", symbolIdentity(actor.Meta.ContextName, actor.Name)), Name: actor.Name, Classification: actor.Kind})
 		out.Symbols = append(out.Symbols, c.symbolIR("actor", actor.Name, actor.Meta.ContextName, actor.Span))
@@ -240,7 +242,11 @@ func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 		if effect.Kind == "" {
 			c.diags.Error("DCL_SEM_EFFECT_KIND_REQUIRED", "effect must declare kind", effect.Span, effect.Name)
 		}
-		out.Effects = append(out.Effects, ir.EffectIR{ID: id("effect", symbolIdentity(effect.Meta.ContextName, effect.Name)), Name: effect.Name, Type: c.normalizedEffectKind(effect)})
+		effectKind := c.normalizedEffectKind(effect)
+		if effectKind != "" && !validEffectKind(effectKind) {
+			c.diags.Error("DCL_SEM_EFFECT_KIND_UNKNOWN", "unknown effect kind "+effectKind, effect.Span, effectKind)
+		}
+		out.Effects = append(out.Effects, ir.EffectIR{ID: id("effect", symbolIdentity(effect.Meta.ContextName, effect.Name)), Name: effect.Name, Type: effectKind})
 		out.Symbols = append(out.Symbols, c.symbolIR("effect", effect.Name, effect.Meta.ContextName, effect.Span))
 	}
 	for _, event := range c.program.Events {
@@ -249,10 +255,20 @@ func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 		out.Symbols = append(out.Symbols, c.symbolIR("event", event.Name, event.Meta.ContextName, event.Span))
 	}
 	for _, policy := range c.program.Policies {
-		if policy.Family == "" {
+		if policy.Kind != "" && !validPolicyKind(policy.Kind) {
+			c.diags.Error("DCL_SEM_POLICY_KIND_UNKNOWN", "unknown policy kind "+policy.Kind, policy.Span, policy.Name)
+		}
+		if isConfidencePolicy(policy) {
+			c.validateConfidencePolicyThreshold(policy)
+		}
+		families := policyFamiliesForValidation(policy)
+		if len(families) == 0 {
 			c.diags.Error("DCL_SEM_POLICY_FAMILY_REQUIRED", "policy must declare a family", policy.Span, policy.Name)
-		} else if !validPolicyFamily(policy.Family) {
-			c.diags.Error("DCL_SEM_POLICY_FAMILY_UNKNOWN", "unknown policy family "+policy.Family, policy.Span, policy.Name)
+		}
+		for _, family := range families {
+			if !validPolicyFamily(family) {
+				c.diags.Error("DCL_SEM_POLICY_FAMILY_UNKNOWN", "unknown policy family "+family, policy.Span, policy.Name)
+			}
 		}
 		c.validatePolicyConcerns(policy)
 		out.Policies = append(out.Policies, c.policyIR(policy))
@@ -413,7 +429,7 @@ func (c *compiler) validateWhen(cap ast.CapabilityDecl, outcomes map[string]ast.
 					if _, ok := effects[branch.SourceName]; !ok {
 						c.diags.Error("DCL_SEM_UNKNOWN_EFFECT_USE", "when branch references effect not used by capability", branch.Span, branch.SourceName)
 					}
-				case "denied", "denies":
+				case "denied", "denies", "fails":
 					sourceKind = "policy"
 					if _, ok := policies[branch.SourceName]; !ok {
 						_, ok = c.resolve("policy", branch.SourceName, context, branch.Span, false)
@@ -1182,16 +1198,18 @@ func (c *compiler) validatePayload(payload ast.Payload, context string) {
 
 func (c *compiler) validatePolicyConcerns(policy ast.PolicyDecl) {
 	seen := map[string]diagnostic.Span{}
-	for _, concern := range policy.Concerns {
-		if old, exists := seen[concern.Name]; exists {
+	for _, concern := range policyConcerns(policy) {
+		family := policyConcernFamily(policy, concern)
+		seenKey := family + ":" + concern.Name
+		if old, exists := seen[seenKey]; exists {
 			c.diags.Error("DCL_SEM_POLICY_CONCERN_CONFLICT", fmt.Sprintf("conflicting concern %s; first declared at %s:%d:%d", concern.Name, old.File, old.Line, old.Column), concern.Span, concern.Name)
 		}
-		seen[concern.Name] = concern.Span
+		seen[seenKey] = concern.Span
 		if !knownConcern(concern.Name) {
 			c.diags.Error("DCL_SEM_POLICY_CONCERN_UNKNOWN", "unknown policy concern", concern.Span, concern.Name)
 			continue
 		}
-		if policy.Family != "" && validPolicyFamily(policy.Family) && !concernAllowedInFamily(concern.Name, policy.Family) {
+		if family != "" && validPolicyFamily(family) && !concernAllowedInFamily(concern.Name, family) {
 			c.diags.Error("DCL_SEM_POLICY_CONCERN_WRONG_FAMILY", "concern used under wrong policy family", concern.Span, concern.Name)
 			continue
 		}
@@ -1271,6 +1289,11 @@ func (c *compiler) validateConcernShape(policy ast.PolicyDecl, concern ast.Conce
 		if len(values) == 0 {
 			c.diags.Error("DCL_SEM_POLICY_CONCERN_MALFORMED", "compensation requires a value", concern.Span, concern.Name)
 		}
+	case "confidence":
+		threshold, ok := parameter(concern, "threshold")
+		if !ok || len(threshold.Values) != 1 || threshold.Values[0] == "" {
+			c.diags.Error("DCL_SEM_CONFIDENCE_THRESHOLD_REQUIRED", "confidence policy must declare threshold", concern.Span, concern.Name)
+		}
 	}
 }
 
@@ -1283,6 +1306,8 @@ func (c *compiler) validateConcernParameters(concern ast.ConcernDecl) {
 	case "circuit_breaker":
 		allowed["opens"] = true
 		allowed["resets"] = true
+	case "confidence":
+		allowed["threshold"] = true
 	default:
 		allowed["value"] = true
 	}
@@ -1375,15 +1400,52 @@ func (c *compiler) recordPolicyAttachment(cap ast.CapabilityDecl, use ast.Policy
 }
 
 func (c *compiler) policyIR(policy ast.PolicyDecl) ir.PolicyIR {
-	out := ir.PolicyIR{ID: id("policy", symbolIdentity(policy.Meta.ContextName, policy.Name)), Name: policy.Name, Family: policy.Family, Concern: policy.Concern}
-	for _, concern := range policy.Concerns {
-		out.Concerns = append(out.Concerns, concernIR(policy.Family, concern))
+	out := ir.PolicyIR{ID: id("policy", symbolIdentity(policy.Meta.ContextName, policy.Name)), Name: policy.Name, Family: policy.Family, Families: policyFamiliesForValidation(policy), Kind: policy.Kind, Concern: policy.Concern}
+	if isConfidencePolicy(policy) {
+		out.Kind = "confidence"
+		if threshold, ok := confidenceThresholdValue(policy); ok {
+			out.Threshold = &threshold
+		}
+	}
+	for _, concern := range policyConcerns(policy) {
+		out.Concerns = append(out.Concerns, concernIR(policyConcernFamily(policy, concern), concern))
 		if objective := objectiveIR(concern); objective.Concern != "" {
 			out.Objectives = append(out.Objectives, objective)
 		}
 		out.DerivedObligations = append(out.DerivedObligations, obligationIR(concern, "", ""))
 	}
 	return out
+}
+
+func (c *compiler) validateConfidencePolicyThreshold(policy ast.PolicyDecl) {
+	if policy.Threshold == "" {
+		c.diags.Error("DCL_SEM_CONFIDENCE_THRESHOLD_REQUIRED", "confidence policy must declare threshold", policy.Span, policy.Name)
+		return
+	}
+	threshold, err := strconv.ParseFloat(policy.Threshold, 64)
+	if err != nil {
+		span := policy.ThresholdSpan
+		if span.Line == 0 {
+			span = policy.Span
+		}
+		c.diags.Error("DCL_SEM_CONFIDENCE_THRESHOLD_NOT_NUMERIC", "confidence threshold must be numeric", span, policy.Threshold)
+		return
+	}
+	if threshold < 0 {
+		c.diags.Error("DCL_SEM_CONFIDENCE_THRESHOLD_BELOW_MIN", "confidence threshold must be >= 0", policy.ThresholdSpan, policy.Threshold)
+		return
+	}
+	if threshold > 1 {
+		c.diags.Error("DCL_SEM_CONFIDENCE_THRESHOLD_ABOVE_MAX", "confidence threshold must be <= 1", policy.ThresholdSpan, policy.Threshold)
+	}
+}
+
+func confidenceThresholdValue(policy ast.PolicyDecl) (float64, bool) {
+	threshold, err := strconv.ParseFloat(policy.Threshold, 64)
+	if err != nil || threshold < 0 || threshold > 1 {
+		return 0, false
+	}
+	return threshold, true
 }
 
 func (c *compiler) resolvePolicyUse(cap ast.CapabilityDecl, use ast.PolicyUse) (ast.PolicyDecl, bool) {

@@ -1,20 +1,31 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Operator is human
 
 effect PublishInvoice is notification
 effect PersistInvoice is persistence
 
-policy InvoicePerformance {
-  family performance
-  throughput above 100 per minute
+policy InvoiceExecution {
+  performance {
+    throughput above 100 per minute
+  }
+
+  governance {
+    audit required
+    evidence required
+  }
+
+  confidence {
+    threshold 0.9
+  }
 }
 
 policy InvoiceSecurity {
-  family security
-  authentication required
-  authorization required
-  encryption required
+  security {
+    authentication required
+    authorization required
+    encryption required
+  }
 }
 
 shape InvoiceInput {
@@ -40,8 +51,7 @@ capability PublishCustomerInvoice {
   }
 
   policies {
-    InvoicePerformance governs capability
-    InvoicePerformance governs effect PublishInvoice
+    InvoiceExecution governs capability
     InvoiceSecurity governs event InvoicePublished
   }
 

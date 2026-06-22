@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Claimant is human
 actor Adjuster is human
@@ -7,10 +7,11 @@ effect StoreClaim is persistence
 effect RecordPayout is persistence
 
 policy ClaimCompliance {
-  family compliance
-  audit required
-  approval required
-  evidence required
+  compliance {
+    audit required
+    approval required
+    evidence required
+  }
 }
 
 shape ClaimInput {
@@ -71,7 +72,7 @@ capability AssessClaim {
   }
 
   when {
-    always then ClaimAssessmentOpened
+    always ClaimAssessmentOpened
   }
 
   supervises lifecycle ClaimAssessment {

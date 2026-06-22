@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 context Ecommerce.Coordination {
   depends on Ecommerce.Storefront
@@ -21,7 +21,7 @@ context Ecommerce.Coordination {
     }
 
     when {
-      always then OrderLifecycleOpened
+      always OrderLifecycleOpened
     }
 
     supervises lifecycle OrderFulfilment {

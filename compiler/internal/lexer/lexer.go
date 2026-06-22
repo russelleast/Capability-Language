@@ -78,8 +78,12 @@ func Lex(file, src string) ([]Token, []diagnostic.Diagnostic) {
 			emit(Arrow, "=>", startLine, startCol)
 			i += 2
 			col += 2
-		case isIdentStart(r) || unicode.IsDigit(r):
+		case isIdentStart(r) || unicode.IsDigit(r) || (r == '-' && i+1 < len(src) && src[i+1] >= '0' && src[i+1] <= '9'):
 			start := i
+			if r == '-' {
+				i += size
+				col++
+			}
 			for i < len(src) {
 				r, size = utf8.DecodeRuneInString(src[i:])
 				if !isIdentPart(r) {

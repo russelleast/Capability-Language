@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 context Ecommerce.Delivery {
   effect RecordDeliveryProof is persistence

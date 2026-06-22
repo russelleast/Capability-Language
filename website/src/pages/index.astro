@@ -28,9 +28,9 @@ const path = (href) => `${base}${href}`;
         business intent, system design, and software delivery.
       </p>
       <p class="lead secondary-lead">
-        It is an experimental declarative language for preserving capability
-        meaning as explicit, inspectable, and compiler-verifiable system
-        semantics.
+        DCL v1.0 defines the stable core language for describing capabilities,
+        intents, outcomes, rules, effects, events, lifecycles, actors, policies,
+        observations, and contexts.
       </p>
       <p class="version-line">{languageLabel} · Status: {languageStatus}</p>
       <div class="actions">
@@ -101,7 +101,7 @@ const path = (href) => `${base}${href}`;
       <div class="concept"><strong>Capability as architecture</strong><p>A capability becomes a first-class language construct, not a paragraph in a document or a hidden assumption inside a service.</p></div>
       <div class="concept"><strong>Outcomes over responses</strong><p>DCL models meaningful results, including rejection, failure, deferral, and partial completion.</p></div>
       <div class="concept"><strong>Effects made explicit</strong><p>Persistence, publication, notification, invocation, and other side effects become part of the declared model.</p></div>
-      <div class="concept"><strong>Policies as architecture</strong><p>Reliability, security, observability, and governance are attached to language elements instead of being buried in middleware or infrastructure.</p></div>
+      <div class="concept"><strong>Policies as architecture</strong><p>Reliability, security, confidence, and governance are attached to language elements instead of being buried in middleware or infrastructure.</p></div>
       <div class="concept"><strong>Lifecycle as meaning</strong><p>Long-running behaviour is described as business progression, not just workflow plumbing.</p></div>
       <div class="concept"><strong>Compiler-visible intent</strong><p>The compiler can validate references, ambiguity, lifecycle structure, policy attachment, and semantic completeness.</p></div>
     </div>
@@ -138,11 +138,12 @@ const path = (href) => `${base}${href}`;
     <div class="notice">
       <strong>Current focus</strong>
       <p>
-        {languageLabel} is experimental. The current website includes learning
-        pages, guides, validated examples, and a browser playground with compiler
-        feedback and model visualisations. The VS Code extension now provides
-        editor support and language-server-backed navigation; MCP tooling and
-        production runtime projections remain future work.
+        {languageLabel} defines the stable language core. The current website
+        includes learning pages, guides, validated examples, and a browser
+        playground with compiler feedback and model visualisations. The VS Code
+        extension provides editor support and language-server-backed navigation;
+        the MCP server is the next tooling milestone, and the broader ecosystem
+        will continue to evolve around the stable core.
       </p>
     </div>
   </section>
@@ -197,7 +198,7 @@ const path = (href) => `${base}${href}`;
     </div>
   </section>
 
-  <section class="section two-column">
+  <section class="section example-section">
     <div>
       <h2>A small DCL example</h2>
       <p>

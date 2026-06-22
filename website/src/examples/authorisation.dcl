@@ -1,11 +1,12 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Employee is human
 actor Manager is human
 
 policy LeaveAuthorisation {
-  family security
-  authorization required
+  security {
+    authorization required
+  }
 }
 
 shape LeaveApprovalInput {

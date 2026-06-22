@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Customer is human
 actor SupportAgent is human
@@ -8,13 +8,14 @@ effect CapturePaymentRecord is persistence
 effect RefundPaymentRecord is persistence
 
 policy PaymentRecoveryPolicy {
-  family reliability
-  retry {
-    attempts 2
-    backoff linear
+  reliability {
+    retry {
+      attempts 2
+      backoff linear
+    }
+    idempotency required
+    compensation RefundPayment
   }
-  idempotency required
-  compensation RefundPayment
 }
 
 shape PaymentInput {
@@ -57,7 +58,7 @@ capability SettlePayment {
   }
 
   when {
-    always then SettlementOpened
+    always SettlementOpened
   }
 
   supervises lifecycle PaymentSettlement {

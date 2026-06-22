@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Customer is human
 
@@ -7,6 +7,6 @@ capability BrokenCapability {
   outcome Started
 
   when {
-    always then Started
+    always Started
   }
 }

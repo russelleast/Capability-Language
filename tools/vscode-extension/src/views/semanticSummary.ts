@@ -107,6 +107,10 @@ type ContextOutput = {
 
 type NamedOutput = {
   name?: string;
+  classification?: string;
+  type?: string;
+  kind?: string;
+  threshold?: number;
 };
 
 type IntentOutput = {
@@ -375,9 +379,27 @@ function topLevelItems(items: NamedOutput[] | undefined, kind: string, symbolLoc
     items.map((item) => {
       if (!isObject(item)) return undefined;
       if (!item.name) return undefined;
-      return { label: item.name, location: symbolLocation(symbolLocations, kind, item.name, undefined) };
+      return { label: formatTopLevelItem(item, kind), location: symbolLocation(symbolLocations, kind, item.name, undefined) };
     }),
   );
+}
+
+function formatTopLevelItem(item: NamedOutput, kind: string): string {
+  const detail = kind === "actor"
+    ? item.classification
+    : kind === "effect"
+      ? item.type
+      : kind === "policy"
+        ? formatPolicyDetail(item)
+        : undefined;
+  return detail ? `${item.name} (${detail})` : item.name ?? "";
+}
+
+function formatPolicyDetail(item: NamedOutput): string | undefined {
+  if (item.kind === "confidence" && typeof item.threshold === "number") {
+    return `confidence threshold ${item.threshold}`;
+  }
+  return item.kind;
 }
 
 function formatLifecycleItem(capability: CapabilityOutput): SemanticItem | undefined {

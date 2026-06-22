@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Applicant is human
 actor Underwriter is human
@@ -7,16 +7,18 @@ effect StoreApplication is persistence
 effect NotifyUnderwriter is notification
 
 policy LoanPerformance {
-  family performance
-  latency p95 under 2s
-  budget 10 seconds
+  performance {
+    latency p95 under 2s
+    budget 10 seconds
+  }
 }
 
 policy LoanGovernance {
-  family governance
-  audit required
-  approval required
-  retention 7 years
+  governance {
+    audit required
+    approval required
+    retention 7 years
+  }
 }
 
 shape LoanApplicationInput {

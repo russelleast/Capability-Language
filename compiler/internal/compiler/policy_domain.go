@@ -13,7 +13,7 @@ type concernSpec struct {
 }
 
 var policyFamilies = stringSet(
-	"reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection",
+	"reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection", "confidence",
 )
 
 var observationTypes = stringSet(
@@ -54,6 +54,7 @@ var concernSpecs = map[string]concernSpec{
 	"masking":              {allowedFamilies: stringSet("data_protection"), composition: modeNarrow},
 	"minimization":         {allowedFamilies: stringSet("data_protection"), composition: modeNarrow},
 	"deletion":             {allowedFamilies: stringSet("data_protection"), composition: modeNarrow},
+	"confidence":           {allowedFamilies: stringSet("confidence"), composition: modeNarrow},
 }
 
 func isBuiltinType(name string) bool {
@@ -64,8 +65,52 @@ func isBuiltinType(name string) bool {
 	return false
 }
 
+func validActorKind(kind string) bool {
+	switch kind {
+	case "human", "system", "agent", "scheduled_process":
+		return true
+	default:
+		return false
+	}
+}
+
+func validEffectKind(kind string) bool {
+	switch kind {
+	case "persistence", "notification", "invocation", "tool":
+		return true
+	default:
+		return false
+	}
+}
+
 func validPolicyFamily(family string) bool {
 	return policyFamilies[family]
+}
+
+func validPolicyKind(kind string) bool {
+	return kind == "confidence"
+}
+
+func isConfidencePolicy(policy ast.PolicyDecl) bool {
+	if policy.Kind == "confidence" || policy.Family == "confidence" {
+		return true
+	}
+	for _, family := range policy.Families {
+		if family == "confidence" {
+			return true
+		}
+	}
+	return false
+}
+
+func policyConcernFamily(policy ast.PolicyDecl, concern ast.ConcernDecl) string {
+	if concern.Family != "" {
+		return concern.Family
+	}
+	if concern.Name == "confidence" || isConfidencePolicy(policy) {
+		return "confidence"
+	}
+	return policy.Family
 }
 
 func validObservationType(observationType string) bool {
@@ -94,12 +139,53 @@ func concernCompositionMode(concern string) compositionMode {
 }
 
 func findConcern(policy ast.PolicyDecl, name string) (ast.ConcernDecl, bool) {
-	for _, concern := range policy.Concerns {
+	for _, concern := range policyConcerns(policy) {
 		if concern.Name == name {
 			return concern, true
 		}
 	}
 	return ast.ConcernDecl{}, false
+}
+
+func policyConcerns(policy ast.PolicyDecl) []ast.ConcernDecl {
+	out := append([]ast.ConcernDecl(nil), policy.Concerns...)
+	if isConfidencePolicy(policy) && !hasConcern(out, "confidence") {
+		if threshold, ok := confidenceThresholdValue(policy); ok {
+			out = append(out, ast.ConcernDecl{
+				Name:   "confidence",
+				Family: "confidence",
+				Parameters: []ast.ConcernParameter{{
+					Name:   "threshold",
+					Values: []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
+					Span:   policy.ThresholdSpan,
+				}},
+				Span: policy.Span,
+			})
+		}
+	}
+	return out
+}
+
+func hasConcern(concerns []ast.ConcernDecl, name string) bool {
+	for _, concern := range concerns {
+		if concern.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func policyFamiliesForValidation(policy ast.PolicyDecl) []string {
+	if len(policy.Families) > 0 {
+		return append([]string(nil), policy.Families...)
+	}
+	if policy.Family != "" {
+		return []string{policy.Family}
+	}
+	if policy.Kind == "confidence" {
+		return []string{"confidence"}
+	}
+	return nil
 }
 
 func parameter(concern ast.ConcernDecl, name string) (ast.ConcernParameter, bool) {

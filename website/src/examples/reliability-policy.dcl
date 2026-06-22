@@ -1,15 +1,16 @@
-language dcl 0.9
+language dcl 1.0
 
 actor Customer is human
 
 effect SubmitOrder is invocation
 
 policy OrderSubmissionReliability {
-  family reliability
-  retry {
-    attempts 3
+  reliability {
+    retry {
+      attempts 3
+    }
+    idempotency required
   }
-  idempotency required
 }
 
 shape OrderSubmissionInput {

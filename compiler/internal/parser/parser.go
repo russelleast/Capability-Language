@@ -24,7 +24,7 @@ func Parse(tokens []lexer.Token) (*ast.Program, []diagnostic.Diagnostic) {
 		p.parseTopLevel(prog)
 	}
 	if len(prog.Languages) == 0 {
-		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 0.9", fileStartSpan(tokens), "")
+		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 1.0", fileStartSpan(tokens), "")
 	}
 	return prog, p.diags.Items()
 }
@@ -161,8 +161,23 @@ func (p *Parser) parseActor() ast.ActorDecl {
 func (p *Parser) parseEffect() ast.EffectDecl {
 	start := p.expectText("effect")
 	name := p.expectIdent("effect name")
-	p.expectText("is")
-	kind := p.expectIdent("effect kind").Text
+	kind := ""
+	if p.matchText("is") {
+		kind = p.expectIdent("effect kind").Text
+	} else if p.match(lexer.LBrace) {
+		p.parseBlockItems(func() {
+			switch p.peek().Text {
+			case "kind":
+				p.advance()
+				kind = p.expectIdent("effect kind").Text
+			default:
+				tok := p.advance()
+				p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected effect statement", tok.Span, tok.Text)
+			}
+		})
+	} else {
+		p.expectText("is")
+	}
 	return ast.EffectDecl{Name: name.Text, Kind: kind, Span: start.Span}
 }
 
@@ -177,15 +192,99 @@ func (p *Parser) parsePolicy() ast.PolicyDecl {
 		return policy
 	}
 	p.parseBlockItems(func() {
+		if p.peek().Kind == lexer.Ident && p.nextIs(lexer.LBrace) && (isPolicyFamilyName(p.peek().Text) || p.currentPolicyFamily(policy) == "") {
+			family := p.advance()
+			policy = p.addPolicyFamily(policy, family.Text)
+			p.expect(lexer.LBrace, "{")
+			p.parseBlockItems(func() {
+				if family.Text == "confidence" && p.peek().Text == "threshold" {
+					concern := p.parseConfidenceThresholdConcern()
+					p.recordConfidenceThreshold(&policy, concern)
+					policy.Concerns = append(policy.Concerns, concern)
+					return
+				}
+				concern := p.parseConcern()
+				concern.Family = family.Text
+				if concern.Name == "confidence" {
+					p.recordConfidenceThreshold(&policy, concern)
+				}
+				policy.Concerns = append(policy.Concerns, concern)
+			})
+			return
+		}
 		switch p.peek().Text {
+		case "kind":
+			p.advance()
+			policy.Kind = p.expectIdent("policy kind").Text
 		case "family":
 			p.advance()
-			policy.Family = p.expectIdent("policy family").Text
+			family := p.expectIdent("policy family").Text
+			policy = p.addPolicyFamily(policy, family)
+		case "threshold":
+			start := p.advance()
+			policy.ThresholdSpan = start.Span
+			values := p.collectConcernValues()
+			if len(values) > 0 {
+				policy.Threshold = values[0]
+			}
+			policy.Concerns = append(policy.Concerns, ast.ConcernDecl{
+				Name:   "confidence",
+				Family: p.currentPolicyFamily(policy),
+				Parameters: []ast.ConcernParameter{{
+					Name:   "threshold",
+					Values: values,
+					Span:   start.Span,
+				}},
+				Span: start.Span,
+			})
 		default:
-			policy.Concerns = append(policy.Concerns, p.parseConcern())
+			concern := p.parseConcern()
+			concern.Family = p.currentPolicyFamily(policy)
+			policy.Concerns = append(policy.Concerns, concern)
 		}
 	})
 	return policy
+}
+
+func (p *Parser) parseConfidenceThresholdConcern() ast.ConcernDecl {
+	start := p.expectText("threshold")
+	values := p.collectConcernValues()
+	return ast.ConcernDecl{
+		Name:   "confidence",
+		Family: "confidence",
+		Parameters: []ast.ConcernParameter{{
+			Name:   "threshold",
+			Values: values,
+			Span:   start.Span,
+		}},
+		Span: start.Span,
+	}
+}
+
+func (p *Parser) addPolicyFamily(policy ast.PolicyDecl, family string) ast.PolicyDecl {
+	if policy.Family == "" {
+		policy.Family = family
+	}
+	policy.Families = append(policy.Families, family)
+	return policy
+}
+
+func (p *Parser) currentPolicyFamily(policy ast.PolicyDecl) string {
+	if len(policy.Families) == 0 {
+		return policy.Family
+	}
+	return policy.Families[len(policy.Families)-1]
+}
+
+func (p *Parser) recordConfidenceThreshold(policy *ast.PolicyDecl, concern ast.ConcernDecl) {
+	threshold, ok := parameterValues(concern, "threshold")
+	if !ok {
+		return
+	}
+	policy.ThresholdSpan = concern.Span
+	if len(threshold) > 0 {
+		policy.Threshold = threshold[0]
+	}
 }
 
 func (p *Parser) parseConcern() ast.ConcernDecl {
@@ -478,7 +577,13 @@ func (p *Parser) parsePoliciesBlock() []ast.PolicyUse {
 	p.parseBlockItems(func() {
 		name := p.expectIdent("policy")
 		use := ast.PolicyUse{Name: name.Text, Span: name.Span}
-		p.expectText("governs")
+		if p.matchText("governs") {
+			// Current canonical spelling.
+		} else if p.matchText("applies") {
+			p.expectText("to")
+		} else {
+			p.expectText("governs")
+		}
 		target := p.expectIdent("policy target").Text
 		switch target {
 		case "capability", "lifecycle":
@@ -537,7 +642,9 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 	p.parseBlockItems(func() {
 		start := p.peek()
 		if p.matchText("always") {
-			p.expectText("then")
+			if p.matchText("then") {
+				p.diags.Warning("DCL_PARSE_ALWAYS_THEN_DEPRECATED", "always is deprecated; use always Outcome", start.Span, "always")
+			}
 			outcome := p.expectIdent("outcome").Text
 			branches = append(branches, ast.WhenBranch{Always: true, Outcome: outcome, Span: start.Span})
 			return
@@ -556,6 +663,10 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 			sourceName = p.expectIdent("policy causation source").Text
 		}
 		decision := p.expectIdent("causation decision").Text
+		switch decision {
+		case "failed":
+			decision = "unresolved"
+		}
 		p.expectText("then")
 		outcome := p.expectIdent("outcome").Text
 		branches = append(branches, ast.WhenBranch{SourceKind: sourceKind, SourceName: sourceName, Decision: decision, Outcome: outcome, Span: start.Span})
@@ -739,6 +850,13 @@ func (p *Parser) at(kind lexer.Kind) bool {
 	return p.peek().Kind == kind
 }
 
+func (p *Parser) nextIs(kind lexer.Kind) bool {
+	if p.pos+1 >= len(p.tokens) {
+		return false
+	}
+	return p.tokens[p.pos+1].Kind == kind
+}
+
 func (p *Parser) peek() lexer.Token {
 	if p.pos >= len(p.tokens) {
 		return lexer.Token{Kind: lexer.EOF}
@@ -842,11 +960,29 @@ func isPolicyTargetKindToken(text string) bool {
 
 func isConcernParameterName(text string) bool {
 	switch text {
-	case "attempts", "backoff", "opens", "resets":
+	case "attempts", "backoff", "opens", "resets", "threshold":
 		return true
 	default:
 		return false
 	}
+}
+
+func isPolicyFamilyName(text string) bool {
+	switch text {
+	case "reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection", "confidence":
+		return true
+	default:
+		return false
+	}
+}
+
+func parameterValues(concern ast.ConcernDecl, name string) ([]string, bool) {
+	for _, param := range concern.Parameters {
+		if param.Name == name {
+			return param.Values, true
+		}
+	}
+	return nil, false
 }
 
 func parentContext(name string) string {

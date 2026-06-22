@@ -22,6 +22,7 @@ const preferredOrder = [
   "payment-processing",
   "supervising-lifecycle",
   "policy-example",
+  "agentic-customer-support",
   "reliability-policy",
   "authorisation",
   "observed-capability",
@@ -38,6 +39,7 @@ const descriptions: Record<string, string> = {
   "payment-processing": "A local lifecycle that waits for an event and handles a deadline.",
   "supervising-lifecycle": "A supervising capability that coordinates contributor outcomes and events.",
   "policy-example": "Policy concerns attached to a capability, effect, and event.",
+  "agentic-customer-support": "Agentic support with an agent actor, tool effects, confidence thresholding, and escalation.",
   "reliability-policy": "Reliability policy attached to semantic boundaries such as effects and lifecycle steps.",
   authorisation: "A security policy example for authorization requirements.",
   "observed-capability": "A capability with observation metrics over outcomes and effects.",
@@ -106,7 +108,7 @@ function combinedEcommerceExample(): PlaygroundExample | undefined {
     title: titleFromId("ecommerce-platform"),
     description: descriptions["ecommerce-platform"],
     path: "website/src/examples/ecommerce/*.dcl",
-    source: `language dcl 0.9\n\n${sources.join("\n\n")}\n`,
+    source: `language dcl 1.0\n\n${sources.join("\n\n")}\n`,
   };
 }
 
