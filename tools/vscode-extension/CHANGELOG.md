@@ -3,6 +3,11 @@
 ## Unreleased
 
 - Updated language guidance for DCL v1.0 stable core vocabulary in snippets, highlighting, and hover text for agent actors, tool effects, and confidence policy thresholds.
+- Centralised extension release versioning through root `version.json` and version sync validation.
+
+## 1.0.4
+
+- Released the VS Code extension as `dcl.dcl-vscode-extension` v1.0.4 for the DCL v1.0 language and compiler line.
 
 ## 1.0.2
 

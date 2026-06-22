@@ -4,7 +4,7 @@ const (
 	LanguageName    = "dcl"
 	LanguageVersion = "1.0"
 	CompilerName    = "dcl"
-	CompilerVersion = "0.1.0"
+	CompilerVersion = "1.0"
 )
 
 func Summary() string {

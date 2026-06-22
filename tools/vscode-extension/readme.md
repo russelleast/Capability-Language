@@ -12,7 +12,7 @@ Declarative Capability Language (DCL) is a language for modelling software syste
 
 ## Version
 
-- Extension version: `1.0.2`
+- Extension version: `1.0.4`
 - DCL language version: `1.0`
 
 The extension is available on the VS Code Marketplace and can also be downloaded from the DCL website. DCL v1.0 defines the stable core language; editor tooling and ecosystem integrations continue to evolve around it.
