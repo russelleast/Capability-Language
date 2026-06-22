@@ -72,7 +72,7 @@
     "prefix": "when",
     "body": [
       "when {",
-      "  ${1:Condition} then ${2:OutcomeName}",
+      "  ${1:RuleName} violated then ${2:OutcomeName}",
       "  otherwise then ${3:DefaultOutcome}",
       "}"
     ],

@@ -33,17 +33,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DclHoverProvider = void 0;
+exports.DclHoverProvider = exports.HOVERS = void 0;
 const vscode = __importStar(require("vscode"));
-const HOVERS = {
+exports.HOVERS = {
     language: "Declares the DCL language version for the file.",
     context: "Groups DCL declarations and controls cross-context visibility through explicit dependencies.",
     capability: "The core DCL unit: a named business capability with intent, outcomes, effects, policies, and optional lifecycle.",
-    actor: "Declares a human, system, or agent participant that can initiate or participate in capabilities.",
+    actor: "Declares a participant that can initiate or participate in capabilities. Valid DCL v0.10 actor types are human, system, agent, and scheduled_process.",
     shape: "Declares structured input or payload data used by intents and events.",
     event: "Declares a named signal with an optional payload.",
-    effect: "Declares an external or architectural side effect such as persistence, notification, invocation, or a tool-use boundary.",
-    policy: "Declares architectural constraints, obligations, and thresholds that the compiler can attach to DCL elements.",
+    effect: "Declares an externally meaningful action. Valid DCL v0.10 effect types are persistence, notification, invocation, and tool.",
+    policy: "Declares architectural constraints, obligations, and thresholds in grouped family blocks, for example policy InvoiceExecution { performance { ... } confidence { threshold 0.8 } }.",
     agent: "Actor kind for an autonomous or semi-autonomous reasoning participant.",
     tool: "Effect kind for a declared tool-use boundary such as an MCP tool, function call, retrieval tool, or agent tool.",
     confidence: "Policy family for a numeric confidence threshold between 0 and 1. It is not a full LLM evaluation model.",
@@ -51,7 +51,7 @@ const HOVERS = {
     intent: "Declares the input shape and actor that initiate a capability.",
     outcome: "Declares a possible result produced by a capability.",
     rule: "Declares an invariant or condition used by capability outcome logic.",
-    when: "Maps compiler-visible conditions to capability outcomes.",
+    when: "Maps compiler-visible conditions to capability outcomes. Use always Outcome for unconditional outcome causation.",
     lifecycle: "Declares lifecycle states and transitions for a capability.",
     supervises: "Declares a lifecycle that coordinates contributing capabilities.",
     begin: "Declares the initial lifecycle state.",
@@ -68,7 +68,7 @@ class DclHoverProvider {
         if (!range)
             return undefined;
         const word = document.getText(range);
-        const help = HOVERS[word];
+        const help = exports.HOVERS[word];
         if (!help)
             return undefined;
         const markdown = new vscode.MarkdownString();
