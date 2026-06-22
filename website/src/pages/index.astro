@@ -142,8 +142,8 @@ const path = (href) => `${base}${href}`;
         includes learning pages, guides, validated examples, and a browser
         playground with compiler feedback and model visualisations. The VS Code
         extension provides editor support and language-server-backed navigation;
-        the MCP server is the next tooling milestone, and the broader ecosystem
-        will continue to evolve around the stable core.
+        the MCP server connects local AI clients to compiler-backed DCL
+        validation, diagnostics, IR, and semantic summaries.
       </p>
     </div>
   </section>
@@ -165,6 +165,7 @@ const path = (href) => `${base}${href}`;
       <div class="actions">
         <a class="button primary" href={vscodeExtensionMarketplaceUrl}>Install from Marketplace</a>
         <a class="button secondary" href={vscodeExtensionReleaseUrl}>Download VSIX</a>
+        <a class="button secondary" href={path("/tooling/")}>Use MCP with AI Clients</a>
         <a class="button secondary" href={vscodeExtensionSourceUrl}>View source on GitHub</a>
       </div>
       <p class="download-note">

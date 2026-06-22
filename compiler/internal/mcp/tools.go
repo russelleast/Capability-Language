@@ -6,14 +6,16 @@ import (
 
 	"capabilitylanguage/internal/compiler"
 	"capabilitylanguage/internal/diagnostic"
+	"capabilitylanguage/internal/summary"
 	"capabilitylanguage/internal/version"
 )
 
 type Tool struct {
-	Name        string         `json:"name"`
-	Title       string         `json:"title,omitempty"`
-	Description string         `json:"description"`
-	InputSchema map[string]any `json:"inputSchema"`
+	Name         string         `json:"name"`
+	Title        string         `json:"title,omitempty"`
+	Description  string         `json:"description"`
+	InputSchema  map[string]any `json:"inputSchema"`
+	OutputSchema map[string]any `json:"outputSchema,omitempty"`
 }
 
 type toolResult struct {
@@ -41,22 +43,25 @@ type explainDiagnosticsArgs struct {
 func Tools() []Tool {
 	return []Tool{
 		{
-			Name:        "dcl_validate",
-			Title:       "Validate DCL",
-			Description: "Validate supplied DCL source or explicit DCL file/workspace paths using the DCL compiler.",
-			InputSchema: sourceInputSchema(),
+			Name:         "dcl_validate",
+			Title:        "Validate DCL",
+			Description:  "Validate supplied DCL source or explicit DCL file/workspace paths using the DCL compiler. Returns valid, diagnostics, diagnostic counts, and source count.",
+			InputSchema:  sourceInputSchema("DCL source, file, or workspace to validate."),
+			OutputSchema: validationOutputSchema("valid"),
 		},
 		{
-			Name:        "dcl_compile",
-			Title:       "Compile DCL",
-			Description: "Compile supplied DCL source or explicit DCL file/workspace paths using the DCL compiler.",
-			InputSchema: sourceInputSchema(),
+			Name:         "dcl_compile",
+			Title:        "Compile DCL",
+			Description:  "Compile supplied DCL source or explicit DCL file/workspace paths using the DCL compiler. Returns ok, diagnostics, diagnostic counts, source count, and version metadata.",
+			InputSchema:  sourceInputSchema("DCL source, file, or workspace to compile."),
+			OutputSchema: validationOutputSchema("ok"),
 		},
 		{
-			Name:        "dcl_ir",
-			Title:       "Generate DCL IR",
-			Description: "Return compiler IR for supplied DCL source or explicit DCL file/workspace paths.",
-			InputSchema: sourceInputSchema(),
+			Name:         "dcl_ir",
+			Title:        "Generate DCL IR",
+			Description:  "Return compiler IR for supplied DCL source or explicit DCL file/workspace paths, together with diagnostics and compile status.",
+			InputSchema:  sourceInputSchema("DCL source, file, or workspace to compile into IR."),
+			OutputSchema: irOutputSchema(),
 		},
 		{
 			Name:        "dcl_explain_diagnostics",
@@ -73,6 +78,32 @@ func Tools() []Tool {
 				},
 				"required": []string{"diagnostics"},
 			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"diagnostics":  map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+					"explanations": map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+					"count":        map[string]any{"type": "integer"},
+				},
+			},
+		},
+		{
+			Name:        "dcl_summary",
+			Title:       "Summarize DCL Semantics",
+			Description: "Return a concise semantic summary derived from compiler IR. Summarizes contexts, capabilities, intents, outcomes, effects, policies, and lifecycles.",
+			InputSchema: sourceInputSchema("DCL source, file, or workspace to summarize."),
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"ok":              map[string]any{"type": "boolean"},
+					"diagnostics":     map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+					"diagnosticCount": map[string]any{"type": "integer"},
+					"errorCount":      map[string]any{"type": "integer"},
+					"warningCount":    map[string]any{"type": "integer"},
+					"sourceCount":     map[string]any{"type": "integer"},
+					"summary":         map[string]any{"type": "object"},
+				},
+			},
 		},
 		{
 			Name:        "dcl_version",
@@ -81,6 +112,13 @@ func Tools() []Tool {
 			InputSchema: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"version": map[string]any{"type": "object"},
+					"summary": map[string]any{"type": "string"},
+				},
 			},
 		},
 	}
@@ -96,6 +134,8 @@ func CallTool(name string, arguments json.RawMessage) (toolResult, error) {
 		return callIR(arguments)
 	case "dcl_explain_diagnostics":
 		return callExplainDiagnostics(arguments)
+	case "dcl_summary":
+		return callSummary(arguments)
 	case "dcl_version":
 		return callVersion()
 	default:
@@ -156,6 +196,23 @@ func callIR(arguments json.RawMessage) (toolResult, error) {
 	return structuredResult(content), nil
 }
 
+func callSummary(arguments json.RawMessage) (toolResult, error) {
+	result, sourceCount, err := compileFromArgs(arguments)
+	if err != nil {
+		return errorResult(err), nil
+	}
+	content := map[string]any{
+		"ok":              !compiler.HasErrors(result.Diagnostics),
+		"diagnostics":     result.Diagnostics,
+		"diagnosticCount": len(result.Diagnostics),
+		"errorCount":      countSeverity(result.Diagnostics, diagnostic.Error),
+		"warningCount":    countSeverity(result.Diagnostics, diagnostic.Warning),
+		"sourceCount":     sourceCount,
+		"summary":         summary.FromIR(result.IR),
+	}
+	return structuredResult(content), nil
+}
+
 func callExplainDiagnostics(arguments json.RawMessage) (toolResult, error) {
 	var args explainDiagnosticsArgs
 	if len(arguments) > 0 {
@@ -206,29 +263,55 @@ func compileFromArgs(arguments json.RawMessage) (compiler.Result, int, error) {
 	return compiler.CompileSources(sources), len(sources), nil
 }
 
-func sourceInputSchema() map[string]any {
+func sourceInputSchema(description string) map[string]any {
 	return map[string]any{
-		"type": "object",
+		"type":        "object",
+		"description": description,
 		"properties": map[string]any{
 			"source": map[string]any{
 				"type":        "string",
-				"description": "Inline DCL source text.",
+				"description": "Inline DCL source text. Use this instead of path or paths.",
 			},
 			"filename": map[string]any{
 				"type":        "string",
-				"description": "Display filename for inline source diagnostics.",
+				"description": "Display filename for inline source diagnostics. Used only with source.",
 			},
 			"path": map[string]any{
 				"type":        "string",
-				"description": "Explicit DCL file or directory path to read.",
+				"description": "Explicit .dcl file or directory path to read. Use this instead of source or paths.",
 			},
 			"paths": map[string]any{
 				"type":        "array",
-				"description": "Explicit DCL file or directory paths to read.",
+				"description": "Explicit .dcl file or directory paths to read. Directories are scanned recursively and skip .git and node_modules. Use this instead of source or path.",
 				"items":       map[string]any{"type": "string"},
 			},
 		},
+		"oneOf": []map[string]any{
+			{"required": []string{"source"}},
+			{"required": []string{"path"}},
+			{"required": []string{"paths"}},
+		},
 	}
+}
+
+func validationOutputSchema(statusField string) map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			statusField:       map[string]any{"type": "boolean"},
+			"diagnostics":     map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+			"diagnosticCount": map[string]any{"type": "integer"},
+			"errorCount":      map[string]any{"type": "integer"},
+			"warningCount":    map[string]any{"type": "integer"},
+			"sourceCount":     map[string]any{"type": "integer"},
+		},
+	}
+}
+
+func irOutputSchema() map[string]any {
+	schema := validationOutputSchema("ok")
+	schema["properties"].(map[string]any)["ir"] = map[string]any{"type": "object"}
+	return schema
 }
 
 func structuredResult(value any) toolResult {

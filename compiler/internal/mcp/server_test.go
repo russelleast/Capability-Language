@@ -45,7 +45,7 @@ func TestToolsListExposesOnlyV1Tools(t *testing.T) {
 		tool := item.(map[string]any)
 		names = append(names, tool["name"].(string))
 	}
-	want := []string{"dcl_validate", "dcl_compile", "dcl_ir", "dcl_explain_diagnostics", "dcl_version"}
+	want := []string{"dcl_validate", "dcl_compile", "dcl_ir", "dcl_explain_diagnostics", "dcl_summary", "dcl_version"}
 	if len(names) != len(want) {
 		t.Fatalf("tool names = %#v, want %#v", names, want)
 	}
@@ -62,7 +62,7 @@ func TestUnknownToolReturnsInvalidParams(t *testing.T) {
 		"id":      1,
 		"method":  "tools/call",
 		"params": map[string]any{
-			"name":      "dcl_summary",
+			"name":      "dcl_find_smells",
 			"arguments": map[string]any{},
 		},
 	})
@@ -70,6 +70,54 @@ func TestUnknownToolReturnsInvalidParams(t *testing.T) {
 	response := decodeOneResponse(t, output)
 	if response["error"] == nil {
 		t.Fatalf("expected unknown tool error, got %#v", response)
+	}
+}
+
+func TestSummaryToolReturnsCompilerDerivedSummary(t *testing.T) {
+	source := `language dcl 1.0
+
+actor User is human
+
+shape GreetingInput {
+  name: Text required
+}
+
+capability SayHello {
+  intent GreetingInput from User
+
+  outcome GreetingPrepared
+
+  when {
+    always GreetingPrepared
+  }
+}`
+	output := serveMessages(t, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name": "dcl_summary",
+			"arguments": map[string]any{
+				"filename": "summary.dcl",
+				"source":   source,
+			},
+		},
+	})
+
+	response := decodeOneResponse(t, output)
+	result := response["result"].(map[string]any)
+	structured := result["structuredContent"].(map[string]any)
+	if structured["ok"] != true {
+		t.Fatalf("ok = %v, want true: %#v", structured["ok"], structured)
+	}
+	summary := structured["summary"].(map[string]any)
+	capabilities := summary["capabilities"].([]any)
+	if len(capabilities) != 1 {
+		t.Fatalf("capabilities = %#v, want one capability", capabilities)
+	}
+	capability := capabilities[0].(map[string]any)
+	if capability["name"] != "SayHello" {
+		t.Fatalf("capability name = %v, want SayHello", capability["name"])
 	}
 }
 
