@@ -385,13 +385,70 @@ main {
 
 .code-block {
   margin: 1.25rem 0;
+  max-width: 100%;
+  min-width: 0;
 }
 
+.code-block-header {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+  min-width: 0;
+}
+
+.code-block-header figcaption,
 .code-block figcaption {
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
-  margin-bottom: 0.45rem;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-copy-button {
+  background: #edf3ee;
+  border: 1px solid #cfe0d4;
+  border-radius: 6px;
+  color: var(--accent-strong);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.42rem 0.55rem;
+}
+
+.code-copy-button:hover,
+.code-copy-button:focus-visible {
+  background: #dfece4;
+  border-color: #a8c9b4;
+}
+
+.code-block pre[hidden],
+.readonly-monaco-editor-host[hidden],
+.code-block-source[hidden] {
+  display: none;
+}
+
+.readonly-monaco-editor-host {
+  border: 1px solid #26352f;
+  border-radius: 8px;
+  max-width: 100%;
+  min-height: 172px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.readonly-monaco-editor-host:focus-within {
+  z-index: 20;
 }
 
 .notice {

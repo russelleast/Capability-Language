@@ -33,15 +33,15 @@ export type SourceLocation = {
   column?: number;
 };
 
+export type ReadonlyDclEditorController = {
+  layout(): void;
+  dispose(): void;
+};
+
 const autoSuggestPrefixes = new Set(["cap", "actor", "shape", "policy"]);
 
 export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement): DclEditorController {
-  window.MonacoEnvironment = {
-    getWorker() {
-      return new EditorWorker();
-    },
-  };
-
+  ensureMonacoEnvironment();
   registerDclLanguage(monaco);
 
   const editor = monaco.editor.create(host, {
@@ -165,6 +165,69 @@ export function createDclEditor(textarea: HTMLTextAreaElement, host: HTMLElement
       if (revealHighlightTimer) window.clearTimeout(revealHighlightTimer);
       subscription.dispose();
       editor.dispose();
+    },
+  };
+}
+
+export function createReadonlyDclEditor(source: string, host: HTMLElement): ReadonlyDclEditorController {
+  ensureMonacoEnvironment();
+  registerDclLanguage(monaco);
+
+  const model = monaco.editor.createModel(source, DCL_LANGUAGE_ID);
+  const editor = monaco.editor.create(host, {
+    model,
+    theme: "dcl-dark",
+    automaticLayout: true,
+    fixedOverflowWidgets: true,
+    fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
+    fontSize: 14,
+    lineHeight: 22,
+    lineNumbers: "on",
+    minimap: { enabled: false },
+    readOnly: true,
+    domReadOnly: true,
+    readOnlyMessage: { value: "" },
+    contextmenu: false,
+    cursorBlinking: "solid",
+    renderLineHighlight: "none",
+    overviewRulerLanes: 0,
+    hideCursorInOverviewRuler: true,
+    folding: false,
+    glyphMargin: false,
+    links: false,
+    scrollBeyondLastLine: false,
+    scrollbar: {
+      alwaysConsumeMouseWheel: false,
+      horizontal: "visible",
+      vertical: "auto",
+      useShadows: false,
+    },
+    tabSize: 2,
+    wordWrap: "off",
+    quickSuggestions: false,
+    suggestOnTriggerCharacters: false,
+    wordBasedSuggestions: "off",
+    hover: { enabled: true },
+    padding: { top: 10, bottom: 10 },
+  });
+
+  host.hidden = false;
+
+  return {
+    layout() {
+      editor.layout();
+    },
+    dispose() {
+      editor.dispose();
+      model.dispose();
+    },
+  };
+}
+
+function ensureMonacoEnvironment(): void {
+  window.MonacoEnvironment = {
+    getWorker() {
+      return new EditorWorker();
     },
   };
 }

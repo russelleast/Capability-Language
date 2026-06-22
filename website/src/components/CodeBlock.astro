@@ -1,8 +1,117 @@
 ---
 const { code, language = "dcl", title = "" } = Astro.props;
+const isDcl = language === "dcl";
+const copyLabel = title ? `Copy ${title}` : "Copy code";
 ---
 
-<figure class="code-block">
-  {title && <figcaption>{title}</figcaption>}
-  <pre><code class={`language-${language}`}>{code}</code></pre>
+<figure class="code-block" data-dcl-code-block={isDcl ? "" : undefined}>
+  <div class="code-block-header">
+    {title && <figcaption>{title}</figcaption>}
+    {isDcl && <button class="code-copy-button" type="button" data-copy-code-button aria-label={copyLabel}>Copy</button>}
+  </div>
+  {
+    isDcl && (
+      <>
+        <div class="readonly-monaco-editor-host" data-readonly-dcl-editor hidden></div>
+        <textarea class="code-block-source" data-code-source hidden readonly aria-label={title || "DCL example source"}>{code}</textarea>
+      </>
+    )
+  }
+  <pre data-code-fallback={isDcl ? "" : undefined}><code class={`language-${language}`}>{code}</code></pre>
 </figure>
+
+<script>
+  import type { ReadonlyDclEditorController } from "../lib/playground/dcl-editor";
+
+  type DclEditorModule = typeof import("../lib/playground/dcl-editor");
+
+  const editorBlocks = Array.from(document.querySelectorAll<HTMLElement>("[data-dcl-code-block]"));
+  let editorModulePromise: Promise<DclEditorModule> | undefined;
+
+  function loadEditorModule(): Promise<DclEditorModule> {
+    editorModulePromise ??= import("../lib/playground/dcl-editor");
+    return editorModulePromise;
+  }
+
+  function editorHeightFor(source: string): number {
+    const lineCount = Math.max(1, source.split(/\r\n|\r|\n/).length);
+    const narrowViewport = window.matchMedia("(max-width: 700px)").matches;
+    const visibleLines = Math.min(Math.max(lineCount + 1, 6), narrowViewport ? 24 : 32);
+    return visibleLines * 22 + 20;
+  }
+
+  async function copyText(text: string, button: HTMLButtonElement): Promise<void> {
+    const originalLabel = button.textContent || "Copy";
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const fallback = document.createElement("textarea");
+        fallback.value = text;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.left = "-9999px";
+        document.body.appendChild(fallback);
+        fallback.select();
+        document.execCommand("copy");
+        fallback.remove();
+      }
+      button.textContent = "Copied";
+    } catch {
+      button.textContent = "Copy failed";
+    } finally {
+      window.setTimeout(() => {
+        button.textContent = originalLabel;
+      }, 1400);
+    }
+  }
+
+  async function initializeBlock(block: HTMLElement): Promise<void> {
+    if (block.dataset.editorReady === "true") return;
+
+    const source = block.querySelector<HTMLTextAreaElement>("[data-code-source]");
+    const host = block.querySelector<HTMLElement>("[data-readonly-dcl-editor]");
+    const fallback = block.querySelector<HTMLElement>("[data-code-fallback]");
+    if (!source || !host) return;
+
+    block.dataset.editorReady = "true";
+    host.style.height = `${editorHeightFor(source.value)}px`;
+
+    try {
+      const { createReadonlyDclEditor } = await loadEditorModule();
+      const controller: ReadonlyDclEditorController = createReadonlyDclEditor(source.value, host);
+      block.dataset.editorLoaded = "true";
+      fallback?.setAttribute("hidden", "");
+      window.addEventListener("resize", () => controller.layout(), { passive: true });
+    } catch {
+      delete block.dataset.editorReady;
+      host.hidden = true;
+      fallback?.removeAttribute("hidden");
+    }
+  }
+
+  for (const block of editorBlocks) {
+    const source = block.querySelector<HTMLTextAreaElement>("[data-code-source]");
+    const copyButton = block.querySelector<HTMLButtonElement>("[data-copy-code-button]");
+    if (source && copyButton) {
+      copyButton.addEventListener("click", () => copyText(source.value, copyButton));
+    }
+  }
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const block = entry.target as HTMLElement;
+          observer.unobserve(block);
+          initializeBlock(block);
+        }
+      },
+      { rootMargin: "320px 0px" },
+    );
+    editorBlocks.forEach((block) => observer.observe(block));
+  } else {
+    editorBlocks.forEach((block) => initializeBlock(block));
+  }
+</script>
