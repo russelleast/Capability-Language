@@ -14,6 +14,8 @@ Current versions:
 
 See [version.json](version.json) for the current project versions.
 
+For local AI-assisted DCL analysis, see the [DCL MCP server documentation](docs/mcp.md).
+
 DCL v1.0 defines the stable core language for describing capabilities, intents, outcomes, rules, effects, events, lifecycles, actors, policies, observations, and contexts.
 
 ## Why DCL?

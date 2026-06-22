@@ -5,7 +5,6 @@ import process from "node:process";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const versionPath = path.join(repoRoot, "version.json");
 const extensionPackagePath = path.join(repoRoot, "tools", "vscode-extension", "package.json");
-const compilerVersionPath = path.join(repoRoot, "compiler", "internal", "version", "version.go");
 const websiteVersionConfigPath = path.join(repoRoot, "website", "src", "config", "version.ts");
 
 const errors = [];
@@ -24,19 +23,15 @@ function readJson(filePath, label) {
   }
 }
 
-function readText(filePath, label) {
-  if (!fs.existsSync(filePath)) {
-    errors.push(`${label} cannot be found at ${path.relative(repoRoot, filePath)}`);
-    return "";
-  }
-
-  return fs.readFileSync(filePath, "utf8");
-}
-
 const versions = readJson(versionPath, "version.json");
 const extensionPackage = readJson(extensionPackagePath, "VS Code extension package.json");
-const compilerVersionSource = readText(compilerVersionPath, "compiler version source");
-const websiteVersionConfig = readText(websiteVersionConfigPath, "website version config");
+const websiteVersionConfig = fs.existsSync(websiteVersionConfigPath)
+  ? fs.readFileSync(websiteVersionConfigPath, "utf8")
+  : "";
+
+if (!websiteVersionConfig) {
+  errors.push(`website version config cannot be found at ${path.relative(repoRoot, websiteVersionConfigPath)}`);
+}
 
 if (versions && extensionPackage && versions?.vscode?.version !== extensionPackage.version) {
   errors.push(
@@ -44,22 +39,23 @@ if (versions && extensionPackage && versions?.vscode?.version !== extensionPacka
   );
 }
 
-const compilerVersionMatch = compilerVersionSource.match(/CompilerVersion\s*=\s*"([^"]+)"/);
-const compilerLanguageMatch = compilerVersionSource.match(/LanguageVersion\s*=\s*"([^"]+)"/);
+if (!versions?.language?.name || !versions?.language?.version) {
+  errors.push("version.json.language must include name and version");
+}
 
-if (!compilerVersionMatch) {
-  errors.push("compiler/internal/version/version.go is missing CompilerVersion");
-} else if (versions?.compiler?.version !== compilerVersionMatch[1]) {
+if (!versions?.compiler?.name || !versions?.compiler?.version || !versions?.compiler?.supports) {
+  errors.push("version.json.compiler must include name, version, and supports");
+}
+
+if (versions?.compiler?.supports !== versions?.language?.version) {
   errors.push(
-    `version.json.compiler.version (${versions?.compiler?.version ?? "missing"}) must match compiler reported version (${compilerVersionMatch[1]})`,
+    `version.json.compiler.supports (${versions?.compiler?.supports ?? "missing"}) must match version.json.language.version (${versions?.language?.version ?? "missing"})`,
   );
 }
 
-if (!compilerLanguageMatch) {
-  errors.push("compiler/internal/version/version.go is missing LanguageVersion");
-} else if (versions?.language?.version !== compilerLanguageMatch[1]) {
+if (versions?.vscode?.compiler !== versions?.compiler?.version) {
   errors.push(
-    `version.json.language.version (${versions?.language?.version ?? "missing"}) must match compiler supported language version (${compilerLanguageMatch[1]})`,
+    `version.json.vscode.compiler (${versions?.vscode?.compiler ?? "missing"}) must match version.json.compiler.version (${versions?.compiler?.version ?? "missing"})`,
   );
 }
 

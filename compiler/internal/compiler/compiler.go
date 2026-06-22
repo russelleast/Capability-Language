@@ -196,18 +196,19 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 
 func (c *compiler) validateLanguageVersions() {
 	for _, decl := range c.program.Languages {
-		if decl.Name != version.LanguageName {
+		if decl.Name != version.LanguageName() {
 			continue
 		}
-		if compareVersion(decl.Version, version.LanguageVersion) > 0 {
-			c.diags.Error("DCL_VERSION_UNSUPPORTED", fmt.Sprintf("language version %s is newer than supported version %s", decl.Version, version.LanguageVersion), decl.Span, decl.Version)
+		supported := version.LanguageVersion()
+		if compareVersion(decl.Version, supported) > 0 {
+			c.diags.Error("DCL_VERSION_UNSUPPORTED", fmt.Sprintf("language version %s is newer than supported version %s", decl.Version, supported), decl.Span, decl.Version)
 		}
 	}
 }
 
 func (c *compiler) buildIR() ir.ProgramIR {
 	out := ir.ProgramIR{
-		Version:  ir.VersionIR{Language: version.LanguageVersion, Compiler: version.CompilerVersion},
+		Version:  ir.VersionIR{Language: version.LanguageVersion(), Compiler: version.CompilerVersion()},
 		Modules:  []ir.ModuleIR{{ID: "module:main", Files: c.program.Files}},
 		Analysis: map[string]ir.PortabilityFacts{"default": {Classification: "portable"}},
 	}
