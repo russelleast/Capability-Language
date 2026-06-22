@@ -39,7 +39,7 @@ export const dclConceptHelp: DclConceptHelp[] = [
     label: "actor",
     kind: "core construct",
     explanation:
-      "An actor is an initiating or participating party, such as a human, external system, internal system, automated agent, or scheduled agent.",
+      "An actor is an initiating or participating party, such as a human, external system, internal system, scheduled participant, or agent.",
     reference: "/docs/#actor",
   },
   {
@@ -102,7 +102,7 @@ export const dclConceptHelp: DclConceptHelp[] = [
     label: "effect",
     kind: "core construct",
     explanation:
-      "An effect declares an externally meaningful action caused by a capability, such as persistence, notification, or invocation.",
+      "An effect declares an externally meaningful action caused by a capability, such as persistence, notification, invocation, or a tool-use boundary.",
     reference: "/docs/#effect",
   },
   {
@@ -130,7 +130,7 @@ export const dclConceptHelp: DclConceptHelp[] = [
     label: "policy",
     kind: "core construct",
     explanation:
-      "A policy expresses a portable execution quality, such as reliability, security, performance, compliance, or governance.",
+      "A policy expresses a portable execution quality or threshold, such as reliability, security, performance, compliance, governance, or confidence.",
     reference: "/docs/#policy",
   },
   {
@@ -226,6 +226,13 @@ export const dclKeywords = [
   "unresolved",
   "required",
   "family",
+  "kind",
+  "threshold",
+  "confidence",
+  "agent",
+  "tool",
+  "fails",
+  "failed",
   "is",
 ];
 
@@ -262,8 +269,8 @@ const keywordCompletions = [
 ];
 
 const typeCompletions = ["Text", "Boolean", "Number", "Date", "DateTime", "List<T>", "Email", "Uuid", "Money"];
-const actorKindCompletions = ["human", "external_system", "internal_system", "automated_agent", "scheduled_agent"];
-const effectKindCompletions = ["persistence", "notification", "invocation"];
+const actorKindCompletions = ["human", "external_system", "internal_system", "automated_agent", "scheduled_agent", "agent"];
+const effectKindCompletions = ["persistence", "notification", "invocation", "tool"];
 const triggerCharacters = [" ", "\n", ...Array.from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")];
 
 export const dclSnippets: DclSnippet[] = [
@@ -272,7 +279,7 @@ export const dclSnippets: DclSnippet[] = [
     detail: "DCL actor declaration",
     documentation:
       "Declares a named actor and its classification. Actors can provide capability intent or appear in lifecycle decision steps.",
-    insertText: "actor ${1:Customer} is ${2|human,external_system,internal_system,automated_agent,scheduled_agent|}",
+    insertText: "actor ${1:Customer} is ${2|human,external_system,internal_system,automated_agent,scheduled_agent,agent|}",
   },
   {
     label: "shape",
@@ -300,8 +307,8 @@ export const dclSnippets: DclSnippet[] = [
     label: "effect",
     detail: "DCL effect declaration",
     documentation:
-      "Declares an externally meaningful action. Current validated examples use persistence, notification, and invocation.",
-    insertText: "effect ${1:PersistSomething} is ${2|persistence,notification,invocation|}",
+      "Declares an externally meaningful action. Valid kinds include persistence, notification, invocation, and tool.",
+    insertText: "effect ${1:PersistSomething} is ${2|persistence,notification,invocation,tool|}",
   },
   {
     label: "policy",
@@ -309,7 +316,14 @@ export const dclSnippets: DclSnippet[] = [
     documentation:
       "Declares a portable execution policy. Attach it inside a capability with a policies block such as PolicyName governs capability.",
     insertText:
-      "policy ${1:ReliableExecution} {\n  family ${2|reliability,availability,scalability,performance,security,compliance,governance,data_protection|}\n}",
+      "policy ${1:ReliableExecution} {\n  family ${2|reliability,availability,scalability,performance,security,compliance,governance,data_protection,confidence|}\n}",
+  },
+  {
+    label: "confidence policy",
+    detail: "DCL confidence threshold policy",
+    documentation:
+      "Declares a confidence threshold between 0 and 1 for a capability, outcome, effect, tool, or decision boundary.",
+    insertText: "policy ${1:MinimumConfidence} {\n  family confidence\n  threshold ${2:0.8}\n}",
   },
   {
     label: "lifecycle",

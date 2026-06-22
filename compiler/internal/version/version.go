@@ -2,7 +2,7 @@ package version
 
 const (
 	LanguageName    = "dcl"
-	LanguageVersion = "0.9"
+	LanguageVersion = "0.10"
 	CompilerName    = "dcl"
 	CompilerVersion = "0.1.0"
 )

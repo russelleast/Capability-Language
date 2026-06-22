@@ -18,6 +18,9 @@ Effect declarations use:
 effect PersistOrder is persistence
 effect SendReceipt is notification
 effect CallPaymentGateway is invocation
+effect SearchKnowledgeBase is tool
 ```
 
-The current v0.9 examples use the noun-based kinds `persistence`, `notification`, and `invocation`. Legacy spellings such as `persist`, `notify`, and `invoke` are accepted by the compiler with warnings and normalized to the noun forms.
+The current examples use the noun-based kinds `persistence`, `notification`, `invocation`, and `tool`. Legacy spellings such as `persist`, `notify`, and `invoke` are accepted by the compiler with warnings and normalized to the noun forms.
+
+`tool` marks a declared tool-use boundary, such as an MCP tool, function call, retrieval tool, or agent tool. It does not add model, provider, or runtime semantics.

@@ -160,12 +160,13 @@ type PolicyIR struct {
 	ID                 string                `json:"id"`
 	Name               string                `json:"name"`
 	Family             string                `json:"family"`
+	Kind               string                `json:"kind,omitempty"`
+	Threshold          *float64              `json:"threshold,omitempty"`
 	Concern            string                `json:"concern,omitempty"`
 	Concerns           []ConcernIR           `json:"concerns,omitempty"`
 	Objectives         []ObjectiveIR         `json:"objectives,omitempty"`
 	AttachmentPoints   []PolicyAttachmentIR  `json:"attachment_points,omitempty"`
 	DerivedObligations []DerivedObligationIR `json:"derived_obligations,omitempty"`
-	Type               string                `json:"type,omitempty"`
 	Category           string                `json:"category,omitempty"`
 	Target             string                `json:"target,omitempty"`
 }

@@ -14,6 +14,7 @@ const examples = [
   single("payment-processing"),
   single("supervising-lifecycle"),
   single("policy-example"),
+  single("agentic-customer-support"),
   single("reliability-policy"),
   single("authorisation"),
   single("observed-capability"),

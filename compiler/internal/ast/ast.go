@@ -79,12 +79,15 @@ type EffectDecl struct {
 }
 
 type PolicyDecl struct {
-	Name     string
-	Family   string
-	Concern  string
-	Concerns []ConcernDecl
-	Span     diagnostic.Span
-	Meta     DeclMeta
+	Name          string
+	Kind          string
+	Family        string
+	Threshold     string
+	ThresholdSpan diagnostic.Span
+	Concern       string
+	Concerns      []ConcernDecl
+	Span          diagnostic.Span
+	Meta          DeclMeta
 }
 
 type ConcernDecl struct {

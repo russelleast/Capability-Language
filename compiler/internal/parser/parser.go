@@ -24,7 +24,7 @@ func Parse(tokens []lexer.Token) (*ast.Program, []diagnostic.Diagnostic) {
 		p.parseTopLevel(prog)
 	}
 	if len(prog.Languages) == 0 {
-		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 0.9", fileStartSpan(tokens), "")
+		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 0.10", fileStartSpan(tokens), "")
 	}
 	return prog, p.diags.Items()
 }
@@ -161,8 +161,23 @@ func (p *Parser) parseActor() ast.ActorDecl {
 func (p *Parser) parseEffect() ast.EffectDecl {
 	start := p.expectText("effect")
 	name := p.expectIdent("effect name")
-	p.expectText("is")
-	kind := p.expectIdent("effect kind").Text
+	kind := ""
+	if p.matchText("is") {
+		kind = p.expectIdent("effect kind").Text
+	} else if p.match(lexer.LBrace) {
+		p.parseBlockItems(func() {
+			switch p.peek().Text {
+			case "kind":
+				p.advance()
+				kind = p.expectIdent("effect kind").Text
+			default:
+				tok := p.advance()
+				p.diags.Error("DCL_PARSE_UNEXPECTED_TOKEN", "expected effect statement", tok.Span, tok.Text)
+			}
+		})
+	} else {
+		p.expectText("is")
+	}
 	return ast.EffectDecl{Name: name.Text, Kind: kind, Span: start.Span}
 }
 
@@ -178,9 +193,19 @@ func (p *Parser) parsePolicy() ast.PolicyDecl {
 	}
 	p.parseBlockItems(func() {
 		switch p.peek().Text {
+		case "kind":
+			p.advance()
+			policy.Kind = p.expectIdent("policy kind").Text
 		case "family":
 			p.advance()
 			policy.Family = p.expectIdent("policy family").Text
+		case "threshold":
+			start := p.advance()
+			policy.ThresholdSpan = start.Span
+			values := p.collectConcernValues()
+			if len(values) > 0 {
+				policy.Threshold = values[0]
+			}
 		default:
 			policy.Concerns = append(policy.Concerns, p.parseConcern())
 		}
@@ -478,7 +503,13 @@ func (p *Parser) parsePoliciesBlock() []ast.PolicyUse {
 	p.parseBlockItems(func() {
 		name := p.expectIdent("policy")
 		use := ast.PolicyUse{Name: name.Text, Span: name.Span}
-		p.expectText("governs")
+		if p.matchText("governs") {
+			// Current canonical spelling.
+		} else if p.matchText("applies") {
+			p.expectText("to")
+		} else {
+			p.expectText("governs")
+		}
 		target := p.expectIdent("policy target").Text
 		switch target {
 		case "capability", "lifecycle":
@@ -556,6 +587,10 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 			sourceName = p.expectIdent("policy causation source").Text
 		}
 		decision := p.expectIdent("causation decision").Text
+		switch decision {
+		case "failed":
+			decision = "unresolved"
+		}
 		p.expectText("then")
 		outcome := p.expectIdent("outcome").Text
 		branches = append(branches, ast.WhenBranch{SourceKind: sourceKind, SourceName: sourceName, Decision: decision, Outcome: outcome, Span: start.Span})

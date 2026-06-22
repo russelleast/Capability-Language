@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added DCL v0.10 vocabulary support in snippets, highlighting, and hover text for agent actors, tool effects, and confidence policy thresholds.
+
 ## 1.0.2
 
 - Fixed Marketplace README screenshot rendering by switching screenshot links to raw GitHub URLs.

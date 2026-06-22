@@ -1,6 +1,6 @@
 ### Build and Run
 
-Current versions: DCL language v0.9; compiler v0.1.0.
+Current versions: DCL language v0.10; compiler v0.1.0.
 
 ```bash
 cd Capability-Language/compiler

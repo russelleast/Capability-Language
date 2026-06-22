@@ -72,7 +72,7 @@ const constructs = [
   </p>
   <div class="construct-card">
     <h3>Required</h3>
-    <p>A language declaration, normally <code>language dcl 0.9</code>.</p>
+    <p>A language declaration, normally <code>language dcl 0.10</code>.</p>
     <h3>Compiler Duties</h3>
     <p>
       Parse source, resolve symbols, validate semantics, analyse ambiguity and
@@ -155,8 +155,8 @@ const constructs = [
   </p>
   <div class="construct-card">
     <h3>Required</h3>
-    <p>Name and classification, authored in current examples as
-      <code>actor Customer is human</code>.</p>
+    <p>Name and classification, authored as
+      <code>actor Customer is human</code> or <code>actor SupportAgent is agent</code>.</p>
     <h3>Legal Relationships</h3>
     <p>
       Actors may provide intent, appear as named capability roles, and be
@@ -184,8 +184,10 @@ const constructs = [
   <p>
     Effects may be used singly or in an ordered <code>effects</code> block.
     <code>after</code> expresses explicit ordering. Current examples use effect
-    classifications such as <code>persistence</code> and
-    <code>notification</code>.
+    classifications such as <code>persistence</code>,
+    <code>notification</code>, <code>invocation</code>, and
+    <code>tool</code>. A <code>tool</code> effect marks a declared tool-use
+    boundary such as an MCP tool, function call, retrieval tool, or agent tool.
   </p>
 
   <h2 id="policy">Policy</h2>
@@ -199,7 +201,16 @@ const constructs = [
     Supported policy families include <code>reliability</code>,
     <code>availability</code>, <code>scalability</code>,
     <code>performance</code>, <code>security</code>, <code>compliance</code>,
-    <code>governance</code>, and <code>data_protection</code>.
+    <code>governance</code>, <code>data_protection</code>, and
+    <code>confidence</code>.
+  </p>
+  <h3>Confidence</h3>
+  <p>
+    A <code>confidence</code> policy declares a numeric <code>threshold</code>
+    between <code>0</code> and <code>1</code> for accepting a decision, effect,
+    outcome, tool, or capability boundary. Confidence is not a full LLM
+    evaluation or grounding model; evaluation and grounding policies may be
+    added later.
   </p>
   <h3>Attachment Targets</h3>
   <p>

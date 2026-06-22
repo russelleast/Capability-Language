@@ -95,6 +95,86 @@ policy CustomerDataProtection {
 	}
 }
 
+func TestAgenticVocabularyCompilesToIR(t *testing.T) {
+	src := `
+actor SupportAgent is agent
+effect SearchKnowledgeBase is tool
+shape CustomerQuestion { question: Text required }
+
+policy MinimumAnswerConfidence {
+  family confidence
+  threshold 0.8
+}
+
+capability AnswerCustomerQuestion {
+  intent CustomerQuestion from SupportAgent
+  outcomes { AnswerPrepared InsufficientConfidence ToolUnavailable }
+  effect SearchKnowledgeBase
+  policies {
+    MinimumAnswerConfidence applies to outcome AnswerPrepared
+  }
+  when {
+    SearchKnowledgeBase failed then ToolUnavailable
+    policy MinimumAnswerConfidence fails then InsufficientConfidence
+    otherwise then AnswerPrepared
+  }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	if result.IR.Actors[0].Classification != "agent" {
+		t.Fatalf("expected actor kind agent, got %#v", result.IR.Actors[0])
+	}
+	if result.IR.Effects[0].Type != "tool" {
+		t.Fatalf("expected effect kind tool, got %#v", result.IR.Effects[0])
+	}
+	policy := result.IR.Policies[0]
+	if policy.Kind != "confidence" || policy.Threshold == nil || *policy.Threshold != 0.8 {
+		t.Fatalf("expected confidence policy threshold in IR, got %#v", policy)
+	}
+}
+
+func TestConfidenceThresholdValidation(t *testing.T) {
+	for name, threshold := range map[string]string{
+		"zero":       "0",
+		"one":        "1",
+		"fractional": "0.8",
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `
+policy MinimumAnswerConfidence {
+  family confidence
+  threshold ` + threshold + `
+}`
+			result := CompileFiles([]string{writeTempDCL(t, src)})
+			if HasErrors(result.Diagnostics) {
+				t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+			}
+		})
+	}
+
+	for name, tc := range map[string]struct {
+		body string
+		code string
+	}{
+		"missing":     {"", "DCL_SEM_CONFIDENCE_THRESHOLD_REQUIRED"},
+		"non-numeric": {"threshold high", "DCL_SEM_CONFIDENCE_THRESHOLD_NOT_NUMERIC"},
+		"below":       {"threshold -0.1", "DCL_SEM_CONFIDENCE_THRESHOLD_BELOW_MIN"},
+		"above":       {"threshold 1.1", "DCL_SEM_CONFIDENCE_THRESHOLD_ABOVE_MAX"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := `
+policy MinimumAnswerConfidence {
+  family confidence
+  ` + tc.body + `
+}`
+			result := CompileFiles([]string{writeTempDCL(t, src)})
+			assertDiagnostic(t, result.Diagnostics, tc.code)
+		})
+	}
+}
+
 func TestInlineBlockConcernParses(t *testing.T) {
 	src := `
 policy InlineRetry {

@@ -9,7 +9,7 @@ Rather than modelling systems as controllers, services, endpoints, queues, or in
 
 Current versions:
 
-* Language: v0.9
+* Language: v0.10
 * Compiler: v0.1.0
 
 See [version.json](version.json) for the current project versions.
@@ -36,7 +36,7 @@ DCL brings them together into a single declarative model.
 ## Example
 
 ```dcl
-language dcl 0.9
+language dcl 0.10
 
 actor Customer is human
 
@@ -189,5 +189,4 @@ Language syntax and semantics may evolve between releases as the language contin
 ## Creator
 
 Declarative Capability Language (DCL) was created by Russell East.
-
 

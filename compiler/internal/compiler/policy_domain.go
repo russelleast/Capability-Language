@@ -13,7 +13,7 @@ type concernSpec struct {
 }
 
 var policyFamilies = stringSet(
-	"reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection",
+	"reliability", "availability", "scalability", "performance", "security", "compliance", "governance", "data_protection", "confidence",
 )
 
 var observationTypes = stringSet(
@@ -54,6 +54,7 @@ var concernSpecs = map[string]concernSpec{
 	"masking":              {allowedFamilies: stringSet("data_protection"), composition: modeNarrow},
 	"minimization":         {allowedFamilies: stringSet("data_protection"), composition: modeNarrow},
 	"deletion":             {allowedFamilies: stringSet("data_protection"), composition: modeNarrow},
+	"confidence":           {allowedFamilies: stringSet("confidence"), composition: modeNarrow},
 }
 
 func isBuiltinType(name string) bool {
@@ -66,6 +67,21 @@ func isBuiltinType(name string) bool {
 
 func validPolicyFamily(family string) bool {
 	return policyFamilies[family]
+}
+
+func validPolicyKind(kind string) bool {
+	return kind == "confidence"
+}
+
+func isConfidencePolicy(policy ast.PolicyDecl) bool {
+	return policy.Kind == "confidence" || policy.Family == "confidence"
+}
+
+func policyConcernFamily(policy ast.PolicyDecl) string {
+	if isConfidencePolicy(policy) {
+		return "confidence"
+	}
+	return policy.Family
 }
 
 func validObservationType(observationType string) bool {
@@ -94,12 +110,30 @@ func concernCompositionMode(concern string) compositionMode {
 }
 
 func findConcern(policy ast.PolicyDecl, name string) (ast.ConcernDecl, bool) {
-	for _, concern := range policy.Concerns {
+	for _, concern := range policyConcerns(policy) {
 		if concern.Name == name {
 			return concern, true
 		}
 	}
 	return ast.ConcernDecl{}, false
+}
+
+func policyConcerns(policy ast.PolicyDecl) []ast.ConcernDecl {
+	out := append([]ast.ConcernDecl(nil), policy.Concerns...)
+	if isConfidencePolicy(policy) {
+		if threshold, ok := confidenceThresholdValue(policy); ok {
+			out = append(out, ast.ConcernDecl{
+				Name: "confidence",
+				Parameters: []ast.ConcernParameter{{
+					Name:   "threshold",
+					Values: []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
+					Span:   policy.ThresholdSpan,
+				}},
+				Span: policy.Span,
+			})
+		}
+	}
+	return out
 }
 
 func parameter(concern ast.ConcernDecl, name string) (ast.ConcernParameter, bool) {
@@ -168,6 +202,18 @@ func concernIR(family string, concern ast.ConcernDecl) ir.ConcernIR {
 		out.Parameters = append(out.Parameters, ir.ConcernParameterIR{Name: param.Name, Values: append([]string(nil), param.Values...)})
 	}
 	return out
+}
+
+func confidenceConcernIR(policy ast.PolicyDecl, threshold float64) ir.ConcernIR {
+	return ir.ConcernIR{
+		Name:   "confidence",
+		Family: "confidence",
+		Parameters: []ir.ConcernParameterIR{{
+			Name:   "threshold",
+			Values: []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
+		}},
+		SourceLocation: policy.Span,
+	}
 }
 
 func objectiveIR(concern ast.ConcernDecl) ir.ObjectiveIR {

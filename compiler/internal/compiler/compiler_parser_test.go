@@ -202,7 +202,7 @@ func TestDocumentedExamplesCompile(t *testing.T) {
 }
 
 func TestLanguageVersionDeclaration(t *testing.T) {
-	src := `language dcl 0.9
+	src := `language dcl 0.10
 actor User is human
 shape Input {}
 capability Versioned {
@@ -215,8 +215,8 @@ capability Versioned {
 		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
 	}
 	assertNoDiagnostic(t, result.Diagnostics, "DCL_VERSION_DECL_MISSING")
-	if result.IR.Version.Language != "0.9" {
-		t.Fatalf("expected IR language version 0.9, got %#v", result.IR.Version)
+	if result.IR.Version.Language != "0.10" {
+		t.Fatalf("expected IR language version 0.10, got %#v", result.IR.Version)
 	}
 }
 
@@ -304,20 +304,6 @@ shape Input {}
 capability Old { intent Input from User outcome Accepted when { otherwise => Accepted } }`,
 		"old-policy": `
 policy SafeRetry is retry`,
-		"applies": `
-actor User is human
-effect SendEmail is notify
-policy SafeRetry {
-  family reliability
-}
-shape Input {}
-capability Old {
-  intent Input from User
-  outcome Accepted
-  effect SendEmail
-  policies { SafeRetry applies to effect SendEmail }
-  when { otherwise then Accepted }
-}`,
 		"emits": `
 actor User is human
 shape Input {}

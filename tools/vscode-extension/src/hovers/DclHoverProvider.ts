@@ -4,11 +4,15 @@ const HOVERS: Record<string, string> = {
   language: "Declares the DCL language version for the file.",
   context: "Groups DCL declarations and controls cross-context visibility through explicit dependencies.",
   capability: "The core DCL unit: a named business capability with intent, outcomes, effects, policies, and optional lifecycle.",
-  actor: "Declares a human or system participant that can initiate or participate in capabilities.",
+  actor: "Declares a human, system, or agent participant that can initiate or participate in capabilities.",
   shape: "Declares structured input or payload data used by intents and events.",
   event: "Declares a named signal with an optional payload.",
-  effect: "Declares an external or architectural side effect such as persistence, notification, or invocation.",
-  policy: "Declares architectural constraints and obligations that the compiler can attach to DCL elements.",
+  effect: "Declares an external or architectural side effect such as persistence, notification, invocation, or a tool-use boundary.",
+  policy: "Declares architectural constraints, obligations, and thresholds that the compiler can attach to DCL elements.",
+  agent: "Actor kind for an autonomous or semi-autonomous reasoning participant.",
+  tool: "Effect kind for a declared tool-use boundary such as an MCP tool, function call, retrieval tool, or agent tool.",
+  confidence: "Policy family for a numeric confidence threshold between 0 and 1. It is not a full LLM evaluation model.",
+  threshold: "Numeric confidence policy threshold. Values must be between 0 and 1.",
   intent: "Declares the input shape and actor that initiate a capability.",
   outcome: "Declares a possible result produced by a capability.",
   rule: "Declares an invariant or condition used by capability outcome logic.",
@@ -21,6 +25,7 @@ const HOVERS: Record<string, string> = {
   move: "Declares a lifecycle transition.",
   emits: "Declares that a capability emits an event.",
   governs: "Attaches a policy to a capability, effect, event, outcome, or lifecycle.",
+  applies: "Alias for attaching a policy to a semantic boundary.",
 };
 
 export class DclHoverProvider implements vscode.HoverProvider {

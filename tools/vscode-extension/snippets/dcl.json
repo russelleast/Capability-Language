@@ -17,7 +17,7 @@
   "Actor": {
     "prefix": "actor",
     "body": [
-      "actor ${1:ActorName} is ${2|human,system|}"
+      "actor ${1:ActorName} is ${2|human,external_system,internal_system,automated_agent,scheduled_agent,agent|}"
     ],
     "description": "DCL actor"
   },
@@ -42,7 +42,7 @@
   "Effect": {
     "prefix": "effect",
     "body": [
-      "effect ${1:EffectName} is ${2|persistence,notification,invocation|}"
+      "effect ${1:EffectName} is ${2|persistence,notification,invocation,tool|}"
     ],
     "description": "DCL effect"
   },
@@ -55,6 +55,16 @@
       "}"
     ],
     "description": "DCL policy"
+  },
+  "Confidence Policy": {
+    "prefix": "confidence-policy",
+    "body": [
+      "policy ${1:MinimumConfidence} {",
+      "  family confidence",
+      "  threshold ${2:0.8}",
+      "}"
+    ],
+    "description": "DCL confidence threshold policy"
   },
   "When": {
     "prefix": "when",

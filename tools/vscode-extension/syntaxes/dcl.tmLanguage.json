@@ -97,7 +97,7 @@
       "patterns": [
         {
           "name": "keyword.control.dcl",
-          "match": "\\b(is|from|human|system|required|private|depends|on|emits|governs|violated|unresolved|otherwise|always|then|after|before|waits|for|requires|decision|identity|to|causing|recovery|duration|count|failures|as|family|retry|attempts|backoff|idempotency|timeout|latency|throughput|budget|authentication|authorization|encryption|audit|retention|approval|evidence|sensitivity|deletion|minimization|fallback|dependency_tolerance|allowed|required|under|above|per|minute|minutes|hour|hours|day|days|second|seconds)\\b"
+          "match": "\\b(is|from|human|system|agent|external_system|internal_system|automated_agent|scheduled_agent|required|private|depends|on|emits|governs|applies|violated|unresolved|failed|fails|otherwise|always|then|after|before|waits|for|requires|decision|identity|to|causing|recovery|duration|count|failures|as|kind|family|confidence|threshold|tool|retry|attempts|backoff|idempotency|timeout|latency|throughput|budget|authentication|authorization|encryption|audit|retention|approval|evidence|sensitivity|deletion|minimization|fallback|dependency_tolerance|allowed|required|under|above|per|minute|minutes|hour|hours|day|days|second|seconds)\\b"
         }
       ]
     },
