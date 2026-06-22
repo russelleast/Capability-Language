@@ -53,6 +53,8 @@ jobs:
       - name: Package extension
         run: |
           VERSION="$(node -p "require('./package.json').version")"
+          npm run build:compiler-binaries
+          npm run copy:vendor
           npx vsce package --out "dcl-vscode-extension-v${VERSION}.vsix"
           echo "VSIX_PATH=tools/vscode-extension/dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"
           echo "VSIX_NAME=dcl-vscode-extension-v${VERSION}.vsix" >> "$GITHUB_ENV"

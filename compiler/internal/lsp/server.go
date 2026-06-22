@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
 
-const serverVersion = "0.5.8"
+	"capabilitylanguage/internal/version"
+)
 
 type Server struct {
 	host             *WorkspaceHost
@@ -319,7 +319,7 @@ func initializeResult() map[string]any {
 	return map[string]any{
 		"serverInfo": map[string]any{
 			"name":    "dcl-lsp",
-			"version": serverVersion,
+			"version": version.CompilerVersion(),
 		},
 		"capabilities": map[string]any{
 			"textDocumentSync": map[string]any{

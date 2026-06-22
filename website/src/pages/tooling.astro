@@ -1,0 +1,71 @@
+---
+import DocsLayout from "../layouts/DocsLayout.astro";
+import { compilerVersion, languageLabel, vscodeExtensionMarketplaceUrl } from "../config/version";
+import { sitePath } from "../lib/playground/links";
+
+const frontmatter = {
+  title: "Tooling",
+  description: "DCL compiler, language server, VS Code extension, playground, and MCP server tooling.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>DCL Tooling</h1>
+  <p>
+    DCL tooling is local-first and compiler-backed. The same Go compiler powers
+    command-line validation, the language server, the VS Code extension, the
+    browser playground, and the MCP server for AI clients.
+  </p>
+  <p>
+    Current language: <strong>{languageLabel}</strong>. Compiler:
+    <code>dcl {compilerVersion}</code>.
+  </p>
+
+  <h2>Command-Line Tools</h2>
+  <table class="reference-table">
+    <thead>
+      <tr><th>Binary</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>dcl</code></td><td>Compiler CLI for version, validation, and IR output.</td></tr>
+      <tr><td><code>dcl-lsp</code></td><td>Language server for editor diagnostics, navigation, symbols, and references.</td></tr>
+      <tr><td><code>dcl-mcp</code></td><td>Local stdio MCP server for AI clients such as Claude Desktop, Claude Code, VS Code MCP clients, and other MCP-compatible tools.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>MCP Server</h2>
+  <p>
+    <code>dcl-mcp</code> exposes read-only compiler-backed tools for validating
+    DCL workspaces, explaining diagnostics, generating IR, and summarizing the
+    semantic model. It does not require hosting, authentication, HTTP transport,
+    or cloud services.
+  </p>
+  <p>
+    Setup instructions, client configuration examples, troubleshooting, and the
+    MCP roadmap are maintained in the repository documentation.
+  </p>
+  <div class="actions">
+    <a class="button primary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp.md">MCP setup guide</a>
+    <a class="button secondary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp-roadmap.md">MCP roadmap</a>
+  </div>
+
+  <h2>VS Code Extension</h2>
+  <p>
+    The VS Code extension bundles the compiler and language server for supported
+    platforms. It provides syntax highlighting, compile commands, diagnostics,
+    semantic navigation, and architecture graph views.
+  </p>
+  <div class="actions">
+    <a class="button primary" href={vscodeExtensionMarketplaceUrl}>Install from Marketplace</a>
+  </div>
+
+  <h2>Playground</h2>
+  <p>
+    The browser playground is the fastest way to try DCL examples, inspect
+    compiler diagnostics, and view the semantic model without installing local
+    tools.
+  </p>
+  <div class="actions">
+    <a class="button secondary" href={sitePath("/playground/")}>Open Playground</a>
+  </div>
+</DocsLayout>
