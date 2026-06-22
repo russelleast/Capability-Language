@@ -11,14 +11,20 @@ const frontmatter = {
 <DocsLayout frontmatter={frontmatter}>
   <h1>Roadmap</h1>
   <p>
-    DCL is a language project. This roadmap summarizes the public repository
-    roadmap and keeps near-term website work separate from later tooling.
+    DCL is a language project with a stable v1.0 core and an evolving tooling
+    ecosystem. This roadmap keeps language status separate from editor,
+    integration, and projection work.
   </p>
 
   <h2>Current Version</h2>
   <p><strong>{languageLabel}</strong></p>
   <p>Status: <strong>{languageStatus}</strong></p>
   <p>Compiler: <code>dcl {compilerVersion}</code></p>
+  <p>
+    DCL v1.0 defines the stable core language for describing capabilities,
+    intents, outcomes, rules, effects, events, lifecycles, actors, policies,
+    observations, and contexts.
+  </p>
 
   <h2>Implemented</h2>
   <ul>
@@ -28,21 +34,20 @@ const frontmatter = {
     <li>Local and supervising lifecycles.</li>
     <li>Effects, events, observations, rules, and outcome causation.</li>
     <li>Static documentation website.</li>
+    <li>Browser playground and VS Code extension with language-server-backed navigation.</li>
   </ul>
 
-  <h2>Planned</h2>
+  <h2>Tooling Roadmap</h2>
   <ul>
-    <li>Playground.</li>
-    <li>Visuals.</li>
-    <li>VS Code extension.</li>
-    <li>Language server.</li>
-    <li>MCP server.</li>
+    <li>The MCP server is the next tooling milestone.</li>
+    <li>Runtime projections, documentation generation, and diagram generation remain tooling work around the stable language core.</li>
+    <li>Editor, playground, and language-server features will continue to improve without changing the v1.0 stability status.</li>
   </ul>
 
-  <h2>Future Direction</h2>
+  <h2>Use Cases</h2>
   <ul>
-    <li>Runtime projections.</li>
-    <li>Documentation generation.</li>
-    <li>Diagram generation.</li>
+    <li>Detailed use cases will be added over time.</li>
+    <li>An event-driven architecture use case is planned.</li>
+    <li>AI and LLM evaluation may be explored after v1.0.</li>
   </ul>
 </DocsLayout>

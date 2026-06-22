@@ -108,7 +108,7 @@ function combinedEcommerceExample(): PlaygroundExample | undefined {
     title: titleFromId("ecommerce-platform"),
     description: descriptions["ecommerce-platform"],
     path: "website/src/examples/ecommerce/*.dcl",
-    source: `language dcl 0.10\n\n${sources.join("\n\n")}\n`,
+    source: `language dcl 1.0\n\n${sources.join("\n\n")}\n`,
   };
 }
 

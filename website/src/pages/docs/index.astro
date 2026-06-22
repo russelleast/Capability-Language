@@ -72,7 +72,7 @@ const constructs = [
   </p>
   <div class="construct-card">
     <h3>Required</h3>
-    <p>A language declaration, normally <code>language dcl 0.10</code>.</p>
+    <p>A language declaration, normally <code>language dcl 1.0</code>.</p>
     <h3>Compiler Duties</h3>
     <p>
       Parse source, resolve symbols, validate semantics, analyse ambiguity and
@@ -150,7 +150,7 @@ const constructs = [
 
   <h2 id="actor">Actor</h2>
   <p>
-    An actor represents an initiating or participating party. DCL v0.10 accepts
+    An actor represents an initiating or participating party. DCL v1.0 accepts
     only the actor types listed below.
   </p>
   <table class="reference-table">
@@ -165,7 +165,7 @@ const constructs = [
     </tbody>
   </table>
   <p>
-    Other actor type names are rejected by the DCL v0.10 compiler. Use
+    Other actor type names are rejected by the DCL v1.0 compiler. Use
     <code>system</code> for software/system participants, and model approval or
     decision responsibility through rules, policies, and actor roles.
   </p>
@@ -224,7 +224,7 @@ const constructs = [
     A policy block may contain one family block or several grouped family
     blocks. Concerns belong to the family block that contains them. The older
     <code>family name</code> line form is accepted for compatibility, but the
-    grouped block form is preferred for DCL v0.10 examples.
+    grouped block form is preferred for DCL v1.0 examples.
   </p>
   <table class="reference-table">
     <thead>
@@ -250,7 +250,7 @@ const constructs = [
   <p>
     <code>confidence</code> is a threshold family, not a full LLM evaluation or
     grounding model. Observability is expressed with <code>observe</code>
-    blocks, not an <code>observability</code> policy family in DCL v0.10.
+    blocks, not an <code>observability</code> policy family in DCL v1.0.
   </p>
   <h3>Attachment Targets</h3>
   <p>
@@ -404,7 +404,7 @@ const constructs = [
     </tbody>
   </table>
   <p>
-    DCL v0.10 does not support <code>succeeded</code> or <code>expired</code>
+    DCL v1.0 does not support <code>succeeded</code> or <code>expired</code>
     as general <code>when</code> decision words. <code>violated</code> is for
     rule constraints being breached. Policy constraints use policy-specific
     words such as <code>denied</code>, <code>fails</code>,
@@ -456,7 +456,7 @@ const constructs = [
   <CodeBlock title="observe-examples.dcl" code={`observe {\n  outcome AnswerPrepared count as answers_prepared\n  effect SearchKnowledgeBase duration as knowledge_search_latency\n  effect SearchKnowledgeBase failures as knowledge_search_failures\n  capability violations as answer_policy_violations\n  lifecycle transitions as support_lifecycle_transitions\n}`} />
   <p>
     Rule-specific and policy-specific observation targets are not supported in
-    DCL v0.10. Use capability-level <code>violations</code> for
+    DCL v1.0. Use capability-level <code>violations</code> for
     compiler-visible rule or policy violation metrics, and attach policies
     explicitly for policy decision semantics.
   </p>
@@ -495,6 +495,6 @@ const constructs = [
     This page is distilled from the repository design documents for primitive
     contracts, surface syntax, compiler duties, context visibility/dependencies,
     policy composition, supervising lifecycles, lifecycle completion semantics,
-    and the accepted v0.10 compiler behavior.
+    and the accepted v1.0 compiler behavior.
   </p>
 </DocsLayout>

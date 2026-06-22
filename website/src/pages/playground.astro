@@ -15,19 +15,16 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
 >
   <section class="content-wrap playground-page">
     <article class="prose playground-intro">
-      <p class="eyebrow">Experimental</p>
+      <p class="eyebrow">Stable Core</p>
       <h1>DCL Playground</h1>
       <p>
-        Choose a validated example, edit the DCL source, and use the stable
-        compiler adapter boundary that will host browser compilation.
+        Choose a validated example, edit the DCL source, and inspect compiler
+        diagnostics, IR, summaries, and visualisations for the stable language
+        core.
       </p>
       <p class="version-line">
         Current language: <strong>{languageLabel}</strong>. Compiler:
         <code>dcl {compilerVersion}</code>.
-      </p>
-      <p>
-        The website is statically hosted on GitHub Pages. The compiler runs in
-        your browser through Go WASM; no backend compile service is used.
       </p>
     </article>
 

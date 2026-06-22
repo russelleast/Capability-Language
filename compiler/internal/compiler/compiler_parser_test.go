@@ -203,7 +203,7 @@ func TestDocumentedExamplesCompile(t *testing.T) {
 }
 
 func TestLanguageVersionDeclaration(t *testing.T) {
-	src := `language dcl 0.10
+	src := `language dcl 1.0
 actor User is human
 shape Input {}
 capability Versioned {
@@ -216,8 +216,8 @@ capability Versioned {
 		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
 	}
 	assertNoDiagnostic(t, result.Diagnostics, "DCL_VERSION_DECL_MISSING")
-	if result.IR.Version.Language != "0.10" {
-		t.Fatalf("expected IR language version 0.10, got %#v", result.IR.Version)
+	if result.IR.Version.Language != "1.0" {
+		t.Fatalf("expected IR language version 1.0, got %#v", result.IR.Version)
 	}
 }
 
@@ -227,7 +227,7 @@ func TestMissingLanguageVersionWarns(t *testing.T) {
 }
 
 func TestNewerLanguageVersionIsRejected(t *testing.T) {
-	src := `language dcl 1.0
+	src := `language dcl 1.1
 actor User is human
 shape Input {}
 capability FutureVersion {

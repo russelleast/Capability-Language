@@ -1,4 +1,4 @@
-language dcl 0.10
+language dcl 1.0
 
 actor Buyer is human
 actor InventorySystem is system

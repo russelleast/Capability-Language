@@ -9,7 +9,7 @@ import (
 const symbolTestPath = "/workspace/order.dcl"
 
 func TestDocumentSymbolBuilderCapabilityHierarchy(t *testing.T) {
-	source := `language dcl 0.10
+	source := `language dcl 1.0
 
 effect PersistOrder is persistence
 
@@ -55,7 +55,7 @@ capability PlaceOrder {
 }
 
 func TestDocumentSymbolBuilderContexts(t *testing.T) {
-	source := `language dcl 0.10
+	source := `language dcl 1.0
 
 context Commerce {
   actor Customer is human
@@ -81,7 +81,7 @@ context Commerce {
 }
 
 func TestDocumentSymbolBuilderLifecycles(t *testing.T) {
-	source := `language dcl 0.10
+	source := `language dcl 1.0
 
 capability FulfilOrder {
   intent OrderInput from Customer
@@ -110,14 +110,14 @@ capability FulfilOrder {
 }
 
 func TestDocumentSymbolBuilderEmptyDocument(t *testing.T) {
-	symbols := buildDocumentSymbols(t, "language dcl 0.10\n")
+	symbols := buildDocumentSymbols(t, "language dcl 1.0\n")
 	if len(symbols) != 0 {
 		t.Fatalf("expected no symbols, got %+v", symbols)
 	}
 }
 
 func TestDocumentSymbolBuilderSourceRanges(t *testing.T) {
-	source := `language dcl 0.10
+	source := `language dcl 1.0
 
 actor Customer is human
 
@@ -140,7 +140,7 @@ capability PlaceOrder {
 
 func TestSymbolProviderUsesOpenDocumentText(t *testing.T) {
 	host := NewWorkspaceHost()
-	host.Documents().Open("file:///workspace/order.dcl", 1, `language dcl 0.10
+	host.Documents().Open("file:///workspace/order.dcl", 1, `language dcl 1.0
 
 capability InMemoryOnly {
   intent OrderInput from Customer

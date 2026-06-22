@@ -94,7 +94,7 @@ describe("DclLanguageServerClient", () => {
     const provider = vscode.languages.documentSymbolProviders[0] as {
       provideDocumentSymbols(document: vscode.TextDocument): Promise<vscode.DocumentSymbol[]>;
     };
-    const promise = provider.provideDocumentSymbols(dclDocument("/workspace/payment.dcl", "language dcl 0.10\n"));
+    const promise = provider.provideDocumentSymbols(dclDocument("/workspace/payment.dcl", "language dcl 1.0\n"));
     fakeProcess.stdout.emit(frame({
       jsonrpc: "2.0",
       id: 2,
@@ -141,7 +141,7 @@ describe("DclLanguageServerClient", () => {
   it("registers definition and reference providers", async () => {
     const fakeProcess = new FakeLanguageServerProcess();
     const client = new DclLanguageServerClient(vscode.Uri.file("/ext"), vi.fn(() => fakeProcess as never) as never);
-    const document = dclDocument("/workspace/payment.dcl", "language dcl 0.10\n");
+    const document = dclDocument("/workspace/payment.dcl", "language dcl 1.0\n");
 
     client.start();
     const definitionProvider = vscode.languages.definitionProviders[0] as {
@@ -174,7 +174,7 @@ describe("DclLanguageServerClient", () => {
   it("shows symbol inspection details from the language server", async () => {
     const fakeProcess = new FakeLanguageServerProcess();
     const client = new DclLanguageServerClient(vscode.Uri.file("/ext"), vi.fn(() => fakeProcess as never) as never);
-    const document = dclDocument("/workspace/payment.dcl", "language dcl 0.10\n");
+    const document = dclDocument("/workspace/payment.dcl", "language dcl 1.0\n");
     vscode.window.activeTextEditor = { document, selection: { active: new vscode.Position(5, 10) } };
 
     client.start();

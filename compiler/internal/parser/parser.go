@@ -24,7 +24,7 @@ func Parse(tokens []lexer.Token) (*ast.Program, []diagnostic.Diagnostic) {
 		p.parseTopLevel(prog)
 	}
 	if len(prog.Languages) == 0 {
-		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 0.10", fileStartSpan(tokens), "")
+		p.diags.Warning("DCL_VERSION_DECL_MISSING", "source file should declare language dcl 1.0", fileStartSpan(tokens), "")
 	}
 	return prog, p.diags.Items()
 }
