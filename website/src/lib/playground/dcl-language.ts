@@ -269,7 +269,7 @@ const keywordCompletions = [
 ];
 
 const typeCompletions = ["Text", "Boolean", "Number", "Date", "DateTime", "List<T>", "Email", "Uuid", "Money"];
-const actorKindCompletions = ["human", "external_system", "internal_system", "automated_agent", "scheduled_agent", "agent"];
+const actorKindCompletions = ["human", "system", "agent", "scheduled_process"];
 const effectKindCompletions = ["persistence", "notification", "invocation", "tool"];
 const triggerCharacters = [" ", "\n", ...Array.from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")];
 
@@ -279,7 +279,7 @@ export const dclSnippets: DclSnippet[] = [
     detail: "DCL actor declaration",
     documentation:
       "Declares a named actor and its classification. Actors can provide capability intent or appear in lifecycle decision steps.",
-    insertText: "actor ${1:Customer} is ${2|human,external_system,internal_system,automated_agent,scheduled_agent,agent|}",
+    insertText: "actor ${1:Customer} is ${2|human,system,agent,scheduled_process|}",
   },
   {
     label: "shape",

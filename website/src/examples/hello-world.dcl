@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor User is human
 
@@ -12,6 +12,6 @@ capability SayHello {
   outcome GreetingPrepared
 
   when {
-    always then GreetingPrepared
+    always GreetingPrepared
   }
 }

@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Operator is human
 
@@ -10,7 +10,7 @@ capability ValidateBatch {
   intent BatchInput from Operator
   outcome BatchValidated
   when {
-    always then BatchValidated
+    always BatchValidated
   }
 }
 
@@ -18,7 +18,7 @@ capability ArchiveBatch {
   intent BatchInput from Operator
   outcome BatchArchived
   when {
-    always then BatchArchived
+    always BatchArchived
   }
 }
 
@@ -26,7 +26,7 @@ capability SuperviseBatch {
   intent BatchInput from Operator
   outcome BatchOpened
   when {
-    always then BatchOpened
+    always BatchOpened
   }
 
   supervises lifecycle BatchLifecycle {

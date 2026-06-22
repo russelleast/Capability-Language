@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Customer is human
 
@@ -17,7 +17,7 @@ capability VerifyCustomer {
     emits CustomerVerified
   }
   when {
-    always then VerificationStarted
+    always VerificationStarted
   }
 }
 
@@ -26,7 +26,7 @@ capability OpenVerifiedProfile {
   outcome ProfileOpeningStarted
 
   when {
-    always then ProfileOpeningStarted
+    always ProfileOpeningStarted
   }
 
   supervises lifecycle VerifiedProfileOpening {

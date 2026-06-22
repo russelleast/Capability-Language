@@ -2,7 +2,7 @@ language dcl 0.10
 
 actor Customer is human
 actor SupportAgent is agent
-actor CRMSystem is external_system
+actor CRMSystem is system
 
 shape CustomerQuestion {
   customerId: Uuid required

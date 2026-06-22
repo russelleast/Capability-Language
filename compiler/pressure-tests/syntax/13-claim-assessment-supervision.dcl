@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Claimant is human
 actor Adjuster is human
@@ -71,7 +71,7 @@ capability AssessClaim {
   }
 
   when {
-    always then ClaimAssessmentOpened
+    always ClaimAssessmentOpened
   }
 
   supervises lifecycle ClaimAssessment {

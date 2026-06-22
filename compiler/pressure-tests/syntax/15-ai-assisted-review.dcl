@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Analyst is human
 actor ModelService is system
@@ -58,7 +58,7 @@ capability SuperviseAssistedReview {
   }
 
   when {
-    always then ReviewOpened
+    always ReviewOpened
   }
 
   supervises lifecycle AssistedReview {

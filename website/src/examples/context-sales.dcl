@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 context Sales {
   depends on Shared

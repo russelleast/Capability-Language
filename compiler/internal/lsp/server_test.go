@@ -166,7 +166,7 @@ func TestServerHandlesDocumentSymbolRequest(t *testing.T) {
 					"uri":        "file:///workspace/order.dcl",
 					"languageId": "dcl",
 					"version":    1,
-					"text": `language dcl 0.9
+					"text": `language dcl 0.10
 
 capability PlaceOrder {
   intent OrderInput from Customer
@@ -229,7 +229,7 @@ func TestServerLogsDocumentSymbolZeroReason(t *testing.T) {
 					"uri":        "file:///workspace/empty.dcl",
 					"languageId": "dcl",
 					"version":    1,
-					"text":       "language dcl 0.9\n",
+					"text":       "language dcl 0.10\n",
 				},
 			},
 		}),
@@ -269,7 +269,7 @@ func TestServerHandlesWorkspaceSymbolRequest(t *testing.T) {
 					"uri":        "file:///workspace/payment.dcl",
 					"languageId": "dcl",
 					"version":    1,
-					"text": `language dcl 0.9
+					"text": `language dcl 0.10
 
 capability CapturePayment {
   intent PaymentInput from Customer
@@ -313,7 +313,7 @@ capability CapturePayment {
 }
 
 func TestServerHandlesDefinitionRequest(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentInput {
   paymentId: Uuid required
@@ -398,7 +398,7 @@ capability CapturePayment {
 }
 
 func TestServerLogsDefinitionDeclarationReason(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentInput {
   paymentId: Uuid required
@@ -446,7 +446,7 @@ shape PaymentInput {
 }
 
 func TestServerHandlesReferencesRequest(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
@@ -518,7 +518,7 @@ capability CapturePayment {
 }
 
 func TestServerLogsReferenceZeroReason(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentRequest {
   paymentId: Uuid required
@@ -607,7 +607,7 @@ func TestServerPublishesDiagnosticsForOpenedDocuments(t *testing.T) {
 }
 
 func TestServerHandlesSymbolInspectionRequest(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required

@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Customer is human
 actor SupportAgent is human
@@ -57,7 +57,7 @@ capability SettlePayment {
   }
 
   when {
-    always then SettlementOpened
+    always SettlementOpened
   }
 
   supervises lifecycle PaymentSettlement {

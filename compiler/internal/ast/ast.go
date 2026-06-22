@@ -82,6 +82,7 @@ type PolicyDecl struct {
 	Name          string
 	Kind          string
 	Family        string
+	Families      []string
 	Threshold     string
 	ThresholdSpan diagnostic.Span
 	Concern       string
@@ -92,6 +93,7 @@ type PolicyDecl struct {
 
 type ConcernDecl struct {
 	Name       string
+	Family     string
 	Parameters []ConcernParameter
 	Span       diagnostic.Span
 }

@@ -124,7 +124,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
         <aside class="diagnostics-panel" aria-live="polite">
           <div class="pane-heading">
             <h2>Compiler results</h2>
-            <span>Browser WASM</span>
+            <span>Compiler</span>
           </div>
           <div class="status-card" data-result-status>
             Ready. Select an example or edit the source.
@@ -212,25 +212,6 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     </section>
 
     <article class="prose playground-notes">
-      <div class="notice">
-        <strong>Browser compiler status</strong>
-        <p>
-          The Compile button calls <code>compileDcl(source)</code>, which loads
-          the static WASM compiler from <code>/compiler/dcl.wasm</code>. If the
-          WASM runtime cannot load, the adapter reports that clearly in
-          diagnostics.
-        </p>
-      </div>
-
-      <h2>Next extension points</h2>
-      <ul>
-        <li>Editor diagnostics and completion suggestions.</li>
-        <li>Compiler WASM loading behind the existing adapter.</li>
-        <li>IR view for compiler output.</li>
-        <li>Capability graph and lifecycle diagram views.</li>
-        <li>Policy and diagnostic explanations.</li>
-      </ul>
-
       <p>
         Continue with <a href={sitePath("/examples/")}>Examples</a> or the
         <a href={sitePath("/docs/")}>Reference</a>.
@@ -239,7 +220,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
   </section>
 
   <script>
-    import { compileDcl, browserCompilerAvailable, type Diagnostic } from "../lib/playground/compiler";
+    import { compileDcl, type Diagnostic } from "../lib/playground/compiler";
     import { formatDcl } from "../lib/playground/formatDcl";
     import { playgroundExamples } from "../lib/playground/examples";
     import { playgroundExamplePath } from "../lib/playground/links";
@@ -1605,7 +1586,7 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
     });
 
     compileButton?.addEventListener("click", async () => {
-      setStatus(browserCompilerAvailable ? "Compiling..." : "Loading browser compiler...", "pending");
+      setStatus("Compiling...", "pending");
       sourceEditor.setDiagnostics([]);
 
       const result = await compileDcl(sourceEditor.getValue());

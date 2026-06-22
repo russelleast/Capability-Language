@@ -449,7 +449,7 @@ capability CollectPayment {
   }
 
   when {
-    always then VerificationStarted
+    always VerificationStarted
   }
 
   lifecycle {
@@ -511,13 +511,13 @@ capability Source {
     emits KnownEvent
     emits MissingEvent
   }
-  when { always then Done }
+  when { always Done }
 }
 
 capability Watch {
   intent Input from Customer
   outcome Started
-  when { always then Started }
+  when { always Started }
   supervises lifecycle WatchLifecycle {
     identity value
     contributors { Source }
@@ -542,7 +542,7 @@ event PaymentReceived is Input
 capability CollectPayment {
   intent Input from Customer
   outcome Started
-  when { always then Started }
+  when { always Started }
   lifecycle {
     begin Pending
     step Pending waits for event PaymentReceived
@@ -570,7 +570,7 @@ capability ApproveRequest {
   intent Input from Customer
   actors { approver: Manager }
   outcome Started
-  when { always then Started }
+  when { always Started }
   lifecycle {
     begin Pending
     step Pending requires decision from approver
@@ -596,7 +596,7 @@ capability Broken {
   intent Input from Customer
   outcomes { Accepted Rejected }
   when {
-    always then Accepted
+    always Accepted
     otherwise then Rejected
   }
 }`

@@ -160,6 +160,7 @@ type PolicyIR struct {
 	ID                 string                `json:"id"`
 	Name               string                `json:"name"`
 	Family             string                `json:"family"`
+	Families           []string              `json:"families,omitempty"`
 	Kind               string                `json:"kind,omitempty"`
 	Threshold          *float64              `json:"threshold,omitempty"`
 	Concern            string                `json:"concern,omitempty"`

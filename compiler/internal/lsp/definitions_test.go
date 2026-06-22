@@ -7,7 +7,7 @@ import (
 )
 
 func TestDefinitionProviderEventDefinition(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
@@ -31,21 +31,21 @@ capability CapturePayment {
 }
 
 func TestDefinitionProviderOutcomeDefinition(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 capability CapturePayment {
   intent PaymentInput from Customer
   outcome PaymentCaptured
 
   when {
-    always then PaymentCaptured
+    always PaymentCaptured
   }
 }
 `
 	host := NewWorkspaceHost()
 	uri := "file:///workspace/payment.dcl"
 	host.Documents().Open(uri, 1, source)
-	location, ok := NewDefinitionProvider(host).Definition(uri, positionOf(t, source, "always then PaymentCaptured", "PaymentCaptured"))
+	location, ok := NewDefinitionProvider(host).Definition(uri, positionOf(t, source, "always PaymentCaptured", "PaymentCaptured"))
 	if !ok {
 		t.Fatal("expected outcome definition")
 	}
@@ -53,7 +53,7 @@ capability CapturePayment {
 }
 
 func TestDefinitionProviderShapeDefinition(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentInput {
   paymentId: Uuid required
@@ -75,13 +75,13 @@ capability CapturePayment {
 
 func TestDefinitionProviderCrossFileDefinition(t *testing.T) {
 	dir := t.TempDir()
-	events := writeDefinitionFixture(t, dir, "events.dcl", `language dcl 0.9
+	events := writeDefinitionFixture(t, dir, "events.dcl", `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
 }
 `)
-	capabilitySource := `language dcl 0.9
+	capabilitySource := `language dcl 0.10
 
 capability CapturePayment {
   intent PaymentInput from Customer
@@ -101,7 +101,7 @@ capability CapturePayment {
 }
 
 func TestDefinitionProviderUnresolvedSymbol(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 capability CapturePayment {
   intent MissingInput from Customer
@@ -116,7 +116,7 @@ capability CapturePayment {
 }
 
 func TestDefinitionProviderDuplicateNamesInDifferentContexts(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 context Payments {
   shape PaymentInput {

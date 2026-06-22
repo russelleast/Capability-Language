@@ -46,7 +46,7 @@ Recorded with:
 go run ./cmd/dcl check <scenario>
 ```
 
-The table records the original pressure-test intent. The v0.9 compiler also
+The table records the original pressure-test intent. The v0.10 compiler also
 emits migration warnings where older authoring forms remain valid:
 
 - `DCL_SEM_EFFECT_KIND_LEGACY` for `notify`, `persist`, and `invoke`

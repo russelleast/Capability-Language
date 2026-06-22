@@ -8,7 +8,7 @@
       "  outcome ${4:OutcomeName}",
       "",
       "  when {",
-      "    always then ${4:OutcomeName}",
+      "    always ${4:OutcomeName}",
       "  }",
       "}"
     ],
@@ -17,7 +17,7 @@
   "Actor": {
     "prefix": "actor",
     "body": [
-      "actor ${1:ActorName} is ${2|human,external_system,internal_system,automated_agent,scheduled_agent,agent|}"
+      "actor ${1:ActorName} is ${2|human,system,agent,scheduled_process|}"
     ],
     "description": "DCL actor"
   },

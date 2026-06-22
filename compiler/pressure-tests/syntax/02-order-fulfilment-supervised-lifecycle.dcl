@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Customer is human
 actor WarehouseOperator is human
@@ -86,7 +86,7 @@ capability FulfilOrder {
   }
 
   when {
-    always then FulfilmentOpened
+    always FulfilmentOpened
   }
 
   supervises lifecycle OrderFulfilment {

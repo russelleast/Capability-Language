@@ -175,6 +175,51 @@ policy MinimumAnswerConfidence {
 	}
 }
 
+func TestPolicyMultipleFamiliesCompileToIR(t *testing.T) {
+	src := `
+policy SupportExecution {
+  family reliability
+  retry { attempts 2 }
+  idempotency required
+
+  family governance
+  audit required
+  evidence required
+
+  family confidence
+  threshold 0.8
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	policy := result.IR.Policies[0]
+	wantFamilies := []string{"reliability", "governance", "confidence"}
+	if len(policy.Families) != len(wantFamilies) {
+		t.Fatalf("expected families %#v, got %#v", wantFamilies, policy.Families)
+	}
+	for i, want := range wantFamilies {
+		if policy.Families[i] != want {
+			t.Fatalf("expected families %#v, got %#v", wantFamilies, policy.Families)
+		}
+	}
+	concernFamilies := map[string]string{}
+	for _, concern := range policy.Concerns {
+		concernFamilies[concern.Name] = concern.Family
+	}
+	for concern, family := range map[string]string{
+		"retry":       "reliability",
+		"idempotency": "reliability",
+		"audit":       "governance",
+		"evidence":    "governance",
+		"confidence":  "confidence",
+	} {
+		if concernFamilies[concern] != family {
+			t.Fatalf("expected %s in family %s, got %#v", concern, family, policy.Concerns)
+		}
+	}
+}
+
 func TestInlineBlockConcernParses(t *testing.T) {
 	src := `
 policy InlineRetry {
@@ -244,7 +289,7 @@ policy BadRetry {
 func TestCircuitBreakerProtectsOnlyEffects(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input { email: Email required }
 
 policy PaymentDependencyProtection {
@@ -283,7 +328,7 @@ capability RegisterCustomer {
 func TestCircuitBreakerAttachmentAndParameterFailures(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input {}
 
 policy BadCircuitTarget {
@@ -356,7 +401,7 @@ capability RegisterCustomer {
 func TestEffectivePolicyEnvelopeNarrowsAndDerivesObligations(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input { email: Email required }
 
 policy CapabilityReliability {
@@ -413,7 +458,7 @@ capability RegisterCustomer {
 func TestPolicyNarrowingViolation(t *testing.T) {
 	src := `
 actor Customer is human
-effect CallPaymentGateway is request
+effect CallPaymentGateway is invocation
 shape Input {}
 
 policy CapabilityReliability {

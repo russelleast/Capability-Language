@@ -22,7 +22,7 @@ func TestWorkspaceValidatorPublishesAndClearsDiagnostics(t *testing.T) {
 		t.Fatalf("expected validation result to include count and timestamp, got %+v", result)
 	}
 
-	host.Documents().Save(uri, ptr("language dcl 0.9\n"))
+	host.Documents().Save(uri, ptr("language dcl 0.10\n"))
 	validator.Validate()
 
 	if count := len(published.latest(uri)); count != 0 {
@@ -33,7 +33,7 @@ func TestWorkspaceValidatorPublishesAndClearsDiagnostics(t *testing.T) {
 func TestWorkspaceValidatorDebouncesValidation(t *testing.T) {
 	host := NewWorkspaceHost()
 	uri := "file:///workspace/debounce.dcl"
-	host.Documents().Open(uri, 1, "language dcl 0.9\n")
+	host.Documents().Open(uri, 1, "language dcl 0.10\n")
 	published := newPublishedDiagnostics()
 	validator := NewWorkspaceValidator(host, NewDiagnosticPublisher(published.send), NewLogger(nil))
 

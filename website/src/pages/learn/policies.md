@@ -8,7 +8,7 @@ description: Learn how DCL expresses architectural and operational concerns.
 
 Policies express requirements that govern language elements.
 
-A policy can describe concerns such as reliability, performance, security, governance, data protection, confidence, or observability. It can then govern a capability, effect, event, outcome, or lifecycle.
+A policy can describe concerns such as reliability, performance, security, governance, data protection, or confidence. It can then govern a capability, effect, event, outcome, or lifecycle. Observability is modelled with `observe` blocks rather than an observability policy family in DCL v0.10.
 
 Policies keep cross-cutting requirements visible in the model instead of burying them in prose or implementation-specific configuration.
 

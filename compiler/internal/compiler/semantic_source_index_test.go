@@ -108,7 +108,7 @@ func TestSemanticSourceIndexCrossFileReferenceResolution(t *testing.T) {
 }
 
 func TestSemanticSourceIndexDuplicateNamesInDifferentContexts(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 context Payments {
   shape PaymentInput {
@@ -151,7 +151,7 @@ func TestSemanticSourceIndexEmpty(t *testing.T) {
 }
 
 func TestSemanticSourceIndexUnsupportedReferenceKindReason(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentInput {
   paymentId: Uuid required
@@ -170,7 +170,7 @@ capability CapturePayment {
 }
 
 func semanticIndexSource() string {
-	return `language dcl 0.9
+	return `language dcl 0.10
 
 shape PaymentInput {
   paymentId: Uuid required
@@ -196,13 +196,13 @@ capability CapturePayment {
 }
 
 func semanticIndexCrossFileSources() []SourceFile {
-	eventSource := `language dcl 0.9
+	eventSource := `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
 }
 `
-	capabilitySource := `language dcl 0.9
+	capabilitySource := `language dcl 0.10
 
 shape PaymentInput {
   paymentId: Uuid required

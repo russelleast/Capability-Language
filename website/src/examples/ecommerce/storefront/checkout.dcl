@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 context Ecommerce.Storefront {
   effect StartCheckoutSession is persistence

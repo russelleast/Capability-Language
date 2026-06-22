@@ -65,6 +65,24 @@ func isBuiltinType(name string) bool {
 	return false
 }
 
+func validActorKind(kind string) bool {
+	switch kind {
+	case "human", "system", "agent", "scheduled_process":
+		return true
+	default:
+		return false
+	}
+}
+
+func validEffectKind(kind string) bool {
+	switch kind {
+	case "persistence", "notification", "invocation", "tool":
+		return true
+	default:
+		return false
+	}
+}
+
 func validPolicyFamily(family string) bool {
 	return policyFamilies[family]
 }
@@ -74,11 +92,22 @@ func validPolicyKind(kind string) bool {
 }
 
 func isConfidencePolicy(policy ast.PolicyDecl) bool {
-	return policy.Kind == "confidence" || policy.Family == "confidence"
+	if policy.Kind == "confidence" || policy.Family == "confidence" {
+		return true
+	}
+	for _, family := range policy.Families {
+		if family == "confidence" {
+			return true
+		}
+	}
+	return false
 }
 
-func policyConcernFamily(policy ast.PolicyDecl) string {
-	if isConfidencePolicy(policy) {
+func policyConcernFamily(policy ast.PolicyDecl, concern ast.ConcernDecl) string {
+	if concern.Family != "" {
+		return concern.Family
+	}
+	if concern.Name == "confidence" || isConfidencePolicy(policy) {
 		return "confidence"
 	}
 	return policy.Family
@@ -120,10 +149,11 @@ func findConcern(policy ast.PolicyDecl, name string) (ast.ConcernDecl, bool) {
 
 func policyConcerns(policy ast.PolicyDecl) []ast.ConcernDecl {
 	out := append([]ast.ConcernDecl(nil), policy.Concerns...)
-	if isConfidencePolicy(policy) {
+	if isConfidencePolicy(policy) && !hasConcern(out, "confidence") {
 		if threshold, ok := confidenceThresholdValue(policy); ok {
 			out = append(out, ast.ConcernDecl{
-				Name: "confidence",
+				Name:   "confidence",
+				Family: "confidence",
 				Parameters: []ast.ConcernParameter{{
 					Name:   "threshold",
 					Values: []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
@@ -134,6 +164,28 @@ func policyConcerns(policy ast.PolicyDecl) []ast.ConcernDecl {
 		}
 	}
 	return out
+}
+
+func hasConcern(concerns []ast.ConcernDecl, name string) bool {
+	for _, concern := range concerns {
+		if concern.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func policyFamiliesForValidation(policy ast.PolicyDecl) []string {
+	if len(policy.Families) > 0 {
+		return append([]string(nil), policy.Families...)
+	}
+	if policy.Family != "" {
+		return []string{policy.Family}
+	}
+	if policy.Kind == "confidence" {
+		return []string{"confidence"}
+	}
+	return nil
 }
 
 func parameter(concern ast.ConcernDecl, name string) (ast.ConcernParameter, bool) {
@@ -202,18 +254,6 @@ func concernIR(family string, concern ast.ConcernDecl) ir.ConcernIR {
 		out.Parameters = append(out.Parameters, ir.ConcernParameterIR{Name: param.Name, Values: append([]string(nil), param.Values...)})
 	}
 	return out
-}
-
-func confidenceConcernIR(policy ast.PolicyDecl, threshold float64) ir.ConcernIR {
-	return ir.ConcernIR{
-		Name:   "confidence",
-		Family: "confidence",
-		Parameters: []ir.ConcernParameterIR{{
-			Name:   "threshold",
-			Values: []string{strconv.FormatFloat(threshold, 'f', -1, 64)},
-		}},
-		SourceLocation: policy.Span,
-	}
 }
 
 func objectiveIR(concern ast.ConcernDecl) ir.ObjectiveIR {

@@ -198,7 +198,11 @@ func (p *Parser) parsePolicy() ast.PolicyDecl {
 			policy.Kind = p.expectIdent("policy kind").Text
 		case "family":
 			p.advance()
-			policy.Family = p.expectIdent("policy family").Text
+			family := p.expectIdent("policy family").Text
+			if policy.Family == "" {
+				policy.Family = family
+			}
+			policy.Families = append(policy.Families, family)
 		case "threshold":
 			start := p.advance()
 			policy.ThresholdSpan = start.Span
@@ -206,11 +210,30 @@ func (p *Parser) parsePolicy() ast.PolicyDecl {
 			if len(values) > 0 {
 				policy.Threshold = values[0]
 			}
+			policy.Concerns = append(policy.Concerns, ast.ConcernDecl{
+				Name:   "confidence",
+				Family: p.currentPolicyFamily(policy),
+				Parameters: []ast.ConcernParameter{{
+					Name:   "threshold",
+					Values: values,
+					Span:   start.Span,
+				}},
+				Span: start.Span,
+			})
 		default:
-			policy.Concerns = append(policy.Concerns, p.parseConcern())
+			concern := p.parseConcern()
+			concern.Family = p.currentPolicyFamily(policy)
+			policy.Concerns = append(policy.Concerns, concern)
 		}
 	})
 	return policy
+}
+
+func (p *Parser) currentPolicyFamily(policy ast.PolicyDecl) string {
+	if len(policy.Families) == 0 {
+		return policy.Family
+	}
+	return policy.Families[len(policy.Families)-1]
 }
 
 func (p *Parser) parseConcern() ast.ConcernDecl {
@@ -568,7 +591,9 @@ func (p *Parser) parseWhenBlock() []ast.WhenBranch {
 	p.parseBlockItems(func() {
 		start := p.peek()
 		if p.matchText("always") {
-			p.expectText("then")
+			if p.matchText("then") {
+				p.diags.Warning("DCL_PARSE_ALWAYS_THEN_DEPRECATED", "always is deprecated; use always Outcome", start.Span, "always")
+			}
 			outcome := p.expectIdent("outcome").Text
 			branches = append(branches, ast.WhenBranch{Always: true, Outcome: outcome, Span: start.Span})
 			return
@@ -877,7 +902,7 @@ func isPolicyTargetKindToken(text string) bool {
 
 func isConcernParameterName(text string) bool {
 	switch text {
-	case "attempts", "backoff", "opens", "resets":
+	case "attempts", "backoff", "opens", "resets", "threshold":
 		return true
 	default:
 		return false

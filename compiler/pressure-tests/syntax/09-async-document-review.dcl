@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Author is human
 actor Reviewer is human

@@ -224,6 +224,19 @@ main {
   min-width: 0;
 }
 
+.example-section {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.example-section > div {
+  max-width: 860px;
+}
+
+.example-section .code-block {
+  max-width: 100%;
+}
+
 .concept-grid {
   display: grid;
   gap: 0.8rem;

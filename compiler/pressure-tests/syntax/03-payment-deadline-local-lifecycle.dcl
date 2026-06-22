@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Customer is human
 
@@ -20,7 +20,7 @@ capability CollectPayment {
   }
 
   when {
-    always then PaymentRequested
+    always PaymentRequested
   }
 
   events {

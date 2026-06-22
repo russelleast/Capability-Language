@@ -19,7 +19,7 @@ const constructs = [
   ["Program", "Language declaration, source files, declaration order, compiler model."],
   ["Context", "Semantic ownership boundary, dependencies, visibility, hierarchy."],
   ["Shape", "Reusable structured data with fields and built-in value types."],
-  ["Actor", "Initiating, participating, delegated, or authority context."],
+  ["Actor", "Initiating or participating human, system, agent, or scheduled process."],
   ["Event", "Named signal with optional structured payload."],
   ["Effect", "Externally meaningful action caused by a capability."],
   ["Policy", "Portable execution quality attached to semantic boundaries."],
@@ -150,8 +150,25 @@ const constructs = [
 
   <h2 id="actor">Actor</h2>
   <p>
-    An actor represents an initiating or participating party. Actors may be
-    humans, systems, agents, scheduled processes, or authority contexts.
+    An actor represents an initiating or participating party. DCL v0.10 accepts
+    only the actor types listed below.
+  </p>
+  <table class="reference-table">
+    <thead>
+      <tr><th>Actor Type</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>human</code></td><td>A person or human role.</td></tr>
+      <tr><td><code>system</code></td><td>An external or internal software/system participant.</td></tr>
+      <tr><td><code>agent</code></td><td>An autonomous or semi-autonomous reasoning participant.</td></tr>
+      <tr><td><code>scheduled_process</code></td><td>A scheduled or time-driven participant.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>external_system</code>, <code>internal_system</code>, and
+    <code>authority</code> are not valid actor types in DCL v0.10. Use
+    <code>system</code> for external or internal systems, and model authority
+    through rules, policies, and actor roles.
   </p>
   <div class="construct-card">
     <h3>Required</h3>
@@ -183,12 +200,19 @@ const constructs = [
   </p>
   <p>
     Effects may be used singly or in an ordered <code>effects</code> block.
-    <code>after</code> expresses explicit ordering. Current examples use effect
-    classifications such as <code>persistence</code>,
-    <code>notification</code>, <code>invocation</code>, and
-    <code>tool</code>. A <code>tool</code> effect marks a declared tool-use
-    boundary such as an MCP tool, function call, retrieval tool, or agent tool.
+    <code>after</code> expresses explicit ordering.
   </p>
+  <table class="reference-table">
+    <thead>
+      <tr><th>Effect Type</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>persistence</code></td><td>Stores or updates state.</td></tr>
+      <tr><td><code>notification</code></td><td>Notifies a person or system.</td></tr>
+      <tr><td><code>invocation</code></td><td>Calls another capability or system.</td></tr>
+      <tr><td><code>tool</code></td><td>Invokes a tool, especially for agentic or AI workflows.</td></tr>
+    </tbody>
+  </table>
 
   <h2 id="policy">Policy</h2>
   <p>
@@ -198,19 +222,34 @@ const constructs = [
   </p>
   <h3>Families</h3>
   <p>
-    Supported policy families include <code>reliability</code>,
-    <code>availability</code>, <code>scalability</code>,
-    <code>performance</code>, <code>security</code>, <code>compliance</code>,
-    <code>governance</code>, <code>data_protection</code>, and
-    <code>confidence</code>.
+    A policy block may contain one family or several family sections. Concerns
+    belong to the most recent <code>family</code> line above them.
   </p>
-  <h3>Confidence</h3>
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Family</th>
+        <th>Purpose</th>
+        <th>Compiler-supported entries</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>reliability</code></td><td>Failure handling and dependable execution.</td><td><code>retry</code>, <code>backoff</code>, <code>timeout</code>, <code>idempotency</code>, <code>compensation</code>, <code>circuit_breaker</code></td></tr>
+      <tr><td><code>availability</code></td><td>Graceful degradation and fallback.</td><td><code>degradation</code>, <code>fallback</code>, <code>dependency_tolerance</code></td></tr>
+      <tr><td><code>scalability</code></td><td>Load and flow-control constraints.</td><td><code>concurrency</code>, <code>rate_limit</code>, <code>queue</code>, <code>backpressure</code></td></tr>
+      <tr><td><code>performance</code></td><td>Latency, throughput, and budget targets.</td><td><code>latency</code>, <code>throughput</code>, <code>budget</code></td></tr>
+      <tr><td><code>security</code></td><td>Identity, access, and information protection.</td><td><code>authentication</code>, <code>authorization</code>, <code>classification</code>, <code>encryption</code></td></tr>
+      <tr><td><code>compliance</code></td><td>Regulatory and evidence requirements.</td><td><code>audit</code>, <code>retention</code>, <code>approval</code>, <code>evidence</code></td></tr>
+      <tr><td><code>governance</code></td><td>Review, audit, and organizational control.</td><td><code>audit</code>, <code>retention</code>, <code>approval</code>, <code>evidence</code></td></tr>
+      <tr><td><code>data_protection</code></td><td>Privacy and data handling constraints.</td><td><code>sensitivity</code>, <code>masking</code>, <code>minimization</code>, <code>retention</code>, <code>deletion</code></td></tr>
+      <tr><td><code>confidence</code></td><td>Decision or tool-result acceptance thresholds.</td><td><code>threshold</code> between <code>0</code> and <code>1</code></td></tr>
+    </tbody>
+  </table>
+  <CodeBlock title="multi-family-policy.dcl" code={`policy SupportExecution {\n  family reliability\n  retry { attempts 2 }\n  idempotency required\n\n  family governance\n  audit required\n  evidence required\n\n  family confidence\n  threshold 0.8\n}`} />
   <p>
-    A <code>confidence</code> policy declares a numeric <code>threshold</code>
-    between <code>0</code> and <code>1</code> for accepting a decision, effect,
-    outcome, tool, or capability boundary. Confidence is not a full LLM
-    evaluation or grounding model; evaluation and grounding policies may be
-    added later.
+    <code>confidence</code> is a threshold family, not a full LLM evaluation or
+    grounding model. Observability is expressed with <code>observe</code>
+    blocks, not an <code>observability</code> policy family in DCL v0.10.
   </p>
   <h3>Attachment Targets</h3>
   <p>
@@ -334,7 +373,7 @@ const constructs = [
     </thead>
     <tbody>
       <tr>
-        <td><code>always then Outcome</code></td>
+        <td><code>always Outcome</code></td>
         <td>Unconditional outcome causation.</td>
       </tr>
       <tr>
@@ -343,7 +382,19 @@ const constructs = [
       </tr>
       <tr>
         <td><code>EffectName unresolved then Outcome</code></td>
-        <td>Outcome caused by an unresolved effect.</td>
+        <td>Outcome caused by an effect, tool, invocation, or agentic task that cannot produce a definitive result.</td>
+      </tr>
+      <tr>
+        <td><code>EffectName failed then Outcome</code></td>
+        <td>Alias for <code>unresolved</code>; useful for tool or invocation failure paths.</td>
+      </tr>
+      <tr>
+        <td><code>policy PolicyName denied then Outcome</code></td>
+        <td>Outcome caused by an authorization policy denial.</td>
+      </tr>
+      <tr>
+        <td><code>policy PolicyName fails then Outcome</code></td>
+        <td>Outcome caused by a confidence policy not meeting its threshold.</td>
       </tr>
       <tr>
         <td><code>otherwise then Outcome</code></td>
@@ -351,6 +402,16 @@ const constructs = [
       </tr>
     </tbody>
   </table>
+  <p>
+    DCL v0.10 does not support <code>succeeded</code> or <code>expired</code>
+    as general <code>when</code> decision words. <code>violated</code> is for
+    rule constraints being breached. Policy constraints use policy-specific
+    words such as <code>denied</code>, <code>fails</code>,
+    <code>exhausted</code>, <code>times_out</code>, <code>open</code>,
+    <code>degraded</code>, or <code>fallback_used</code> when the matching
+    policy concern can produce that state.
+  </p>
+  <CodeBlock title="when-examples.dcl" code={`when {\n  EmailPresent violated then MissingEmail\n  SearchKnowledgeBase failed then ToolUnavailable\n  policy MinimumAnswerConfidence fails then InsufficientConfidence\n  otherwise then AnswerPrepared\n}`} />
   <CodeBlock title="register-customer.dcl" code={registerCustomer} />
 
   <h2 id="lifecycle">Lifecycle</h2>
@@ -391,6 +452,13 @@ const constructs = [
     semantic instrumentation requirements that generated artifacts or runtime
     projections can use later.
   </p>
+  <CodeBlock title="observe-examples.dcl" code={`observe {\n  outcome AnswerPrepared count as answers_prepared\n  effect SearchKnowledgeBase duration as knowledge_search_latency\n  effect SearchKnowledgeBase failures as knowledge_search_failures\n  capability violations as answer_policy_violations\n  lifecycle transitions as support_lifecycle_transitions\n}`} />
+  <p>
+    Rule-specific and policy-specific observation targets are not supported in
+    DCL v0.10. Use capability-level <code>violations</code> for
+    compiler-visible rule or policy violation metrics, and attach policies
+    explicitly for policy decision semantics.
+  </p>
 
   <h2 id="compiler-diagnostics">Compiler Diagnostics</h2>
   <p>
@@ -426,6 +494,6 @@ const constructs = [
     This page is distilled from the repository design documents for primitive
     contracts, surface syntax, compiler duties, context visibility/dependencies,
     policy composition, supervising lifecycles, lifecycle completion semantics,
-    and the accepted v0.9 syntax decision record.
+    and the accepted v0.10 compiler behavior.
   </p>
 </DocsLayout>

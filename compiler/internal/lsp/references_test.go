@@ -5,7 +5,7 @@ import (
 )
 
 func TestReferenceProviderEventReferences(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
@@ -41,7 +41,7 @@ capability CapturePayment {
 }
 
 func TestReferenceProviderOutcomeReferences(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 capability ApprovePayment {
   intent PaymentInput from Customer
@@ -50,7 +50,7 @@ capability ApprovePayment {
     PaymentPolicy governs outcome Approved
   }
   when {
-    always then Approved
+    always Approved
   }
   lifecycle {
     begin Pending
@@ -70,7 +70,7 @@ capability ApprovePayment {
 }
 
 func TestReferenceProviderShapeReferences(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentRequest {
   paymentId: Uuid required
@@ -93,13 +93,13 @@ capability CapturePayment {
 
 func TestReferenceProviderCrossFileReferences(t *testing.T) {
 	dir := t.TempDir()
-	events := writeDefinitionFixture(t, dir, "events.dcl", `language dcl 0.9
+	events := writeDefinitionFixture(t, dir, "events.dcl", `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
 }
 `)
-	capabilitySource := `language dcl 0.9
+	capabilitySource := `language dcl 0.10
 
 capability CapturePayment {
   intent PaymentInput from Customer
@@ -118,7 +118,7 @@ capability CapturePayment {
 }
 
 func TestReferenceProviderDuplicateNamesResolveByContext(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 context Payments {
   shape PaymentInput {
@@ -149,7 +149,7 @@ context Refunds {
 }
 
 func TestReferenceProviderNoReferences(t *testing.T) {
-	source := `language dcl 0.9
+	source := `language dcl 0.10
 
 shape PaymentRequest {
   paymentId: Uuid required

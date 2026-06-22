@@ -281,11 +281,11 @@ func (c *compiler) policyEventTargets(cap ast.CapabilityDecl) []string {
 func effectiveConcernIR(item attachedPolicyConcern, targetKind, targetSymbol, mode string) ir.EffectiveConcernIR {
 	return ir.EffectiveConcernIR{
 		Name:                item.Concern.Name,
-		Family:              policyConcernFamily(item.Policy),
+		Family:              policyConcernFamily(item.Policy, item.Concern),
 		TargetKind:          targetKind,
 		TargetSymbol:        targetSymbol,
 		SourcePolicies:      []string{item.Policy.Name},
-		EffectiveParameters: concernIR(policyConcernFamily(item.Policy), item.Concern).Parameters,
+		EffectiveParameters: concernIR(policyConcernFamily(item.Policy, item.Concern), item.Concern).Parameters,
 		CompositionMode:     mode,
 	}
 }

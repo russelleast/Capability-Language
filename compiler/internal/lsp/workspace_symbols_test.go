@@ -16,7 +16,7 @@ func TestWorkspaceSymbolsEmptyWorkspace(t *testing.T) {
 
 func TestWorkspaceSymbolsSingleFileWorkspace(t *testing.T) {
 	dir := t.TempDir()
-	writeDCLFile(t, dir, "payment.dcl", `language dcl 0.9
+	writeDCLFile(t, dir, "payment.dcl", `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
@@ -41,13 +41,13 @@ capability CapturePayment {
 
 func TestWorkspaceSymbolsMultiFileWorkspace(t *testing.T) {
 	dir := t.TempDir()
-	writeDCLFile(t, dir, "orders.dcl", `language dcl 0.9
+	writeDCLFile(t, dir, "orders.dcl", `language dcl 0.10
 
 capability PlaceOrder {
   intent OrderInput from Customer
 }
 `)
-	writeDCLFile(t, dir, "payments.dcl", `language dcl 0.9
+	writeDCLFile(t, dir, "payments.dcl", `language dcl 0.10
 
 capability CapturePayment {
   intent PaymentInput from Customer
@@ -65,7 +65,7 @@ capability CapturePayment {
 
 func TestWorkspaceSymbolsFuzzySearch(t *testing.T) {
 	host := NewWorkspaceHost()
-	host.Documents().Open("file:///workspace/payment.dcl", 1, `language dcl 0.9
+	host.Documents().Open("file:///workspace/payment.dcl", 1, `language dcl 0.10
 
 capability CapturePayment {
   intent PaymentInput from Customer
@@ -78,7 +78,7 @@ capability CapturePayment {
 
 func TestWorkspaceSymbolsCaseInsensitiveSearch(t *testing.T) {
 	host := NewWorkspaceHost()
-	host.Documents().Open("file:///workspace/payment.dcl", 1, `language dcl 0.9
+	host.Documents().Open("file:///workspace/payment.dcl", 1, `language dcl 0.10
 
 event PaymentCaptured is {
   paymentId: Uuid required
@@ -91,7 +91,7 @@ event PaymentCaptured is {
 
 func TestWorkspaceSymbolsDuplicateNamesInDifferentContexts(t *testing.T) {
 	host := NewWorkspaceHost()
-	host.Documents().Open("file:///workspace/duplicates.dcl", 1, `language dcl 0.9
+	host.Documents().Open("file:///workspace/duplicates.dcl", 1, `language dcl 0.10
 
 context Payments {
   capability Capture {
@@ -117,7 +117,7 @@ context Refunds {
 
 func TestWorkspaceSymbolsSourceLocations(t *testing.T) {
 	host := NewWorkspaceHost()
-	host.Documents().Open("file:///workspace/order.dcl", 1, `language dcl 0.9
+	host.Documents().Open("file:///workspace/order.dcl", 1, `language dcl 0.10
 
 actor Customer is human
 

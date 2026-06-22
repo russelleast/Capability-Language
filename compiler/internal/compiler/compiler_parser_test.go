@@ -288,6 +288,40 @@ capability NotifyUser {
 	}
 }
 
+func TestAlwaysWithoutThenCompiles(t *testing.T) {
+	src := `
+actor User is human
+shape Input {}
+capability AlwaysAccepted {
+  intent Input from User
+  outcome Accepted
+  when { always Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	if HasErrors(result.Diagnostics) {
+		t.Fatalf("unexpected diagnostics: %#v", result.Diagnostics)
+	}
+	if len(result.IR.Capabilities[0].Analysis.OutcomeCauses) != 1 {
+		t.Fatalf("expected always causation, got %#v", result.IR.Capabilities[0].Analysis.OutcomeCauses)
+	}
+}
+
+func TestInvalidActorAndEffectKindsAreRejected(t *testing.T) {
+	src := `
+actor LegacySystem is external_system
+effect SendMessage is request
+shape Input {}
+capability InvalidKinds {
+  intent Input from LegacySystem
+  outcome Accepted
+  effect SendMessage
+  when { always Accepted }
+}`
+	result := CompileFiles([]string{writeTempDCL(t, src)})
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_ACTOR_KIND_UNKNOWN")
+	assertDiagnostic(t, result.Diagnostics, "DCL_SEM_EFFECT_KIND_UNKNOWN")
+}
+
 func TestRemovedFormsAreRejected(t *testing.T) {
 	for name, src := range map[string]string{
 		"input": `

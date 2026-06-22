@@ -1,4 +1,4 @@
-language dcl 0.9
+language dcl 0.10
 
 actor Operator is human
 
@@ -10,7 +10,7 @@ capability DecideWork {
   intent DecisionInput from Operator
   outcome Accepted
   when {
-    always then Accepted
+    always Accepted
   }
 
   lifecycle {
