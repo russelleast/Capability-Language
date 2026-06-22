@@ -156,6 +156,9 @@ The server does not require environment variables. Clients should pass explicit 
 - "Generate IR for this capability."
 - "Find ambiguous outcomes."
 - "Explain this lifecycle."
+- "Summarize this DCL workspace."
+- "Explain the capabilities in this DCL file."
+- "Summarize the lifecycle and policies in this capability."
 - "Summarize the capabilities, outcomes, effects, policies, and lifecycles in this workspace."
 - "Review this DCL model for lifecycle issues using compiler diagnostics and summary output."
 

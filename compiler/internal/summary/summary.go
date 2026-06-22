@@ -8,11 +8,14 @@ import (
 )
 
 type SemanticSummary struct {
-	Contexts     []ContextSummary    `json:"contexts,omitempty"`
-	Capabilities []CapabilitySummary `json:"capabilities"`
-	Effects      []NamedSummary      `json:"effects,omitempty"`
-	Policies     []NamedSummary      `json:"policies,omitempty"`
-	Lifecycles   []LifecycleSummary  `json:"lifecycles,omitempty"`
+	Contexts           []ContextSummary    `json:"contexts"`
+	Capabilities       []CapabilitySummary `json:"capabilities"`
+	Intents            []IntentSummary     `json:"intents"`
+	Outcomes           []OutcomeSummary    `json:"outcomes"`
+	Effects            []NamedSummary      `json:"effects"`
+	Policies           []NamedSummary      `json:"policies"`
+	Lifecycles         []LifecycleSummary  `json:"lifecycles"`
+	DiagnosticsSummary DiagnosticSummary   `json:"diagnosticsSummary"`
 }
 
 type ContextSummary struct {
@@ -44,8 +47,22 @@ type CapabilitySummary struct {
 
 type IntentSummary struct {
 	Name       string `json:"name,omitempty"`
+	Capability string `json:"capability,omitempty"`
 	InputShape string `json:"inputShape,omitempty"`
 	Actor      string `json:"actor,omitempty"`
+}
+
+type OutcomeSummary struct {
+	Name           string `json:"name"`
+	Capability     string `json:"capability,omitempty"`
+	Classification string `json:"classification,omitempty"`
+}
+
+type DiagnosticSummary struct {
+	DiagnosticCount int `json:"diagnosticCount"`
+	ErrorCount      int `json:"errorCount"`
+	WarningCount    int `json:"warningCount"`
+	InfoCount       int `json:"infoCount"`
 }
 
 type EffectUseSummary struct {
@@ -90,6 +107,8 @@ func FromIR(program ir.ProgramIR) SemanticSummary {
 	policyContexts := symbolContexts(program.Symbols, "policy")
 
 	capabilities := make([]CapabilitySummary, 0, len(program.Capabilities))
+	intents := make([]IntentSummary, 0)
+	outcomes := make([]OutcomeSummary, 0)
 	lifecycles := make([]LifecycleSummary, 0)
 	for _, capability := range program.Capabilities {
 		context := capabilityContexts[capability.Name]
@@ -101,7 +120,7 @@ func FromIR(program ir.ProgramIR) SemanticSummary {
 			Name:     capability.Name,
 			Context:  context,
 			Location: symbols.location("capability", capability.Name, context),
-			Intents:  summarizeIntents(capability.Intents),
+			Intents:  summarizeCapabilityIntents(capability.Intents),
 			Outcomes: summarizeOutcomes(capability.Outcomes),
 			Effects:  summarizeEffectUses(capability.Effects),
 			Policies: summarizePolicyUses(capability.Policies),
@@ -111,16 +130,36 @@ func FromIR(program ir.ProgramIR) SemanticSummary {
 			item.Lifecycle = &lifecycle
 			lifecycles = append(lifecycles, lifecycle)
 		}
+		intents = append(intents, summarizeIntents(capability.Intents)...)
+		outcomes = append(outcomes, summarizeOutcomeDetails(capability.Outcomes)...)
 		capabilities = append(capabilities, item)
 	}
 
 	return SemanticSummary{
-		Contexts:     summarizeContexts(program.Contexts, symbols),
-		Capabilities: capabilities,
-		Effects:      summarizeEffects(program.Effects, symbols, effectContexts),
-		Policies:     summarizePolicies(program.Policies, symbols, policyContexts),
-		Lifecycles:   lifecycles,
+		Contexts:           summarizeContexts(program.Contexts, symbols),
+		Capabilities:       capabilities,
+		Intents:            intents,
+		Outcomes:           outcomes,
+		Effects:            summarizeEffects(program.Effects, symbols, effectContexts),
+		Policies:           summarizePolicies(program.Policies, symbols, policyContexts),
+		Lifecycles:         lifecycles,
+		DiagnosticsSummary: SummarizeDiagnostics(program.Diagnostics),
 	}
+}
+
+func SummarizeDiagnostics(items []diagnostic.Diagnostic) DiagnosticSummary {
+	out := DiagnosticSummary{DiagnosticCount: len(items)}
+	for _, item := range items {
+		switch item.Severity {
+		case diagnostic.Error:
+			out.ErrorCount++
+		case diagnostic.Warning:
+			out.WarningCount++
+		default:
+			out.InfoCount++
+		}
+	}
+	return out
 }
 
 type locationIndex map[string]diagnostic.Span
@@ -171,10 +210,18 @@ func summarizeContexts(contexts []ir.ContextIR, symbols locationIndex) []Context
 	return out
 }
 
-func summarizeIntents(intents []ir.IntentIR) []IntentSummary {
+func summarizeCapabilityIntents(intents []ir.IntentIR) []IntentSummary {
 	out := make([]IntentSummary, 0, len(intents))
 	for _, intent := range intents {
 		out = append(out, IntentSummary{Name: intent.Name, InputShape: intent.InputShape, Actor: intent.Actor})
+	}
+	return out
+}
+
+func summarizeIntents(intents []ir.IntentIR) []IntentSummary {
+	out := make([]IntentSummary, 0, len(intents))
+	for _, intent := range intents {
+		out = append(out, IntentSummary{Name: intent.Name, Capability: intent.Capability, InputShape: intent.InputShape, Actor: intent.Actor})
 	}
 	return out
 }
@@ -183,6 +230,14 @@ func summarizeOutcomes(outcomes []ir.OutcomeIR) []string {
 	out := make([]string, 0, len(outcomes))
 	for _, outcome := range outcomes {
 		out = append(out, outcome.Name)
+	}
+	return out
+}
+
+func summarizeOutcomeDetails(outcomes []ir.OutcomeIR) []OutcomeSummary {
+	out := make([]OutcomeSummary, 0, len(outcomes))
+	for _, outcome := range outcomes {
+		out = append(out, OutcomeSummary{Name: outcome.Name, Capability: outcome.Capability, Classification: outcome.Classification})
 	}
 	return out
 }

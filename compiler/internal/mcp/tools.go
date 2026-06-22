@@ -95,13 +95,26 @@ func Tools() []Tool {
 			OutputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"ok":              map[string]any{"type": "boolean"},
-					"diagnostics":     map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
-					"diagnosticCount": map[string]any{"type": "integer"},
-					"errorCount":      map[string]any{"type": "integer"},
-					"warningCount":    map[string]any{"type": "integer"},
-					"sourceCount":     map[string]any{"type": "integer"},
-					"summary":         map[string]any{"type": "object"},
+					"ok":                 map[string]any{"type": "boolean"},
+					"diagnostics":        map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+					"diagnosticCount":    map[string]any{"type": "integer"},
+					"errorCount":         map[string]any{"type": "integer"},
+					"warningCount":       map[string]any{"type": "integer"},
+					"sourceCount":        map[string]any{"type": "integer"},
+					"diagnosticsSummary": map[string]any{"type": "object"},
+					"summary": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"contexts":           map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"capabilities":       map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"intents":            map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"outcomes":           map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"effects":            map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"policies":           map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"lifecycles":         map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+							"diagnosticsSummary": map[string]any{"type": "object"},
+						},
+					},
 				},
 			},
 		},
@@ -202,13 +215,14 @@ func callSummary(arguments json.RawMessage) (toolResult, error) {
 		return errorResult(err), nil
 	}
 	content := map[string]any{
-		"ok":              !compiler.HasErrors(result.Diagnostics),
-		"diagnostics":     result.Diagnostics,
-		"diagnosticCount": len(result.Diagnostics),
-		"errorCount":      countSeverity(result.Diagnostics, diagnostic.Error),
-		"warningCount":    countSeverity(result.Diagnostics, diagnostic.Warning),
-		"sourceCount":     sourceCount,
-		"summary":         summary.FromIR(result.IR),
+		"ok":                 !compiler.HasErrors(result.Diagnostics),
+		"diagnostics":        result.Diagnostics,
+		"diagnosticCount":    len(result.Diagnostics),
+		"errorCount":         countSeverity(result.Diagnostics, diagnostic.Error),
+		"warningCount":       countSeverity(result.Diagnostics, diagnostic.Warning),
+		"sourceCount":        sourceCount,
+		"diagnosticsSummary": summary.SummarizeDiagnostics(result.Diagnostics),
+		"summary":            summary.FromIR(result.IR),
 	}
 	return structuredResult(content), nil
 }

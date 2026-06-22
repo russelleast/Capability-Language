@@ -65,6 +65,15 @@ capability SayHello {
 	if len(capability.Policies) != 1 || capability.Policies[0].Policy != "GreetingReliability" {
 		t.Fatalf("unexpected policies: %#v", capability.Policies)
 	}
+	if len(got.Intents) != 1 || got.Intents[0].Capability != "SayHello" || got.Intents[0].InputShape != "GreetingInput" {
+		t.Fatalf("unexpected top-level intents: %#v", got.Intents)
+	}
+	if len(got.Outcomes) != 1 || got.Outcomes[0].Name != "GreetingPrepared" || got.Outcomes[0].Capability != "SayHello" {
+		t.Fatalf("unexpected top-level outcomes: %#v", got.Outcomes)
+	}
+	if got.DiagnosticsSummary.DiagnosticCount != 0 || got.DiagnosticsSummary.ErrorCount != 0 {
+		t.Fatalf("unexpected diagnostics summary: %#v", got.DiagnosticsSummary)
+	}
 }
 
 func TestFromIRSummarizesContextsAndLifecycle(t *testing.T) {
@@ -141,5 +150,20 @@ context Payments {
 	}
 	if got.Capabilities[0].Context != "Payments" {
 		t.Fatalf("capability context = %q, want Payments", got.Capabilities[0].Context)
+	}
+}
+
+func TestFromIRSummarizesDiagnostics(t *testing.T) {
+	result := compiler.CompileSource("invalid-summary-fixture.dcl", "language dcl 99.0\nactor User is human\n")
+	if !compiler.HasErrors(result.Diagnostics) {
+		t.Fatalf("fixture should produce compiler errors")
+	}
+
+	got := FromIR(result.IR)
+	if got.DiagnosticsSummary.DiagnosticCount != len(result.Diagnostics) {
+		t.Fatalf("diagnostic count = %d, want %d", got.DiagnosticsSummary.DiagnosticCount, len(result.Diagnostics))
+	}
+	if got.DiagnosticsSummary.ErrorCount == 0 {
+		t.Fatalf("expected error count in diagnostics summary: %#v", got.DiagnosticsSummary)
 	}
 }

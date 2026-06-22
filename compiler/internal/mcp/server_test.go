@@ -110,6 +110,10 @@ capability SayHello {
 	if structured["ok"] != true {
 		t.Fatalf("ok = %v, want true: %#v", structured["ok"], structured)
 	}
+	content := result["content"].([]any)
+	if len(content) == 0 || content[0].(map[string]any)["type"] != "text" {
+		t.Fatalf("expected readable text content, got %#v", content)
+	}
 	summary := structured["summary"].(map[string]any)
 	capabilities := summary["capabilities"].([]any)
 	if len(capabilities) != 1 {
@@ -118,6 +122,49 @@ capability SayHello {
 	capability := capabilities[0].(map[string]any)
 	if capability["name"] != "SayHello" {
 		t.Fatalf("capability name = %v, want SayHello", capability["name"])
+	}
+	intents := summary["intents"].([]any)
+	if len(intents) != 1 {
+		t.Fatalf("intents = %#v, want one intent", intents)
+	}
+	outcomes := summary["outcomes"].([]any)
+	if len(outcomes) != 1 {
+		t.Fatalf("outcomes = %#v, want one outcome", outcomes)
+	}
+	if structured["diagnosticsSummary"] == nil || summary["diagnosticsSummary"] == nil {
+		t.Fatalf("expected diagnosticsSummary in root and summary: %#v", structured)
+	}
+}
+
+func TestSummaryToolReturnsDiagnosticsForInvalidDCL(t *testing.T) {
+	output := serveMessages(t, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name": "dcl_summary",
+			"arguments": map[string]any{
+				"filename": "invalid-summary.dcl",
+				"source":   "language dcl 99.0\nactor User is human\n",
+			},
+		},
+	})
+
+	response := decodeOneResponse(t, output)
+	if response["error"] != nil {
+		t.Fatalf("expected tool result with diagnostics, got protocol error: %#v", response["error"])
+	}
+	result := response["result"].(map[string]any)
+	structured := result["structuredContent"].(map[string]any)
+	if structured["ok"] != false {
+		t.Fatalf("ok = %v, want false: %#v", structured["ok"], structured)
+	}
+	if structured["errorCount"].(float64) == 0 {
+		t.Fatalf("expected compiler errors in summary result: %#v", structured)
+	}
+	diagnosticsSummary := structured["diagnosticsSummary"].(map[string]any)
+	if diagnosticsSummary["errorCount"].(float64) == 0 {
+		t.Fatalf("expected diagnosticsSummary error count: %#v", diagnosticsSummary)
 	}
 }
 
