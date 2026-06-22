@@ -34,6 +34,14 @@ jobs:
         run: npm ci
         working-directory: tools/vscode-extension
 
+      - name: Sync extension version
+        run: npm run sync:vscode-version
+        working-directory: tools/vscode-extension
+
+      - name: Validate repository versions
+        run: npm run validate:versions
+        working-directory: tools/vscode-extension
+
       - name: Test extension
         run: npm test
         working-directory: tools/vscode-extension

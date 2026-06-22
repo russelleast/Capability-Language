@@ -10,7 +10,7 @@ Rather than modelling systems as controllers, services, endpoints, queues, or in
 Current versions:
 
 * Language: v1.0
-* Compiler: v0.1.0
+* Compiler: v1.0
 
 See [version.json](version.json) for the current project versions.
 

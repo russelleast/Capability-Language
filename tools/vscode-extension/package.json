@@ -2,7 +2,7 @@
   "name": "dcl-vscode-extension",
   "displayName": "Declarative Capability Language (DCL)",
   "description": "Workbench support for Declarative Capability Language: authoring, diagnostics, semantic navigation, and architecture graphs.",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "publisher": "dcl",
   "license": "Apache-2.0",
   "repository": {
@@ -520,14 +520,18 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "tsc -p ./ --noEmit",
+    "sync:vscode-version": "node ../../scripts/sync-vscode-version.mjs",
+    "sync:versions": "npm run sync:vscode-version",
+    "validate:versions": "node ../../scripts/validate-versions.mjs",
+    "check:marketplace-version": "node ../../scripts/check-vscode-marketplace-version.mjs",
     "copy:vendor": "node scripts/copy-vendor-assets.mjs",
     "build:lsp": "node scripts/build-local-lsp.mjs",
     "build:compiler-binaries": "node scripts/build-compiler-binaries.mjs",
-    "package": "vsce package",
-    "package:smoke": "npm run build:compiler-binaries && npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
+    "package": "npm run sync:vscode-version && vsce package",
+    "package:smoke": "npm run sync:vscode-version && npm run build:compiler-binaries && npm run copy:vendor && npm run compile && vsce package --out /tmp/dcl-vscode-extension-smoke.vsix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vscode:prepublish": "npm run build:compiler-binaries && npm run copy:vendor && npm run compile"
+    "vscode:prepublish": "npm run sync:vscode-version && npm run build:compiler-binaries && npm run copy:vendor && npm run compile"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",

@@ -5,6 +5,13 @@
   },
   "compiler": {
     "name": "dcl",
-    "version": "0.1.0"
+    "version": "1.0",
+    "supports": "1.0"
+  },
+  "vscode": {
+    "name": "dcl-vscode-extension",
+    "version": "1.0.4",
+    "supports": "1.0",
+    "compiler": "1.0"
   }
 }
