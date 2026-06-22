@@ -7,10 +7,11 @@ effect BookCarrierPickup is notification
 effect RecordShipmentException is persistence
 
 policy CarrierAvailability {
-  family availability
-  degradation allowed
-  fallback ShipmentExceptionRaised
-  dependency_tolerance allowed
+  availability {
+    degradation allowed
+    fallback ShipmentExceptionRaised
+    dependency_tolerance allowed
+  }
 }
 
 shape ShipmentInput {

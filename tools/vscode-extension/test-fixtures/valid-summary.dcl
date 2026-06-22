@@ -13,8 +13,9 @@ event BatchArchived is {
 effect PersistBatch is persistence
 
 policy BatchReliability {
-  family reliability
-  idempotency required
+  reliability {
+    idempotency required
+  }
 }
 
 capability ArchiveBatch {

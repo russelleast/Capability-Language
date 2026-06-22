@@ -6,13 +6,14 @@ effect PersistRegistration is persistence
 effect SendVerificationMessage is notification
 
 policy RegistrationReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 30 seconds
   }
-  idempotency required
-  timeout 30 seconds
 }
 
 shape RegistrationInput {

@@ -44,13 +44,14 @@ effect PersistRegistration is persistence
 effect SendVerificationMessage is notification
 
 policy RegistrationReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 30 seconds
   }
-  idempotency required
-  timeout 30 seconds
 }
 
 shape RegistrationInput {
@@ -189,4 +190,3 @@ Language syntax and semantics may evolve between releases as the language contin
 ## Creator
 
 Declarative Capability Language (DCL) was created by Russell East.
-

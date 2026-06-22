@@ -34,23 +34,26 @@ event CustomerQuestionAnswered is AnswerDraft
 event SupportQuestionEscalated is EscalationRequest
 
 policy MinimumAnswerConfidence {
-  family confidence
-  threshold 0.8
+  confidence {
+    threshold 0.8
+  }
 }
 
 policy SafeToolRetry {
-  family reliability
-  retry {
-    attempts 2
-    backoff exponential
+  reliability {
+    retry {
+      attempts 2
+      backoff exponential
+    }
+    idempotency required
   }
-  idempotency required
 }
 
 policy AuditSupportAnswer {
-  family governance
-  audit required
-  evidence required
+  governance {
+    audit required
+    evidence required
+  }
 }
 
 capability AnswerCustomerQuestion {

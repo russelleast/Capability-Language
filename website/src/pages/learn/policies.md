@@ -12,12 +12,13 @@ A policy can describe concerns such as reliability, performance, security, gover
 
 Policies keep cross-cutting requirements visible in the model instead of burying them in prose or implementation-specific configuration.
 
-Confidence policies use the existing family syntax:
+Confidence policies use grouped family block syntax:
 
 ```dcl
 policy MinimumAnswerConfidence {
-  family confidence
-  threshold 0.8
+  confidence {
+    threshold 0.8
+  }
 }
 ```
 

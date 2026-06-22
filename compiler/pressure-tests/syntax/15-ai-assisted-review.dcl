@@ -7,10 +7,11 @@ effect StoreModelRecommendation is persistence
 effect NotifyAnalyst is notification
 
 policy ModelReviewSecurity {
-  family security
-  authentication required
-  authorization required
-  classification confidential
+  security {
+    authentication required
+    authorization required
+    classification confidential
+  }
 }
 
 shape ReviewInput {

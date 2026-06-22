@@ -7,16 +7,18 @@ effect StoreApplication is persistence
 effect NotifyUnderwriter is notification
 
 policy LoanPerformance {
-  family performance
-  latency p95 under 2s
-  budget 10 seconds
+  performance {
+    latency p95 under 2s
+    budget 10 seconds
+  }
 }
 
 policy LoanGovernance {
-  family governance
-  audit required
-  approval required
-  retention 7 years
+  governance {
+    audit required
+    approval required
+    retention 7 years
+  }
 }
 
 shape LoanApplicationInput {

@@ -8,13 +8,14 @@ effect CapturePaymentRecord is persistence
 effect RefundPaymentRecord is persistence
 
 policy PaymentRecoveryPolicy {
-  family reliability
-  retry {
-    attempts 2
-    backoff linear
+  reliability {
+    retry {
+      attempts 2
+      backoff linear
+    }
+    idempotency required
+    compensation RefundPayment
   }
-  idempotency required
-  compensation RefundPayment
 }
 
 shape PaymentInput {

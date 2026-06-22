@@ -227,6 +227,14 @@ export const dclKeywords = [
   "required",
   "family",
   "kind",
+  "reliability",
+  "availability",
+  "scalability",
+  "performance",
+  "security",
+  "compliance",
+  "governance",
+  "data_protection",
   "threshold",
   "confidence",
   "agent",
@@ -316,14 +324,14 @@ export const dclSnippets: DclSnippet[] = [
     documentation:
       "Declares a portable execution policy. Attach it inside a capability with a policies block such as PolicyName governs capability.",
     insertText:
-      "policy ${1:ReliableExecution} {\n  family ${2|reliability,availability,scalability,performance,security,compliance,governance,data_protection,confidence|}\n}",
+      "policy ${1:ReliableExecution} {\n  ${2|reliability,availability,scalability,performance,security,compliance,governance,data_protection,confidence|} {\n    ${3:idempotency required}\n  }\n}",
   },
   {
     label: "confidence policy",
     detail: "DCL confidence threshold policy",
     documentation:
       "Declares a confidence threshold between 0 and 1 for a capability, outcome, effect, tool, or decision boundary.",
-    insertText: "policy ${1:MinimumConfidence} {\n  family confidence\n  threshold ${2:0.8}\n}",
+    insertText: "policy ${1:MinimumConfidence} {\n  confidence {\n    threshold ${2:0.8}\n  }\n}",
   },
   {
     label: "lifecycle",

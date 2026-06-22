@@ -7,17 +7,19 @@ effect DeleteCustomerData is persistence
 effect RecordErasureEvidence is persistence
 
 policy ErasureProtection {
-  family data_protection
-  sensitivity personal
-  deletion required
-  minimization required
+  data_protection {
+    sensitivity personal
+    deletion required
+    minimization required
+  }
 }
 
 policy ErasureGovernance {
-  family governance
-  audit required
-  evidence required
-  retention 6 years
+  governance {
+    audit required
+    evidence required
+    retention 6 years
+  }
 }
 
 shape ErasureInput {

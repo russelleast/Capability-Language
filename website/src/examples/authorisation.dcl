@@ -4,8 +4,9 @@ actor Employee is human
 actor Manager is human
 
 policy LeaveAuthorisation {
-  family security
-  authorization required
+  security {
+    authorization required
+  }
 }
 
 shape LeaveApprovalInput {

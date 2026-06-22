@@ -7,10 +7,11 @@ effect StoreDocument is persistence
 effect SendReviewRequest is notification
 
 policy ReviewQueuePolicy {
-  family scalability
-  queue allowed
-  backpressure delay
-  concurrency 5
+  scalability {
+    queue allowed
+    backpressure delay
+    concurrency 5
+  }
 }
 
 shape DocumentReviewInput {

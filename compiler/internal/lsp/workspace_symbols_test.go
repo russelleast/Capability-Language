@@ -23,7 +23,8 @@ event PaymentCaptured is {
 }
 
 policy PaymentRetry {
-  family reliability
+  reliability {
+  }
 }
 
 capability CapturePayment {

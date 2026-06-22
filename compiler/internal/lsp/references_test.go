@@ -12,7 +12,8 @@ event PaymentCaptured is {
 }
 
 policy PaymentPolicy {
-  family reliability
+  reliability {
+  }
 }
 
 capability CapturePayment {
@@ -37,7 +38,7 @@ capability CapturePayment {
 	host.Documents().Open(uri, 1, source)
 	refs := NewReferenceProvider(host).References(uri, positionOf(t, source, "event PaymentCaptured is", "PaymentCaptured"), true)
 
-	assertReferenceLines(t, refs, uri, []int{2, 13, 16, 20, 22})
+	assertReferenceLines(t, refs, uri, []int{2, 14, 17, 21, 23})
 }
 
 func TestReferenceProviderOutcomeReferences(t *testing.T) {

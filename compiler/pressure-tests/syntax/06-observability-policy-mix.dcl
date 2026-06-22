@@ -6,17 +6,19 @@ effect PublishInvoice is notification
 effect PersistInvoice is persistence
 
 policy InvoicePerformance {
-  family performance
-  latency p95 under 500ms
-  throughput above 100 per minute
-  budget 2 seconds
+  performance {
+    latency p95 under 500ms
+    throughput above 100 per minute
+    budget 2 seconds
+  }
 }
 
 policy InvoiceSecurity {
-  family security
-  authentication required
-  authorization required
-  encryption required
+  security {
+    authentication required
+    authorization required
+    encryption required
+  }
 }
 
 shape InvoiceInput {

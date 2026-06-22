@@ -14,7 +14,8 @@ func TestDocumentSymbolBuilderCapabilityHierarchy(t *testing.T) {
 effect PersistOrder is persistence
 
 policy RetryPayment {
-  family reliability
+  reliability {
+  }
 }
 
 event OrderSubmitted is {

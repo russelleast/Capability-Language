@@ -7,13 +7,14 @@ effect ChargeSubscription is persistence
 effect SendRenewalNotice is notification
 
 policy RenewalReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 1 day
   }
-  idempotency required
-  timeout 1 day
 }
 
 shape RenewalInput {

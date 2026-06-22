@@ -19,9 +19,10 @@ context Sales {
   effect PersistSalesOrder is persistence
 
   policy SalesAuditPolicy {
-    family governance
-    audit required
-    retention 7 years
+    governance {
+      audit required
+      retention 7 years
+    }
   }
 
   capability AcceptSalesOrder {

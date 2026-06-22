@@ -42,7 +42,8 @@ effect SaveRegistration is persist
 effect SendVerification is notify
 
 policy SafeRetry {
-  family reliability
+  reliability {
+  }
 }
 
 shape RegisterCustomerInput {
@@ -257,7 +258,8 @@ func TestSingularAndBlockFormsCompileEquivalently(t *testing.T) {
 actor User is human
 effect SendEmail is notify
 policy SafeRetry {
-  family reliability
+  reliability {
+  }
 }
 shape Input { email: Email required }
 

@@ -8,13 +8,14 @@ effect CapturePaymentRecord is persistence
 effect DispatchParcel is notification
 
 policy FulfilmentReliability {
-  family reliability
-  retry {
-    attempts 3
-    backoff exponential
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 2 hours
   }
-  idempotency required
-  timeout 2 hours
 }
 
 shape OrderInput {

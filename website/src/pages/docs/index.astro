@@ -222,8 +222,10 @@ const constructs = [
   </p>
   <h3>Families</h3>
   <p>
-    A policy block may contain one family or several family sections. Concerns
-    belong to the most recent <code>family</code> line above them.
+    A policy block may contain one family block or several grouped family
+    blocks. Concerns belong to the family block that contains them. The older
+    <code>family name</code> line form is accepted for compatibility, but the
+    grouped block form is preferred for DCL v0.10 examples.
   </p>
   <table class="reference-table">
     <thead>
@@ -245,7 +247,7 @@ const constructs = [
       <tr><td><code>confidence</code></td><td>Decision or tool-result acceptance thresholds.</td><td><code>threshold</code> between <code>0</code> and <code>1</code></td></tr>
     </tbody>
   </table>
-  <CodeBlock title="multi-family-policy.dcl" code={`policy SupportExecution {\n  family reliability\n  retry { attempts 2 }\n  idempotency required\n\n  family governance\n  audit required\n  evidence required\n\n  family confidence\n  threshold 0.8\n}`} />
+  <CodeBlock title="multi-family-policy.dcl" code={`policy SupportExecution {\n  reliability {\n    retry { attempts 2 }\n    idempotency required\n  }\n\n  governance {\n    audit required\n    evidence required\n  }\n\n  confidence {\n    threshold 0.8\n  }\n}`} />
   <p>
     <code>confidence</code> is a threshold family, not a full LLM evaluation or
     grounding model. Observability is expressed with <code>observe</code>

@@ -6,22 +6,26 @@ effect PublishInvoice is notification
 effect PersistInvoice is persistence
 
 policy InvoiceExecution {
-  family performance
-  throughput above 100 per minute
+  performance {
+    throughput above 100 per minute
+  }
 
-  family governance
-  audit required
-  evidence required
+  governance {
+    audit required
+    evidence required
+  }
 
-  family confidence
-  threshold 0.9
+  confidence {
+    threshold 0.9
+  }
 }
 
 policy InvoiceSecurity {
-  family security
-  authentication required
-  authorization required
-  encryption required
+  security {
+    authentication required
+    authorization required
+    encryption required
+  }
 }
 
 shape InvoiceInput {

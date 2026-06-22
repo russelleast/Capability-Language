@@ -7,10 +7,11 @@ effect StoreClaim is persistence
 effect RecordPayout is persistence
 
 policy ClaimCompliance {
-  family compliance
-  audit required
-  approval required
-  evidence required
+  compliance {
+    audit required
+    approval required
+    evidence required
+  }
 }
 
 shape ClaimInput {
