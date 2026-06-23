@@ -164,6 +164,47 @@ The server does not require environment variables. Clients should pass explicit 
 
 ## Troubleshooting
 
+### Smoke-test the stdio transport
+
+MCP stdio messages are newline-delimited JSON-RPC messages. To confirm the server responds to `initialize`, build the binary and run:
+
+```sh
+cd compiler
+go build -o ./bin/dcl-mcp ./cmd/dcl-mcp
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke-test","version":"1.0"}}}' | ./bin/dcl-mcp
+```
+
+The response should be a single JSON-RPC response line containing `"protocolVersion":"2025-06-18"` and `"serverInfo":{"name":"dcl-mcp",...}`.
+
+To test initialization, tool discovery, and real tool invocation in one pass:
+
+```sh
+cd compiler
+go build -o ./bin/dcl-mcp ./cmd/dcl-mcp
+node scripts/mcp-smoke.mjs ./bin/dcl-mcp
+```
+
+Set `DCL_MCP_DEBUG=1` to write lifecycle and tool-call logs to stderr only:
+
+```sh
+DCL_MCP_DEBUG=1 node scripts/mcp-smoke.mjs ./bin/dcl-mcp
+```
+
+### VS Code discovers tools but Copilot does not call them
+
+If VS Code shows `Discovered 6 tools`, the MCP server has started and `tools/list` succeeded. That does not guarantee the chat model will choose a tool for every prompt.
+
+Check the following:
+
+- Use a Copilot chat session that supports tools/agent behavior. VS Code documentation describes MCP servers as tools available in chat, and notes that models discover and invoke tools based on the prompt.
+- In the Chat view, use the Configure Tools button in the chat input to see available tools and make sure the DCL tools are enabled.
+- Reload the VS Code window or restart the MCP server after changing `.vscode/mcp.json` or rebuilding `dcl-mcp`.
+- Use `MCP: List Servers` from the Command Palette to manage the server and view output. Some VS Code builds do not provide an `MCP: List Tools` command.
+- Ask for a concrete tool-backed task, for example: `Use the DCL MCP server to call dcl_version` or `Use dcl_summary on this DCL source`.
+- VS Code may display server-qualified tool names internally, such as `dcl-dcl_version`, where the first `dcl` is the MCP server id from `.vscode/mcp.json`. The MCP server itself still advertises tool names like `dcl_version`.
+
+If `node scripts/mcp-smoke.mjs ./bin/dcl-mcp` passes but Copilot still says a tool is unavailable, the problem is likely VS Code/Copilot chat mode, tool enablement, trust, or model tool-selection behavior rather than DCL MCP protocol handling.
+
 ### The client cannot start the server
 
 - Confirm the `command` path is absolute.

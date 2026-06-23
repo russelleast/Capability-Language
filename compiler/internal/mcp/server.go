@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,12 +18,17 @@ import (
 const ProtocolVersion = "2025-06-18"
 
 type Server struct {
-	out   io.Writer
-	outMu sync.Mutex
+	out      io.Writer
+	outMu    sync.Mutex
+	debug    bool
+	debugOut io.Writer
 }
 
 func NewServer() *Server {
-	return &Server{}
+	return &Server{
+		debug:    os.Getenv("DCL_MCP_DEBUG") == "1",
+		debugOut: os.Stderr,
+	}
 }
 
 func (s *Server) Serve(in io.Reader, out io.Writer) error {
@@ -60,24 +66,37 @@ func (s *Server) handlePayload(payload []byte) error {
 func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) {
 	switch method {
 	case "initialize":
+		s.debugLog("initialize received")
 		return initializeResult(), nil
 	case "notifications/initialized":
+		s.debugLog("initialized notification received")
 		return nil, nil
 	case "ping":
+		s.debugLog("ping received")
 		return map[string]any{}, nil
 	case "tools/list":
+		s.debugLog("tools/list received")
 		return map[string]any{"tools": Tools()}, nil
 	case "tools/call":
 		var request callToolParams
 		if err := json.Unmarshal(params, &request); err != nil {
+			s.debugLog("tools/call invalid params: %s", err.Error())
 			return nil, invalidParams(err)
 		}
+		s.debugLog("tools/call received: %s", request.Name)
 		result, err := CallTool(request.Name, request.Arguments)
 		if err != nil {
+			s.debugLog("tools/call failed: %s: %s", request.Name, err.Error())
 			return nil, invalidParams(err)
+		}
+		if result.IsError {
+			s.debugLog("tools/call completed with tool error: %s", request.Name)
+		} else {
+			s.debugLog("tools/call succeeded: %s", request.Name)
 		}
 		return result, nil
 	default:
+		s.debugLog("method not found: %s", method)
 		return nil, &rpcError{Code: -32601, Message: "Method not found"}
 	}
 }
@@ -100,6 +119,18 @@ func invalidParams(err error) *rpcError {
 }
 
 func readMessage(reader *bufio.Reader) ([]byte, error) {
+	first, err := reader.Peek(1)
+	if err != nil {
+		return nil, err
+	}
+	if first[0] == '{' {
+		line, err := reader.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, err
+		}
+		return bytes.TrimSpace(line), nil
+	}
+
 	contentLength := -1
 	for {
 		line, err := reader.ReadString('\n')
@@ -126,16 +157,16 @@ func readMessage(reader *bufio.Reader) ([]byte, error) {
 		return nil, errors.New("missing Content-Length header")
 	}
 	payload := make([]byte, contentLength)
-	_, err := io.ReadFull(reader, payload)
+	_, err = io.ReadFull(reader, payload)
 	return payload, err
 }
 
 func writeMessage(out io.Writer, payload []byte) error {
-	_, err := fmt.Fprintf(out, "Content-Length: %d\r\n\r\n", len(payload))
+	_, err := out.Write(payload)
 	if err != nil {
 		return err
 	}
-	_, err = out.Write(payload)
+	_, err = out.Write([]byte("\n"))
 	return err
 }
 
@@ -143,6 +174,14 @@ func EncodeMessage(value any) []byte {
 	payload, _ := json.Marshal(value)
 	var buffer bytes.Buffer
 	_ = writeMessage(&buffer, payload)
+	return buffer.Bytes()
+}
+
+func EncodeContentLengthMessage(value any) []byte {
+	payload, _ := json.Marshal(value)
+	var buffer bytes.Buffer
+	_, _ = fmt.Fprintf(&buffer, "Content-Length: %d\r\n\r\n", len(payload))
+	_, _ = buffer.Write(payload)
 	return buffer.Bytes()
 }
 
@@ -160,6 +199,13 @@ func (s *Server) writeResponse(id json.RawMessage, result any, responseErr *rpcE
 	s.outMu.Lock()
 	defer s.outMu.Unlock()
 	return writeMessage(s.out, payload)
+}
+
+func (s *Server) debugLog(format string, args ...any) {
+	if !s.debug || s.debugOut == nil {
+		return
+	}
+	_, _ = fmt.Fprintf(s.debugOut, "dcl-mcp: "+format+"\n", args...)
 }
 
 type rpcMessage struct {
