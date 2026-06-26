@@ -16,6 +16,16 @@ The server is intentionally small:
 
 Supported MCP protocol version: `2025-06-18`.
 
+## AI Access Paths
+
+DCL supports three AI access paths:
+
+1. **stdio MCP**: best for MCP-native clients. This is the default `dcl-mcp` mode and is validated by the local smoke test below. Client support and chat-model tool selection can vary.
+2. **CLI JSON**: the universal fallback for Codex, Copilot terminal agents, Claude Code, scripts, CI, and humans. Use this when MCP tool exposure is inconsistent.
+3. **HTTP MCP**: a future optional local transport. It is not implemented yet; see the design note below.
+
+For most agent workflows, the CLI is the most reliable path because it uses ordinary shell commands and returns compiler-backed JSON.
+
 ## Tools
 
 The MCP server exposes compiler-backed tools:
@@ -56,6 +66,52 @@ or:
 
 Directory paths are scanned recursively for `.dcl` files. `.git` and `node_modules` are skipped.
 
+## CLI Fallback
+
+The `dcl` CLI exposes the same compiler-backed semantics for AI clients that can run shell commands:
+
+```sh
+dcl validate <paths...> [--json]
+dcl compile <paths...> [--json]
+dcl ir <paths...> [--json]
+dcl summary <paths...> [--json]
+dcl explain-diagnostics <paths...|json-file> [--json]
+dcl version [--json]
+```
+
+Examples:
+
+```sh
+dcl summary . --json
+dcl validate . --json
+dcl ir . --json
+```
+
+### Known-good AI demo workspace
+
+Use `website/src/examples/ai-demo-workspace` for demos, docs, and agent smoke tests. It is a cohesive multi-file workspace that compiles as one unit and includes contexts, human/system/agent actors, capabilities, intents, outcomes, effects, events, policies, and a lifecycle.
+
+From `compiler/` after building `dcl`:
+
+```sh
+dcl validate ../website/src/examples/ai-demo-workspace --json
+dcl summary ../website/src/examples/ai-demo-workspace --json
+dcl ir ../website/src/examples/ai-demo-workspace --json
+```
+
+Not every examples folder is intended to be compiled as a single workspace. Broad folders such as `website/src/examples` may contain independent examples with overlapping symbols or missing cross-example dependencies. Use a cohesive workspace directory, an explicit set of related `.dcl` files, or the AI demo workspace above.
+
+Useful LLM instructions:
+
+- Run `dcl summary . --json` and explain the business capabilities in this workspace.
+- Run `dcl validate . --json` and explain any diagnostics.
+- Run `dcl ir . --json` and identify lifecycle transitions.
+- Run `dcl summary ../website/src/examples/ai-demo-workspace --json` and explain the business capabilities.
+- Run `dcl validate ../website/src/examples/ai-demo-workspace --json` and explain any diagnostics.
+- Run `dcl ir ../website/src/examples/ai-demo-workspace --json` and identify lifecycle transitions.
+
+`dcl check <paths...>` remains available as a compatibility alias for validation.
+
 ## Installation
 
 ### From Release Artifacts
@@ -69,6 +125,13 @@ The intended release set is:
 - `dcl-mcp`
 
 All binaries use version metadata from root `version.json`.
+
+Current repository automation:
+
+- `.github/workflows/build.yml` compiles `dcl`, `dcl-lsp`, and `dcl-mcp` during CI.
+- `tools/vscode-extension/scripts/build-compiler-binaries.mjs` builds `dcl`, `dcl-lsp`, and `dcl-mcp` for the VS Code extension packaging targets.
+
+Standalone GitHub Release archives for the three CLI binaries are not implemented yet. Treat that as a future release workflow item separate from the VS Code extension package.
 
 ### Build From Source
 
@@ -148,6 +211,28 @@ Any MCP-compatible client that supports stdio servers can launch `dcl-mcp` with 
 ```
 
 The server does not require environment variables. Clients should pass explicit source text or explicit file/workspace paths to tools.
+
+## HTTP MCP Design Note
+
+HTTP MCP is deferred to a follow-up implementation pass. The intended local-only shape is:
+
+```sh
+dcl-mcp serve --http --host 127.0.0.1 --port 7331
+```
+
+The transport should use MCP Streamable HTTP on a single endpoint such as `/mcp`:
+
+- stdio remains the default.
+- HTTP is opt-in only.
+- default bind address is `127.0.0.1`, not `0.0.0.0`.
+- POST accepts JSON-RPC MCP messages.
+- notifications return `202 Accepted`.
+- requests return JSON-RPC responses with `Content-Type: application/json`, or SSE if streaming is later needed.
+- GET returns `405 Method Not Allowed` unless SSE support is implemented.
+- `Origin` must be validated for local HTTP use to avoid DNS rebinding risks.
+- no authentication is planned for the first local-only version; this must be clearly documented.
+
+This is intentionally not implemented in the CLI-first pass, because CLI access solves the immediate cross-agent reliability problem without adding HTTP session/security semantics.
 
 ## Example Prompts
 

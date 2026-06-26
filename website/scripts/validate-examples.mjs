@@ -40,6 +40,15 @@ const examples = [
       "ecommerce/order-lifecycle.dcl",
     ].map(examplePath),
   },
+  {
+    name: "ai-demo-workspace",
+    files: [
+      "ai-demo-workspace/domain.dcl",
+      "ai-demo-workspace/policies.dcl",
+      "ai-demo-workspace/capabilities.dcl",
+      "ai-demo-workspace/lifecycle.dcl",
+    ].map(examplePath),
+  },
 ];
 
 let failed = false;
