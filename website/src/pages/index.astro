@@ -155,7 +155,9 @@ const path = (href) => `${base}${href}`;
         The playground is the best place to learn DCL concepts quickly. The VS
         Code extension is the workbench for editing real `.dcl` files, running
         compiler diagnostics with the bundled compiler, navigating the DCL
-        Explorer, and opening semantic graphs from your workspace.
+        Explorer, and opening semantic graphs from your workspace. AI tools can
+        use DCL through the local stdio MCP server or compiler-backed CLI JSON
+        commands.
       </p>
       <p>
         Install the extension from the VS Code Marketplace. The VSIX package
@@ -165,7 +167,7 @@ const path = (href) => `${base}${href}`;
       <div class="actions">
         <a class="button primary" href={vscodeExtensionMarketplaceUrl}>Install from Marketplace</a>
         <a class="button secondary" href={vscodeExtensionReleaseUrl}>Download VSIX</a>
-        <a class="button secondary" href={path("/tooling/")}>Use MCP with AI Clients</a>
+        <a class="button secondary" href={path("/tooling/")}>AI Access and Tooling</a>
         <a class="button secondary" href={vscodeExtensionSourceUrl}>View source on GitHub</a>
       </div>
       <p class="download-note">

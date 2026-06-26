@@ -21,7 +21,7 @@ Supported MCP protocol version: `2025-06-18`.
 DCL supports three AI access paths:
 
 1. **stdio MCP**: best for MCP-native clients. This is the default `dcl-mcp` mode and is validated by the local smoke test below. Client support and chat-model tool selection can vary.
-2. **CLI**: the universal fallback for Codex, Copilot terminal agents, Claude Code, scripts, CI, and humans. Use this when MCP tool exposure is inconsistent.
+2. **CLI JSON**: the universal fallback for Codex, Copilot terminal agents, Claude Code, scripts, CI, and humans. Use this when MCP tool exposure is inconsistent.
 3. **HTTP MCP**: a future optional local transport. It is not implemented yet; see the design note below.
 
 For most agent workflows, the CLI is the most reliable path because it uses ordinary shell commands and returns compiler-backed JSON.
@@ -87,11 +87,28 @@ dcl validate . --json
 dcl ir . --json
 ```
 
+### Known-good AI demo workspace
+
+Use `website/src/examples/ai-demo-workspace` for demos, docs, and agent smoke tests. It is a cohesive multi-file workspace that compiles as one unit and includes contexts, human/system/agent actors, capabilities, intents, outcomes, effects, events, policies, and a lifecycle.
+
+From `compiler/` after building `dcl`:
+
+```sh
+dcl validate ../website/src/examples/ai-demo-workspace --json
+dcl summary ../website/src/examples/ai-demo-workspace --json
+dcl ir ../website/src/examples/ai-demo-workspace --json
+```
+
+Not every examples folder is intended to be compiled as a single workspace. Broad folders such as `website/src/examples` may contain independent examples with overlapping symbols or missing cross-example dependencies. Use a cohesive workspace directory, an explicit set of related `.dcl` files, or the AI demo workspace above.
+
 Useful LLM instructions:
 
 - Run `dcl summary . --json` and explain the business capabilities in this workspace.
 - Run `dcl validate . --json` and explain any diagnostics.
 - Run `dcl ir . --json` and identify lifecycle transitions.
+- Run `dcl summary ../website/src/examples/ai-demo-workspace --json` and explain the business capabilities.
+- Run `dcl validate ../website/src/examples/ai-demo-workspace --json` and explain any diagnostics.
+- Run `dcl ir ../website/src/examples/ai-demo-workspace --json` and identify lifecycle transitions.
 
 `dcl check <paths...>` remains available as a compatibility alias for validation.
 
@@ -108,6 +125,13 @@ The intended release set is:
 - `dcl-mcp`
 
 All binaries use version metadata from root `version.json`.
+
+Current repository automation:
+
+- `.github/workflows/build.yml` compiles `dcl`, `dcl-lsp`, and `dcl-mcp` during CI.
+- `tools/vscode-extension/scripts/build-compiler-binaries.mjs` builds `dcl`, `dcl-lsp`, and `dcl-mcp` for the VS Code extension packaging targets.
+
+Standalone GitHub Release archives for the three CLI binaries are not implemented yet. Treat that as a future release workflow item separate from the VS Code extension package.
 
 ### Build From Source
 

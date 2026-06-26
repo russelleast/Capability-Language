@@ -27,11 +27,31 @@ const frontmatter = {
       <tr><th>Binary</th><th>Purpose</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>dcl</code></td><td>Compiler CLI for version, validation, and IR output.</td></tr>
+      <tr><td><code>dcl</code></td><td>Compiler CLI for validation, compilation, IR, semantic summaries, diagnostics explanation, version metadata, and JSON output for AI agents.</td></tr>
       <tr><td><code>dcl-lsp</code></td><td>Language server for editor diagnostics, navigation, symbols, and references.</td></tr>
       <tr><td><code>dcl-mcp</code></td><td>Local stdio MCP server for AI clients such as Claude Desktop, Claude Code, VS Code MCP clients, and other MCP-compatible tools.</td></tr>
     </tbody>
   </table>
+
+  <h2>AI Access</h2>
+  <p>
+    DCL has two production-ready local AI access paths. MCP-native clients can
+    launch <code>dcl-mcp</code> over stdio. Terminal-capable agents such as
+    Codex, Copilot terminal workflows, Claude Code, scripts, and CI can call the
+    <code>dcl</code> CLI with <code>--json</code>.
+  </p>
+  <p>
+    Use the known-good demo workspace for AI demos and smoke tests:
+    <code>website/src/examples/ai-demo-workspace</code>.
+  </p>
+  <pre><code>dcl validate ../website/src/examples/ai-demo-workspace --json
+dcl summary ../website/src/examples/ai-demo-workspace --json
+dcl ir ../website/src/examples/ai-demo-workspace --json</code></pre>
+  <p>
+    Broad example folders may contain independent examples and are not always
+    valid as one workspace. Point AI tools at a cohesive workspace directory or
+    an explicit set of related <code>.dcl</code> files.
+  </p>
 
   <h2>MCP Server</h2>
   <p>
