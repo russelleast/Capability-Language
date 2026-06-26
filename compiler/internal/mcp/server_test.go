@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +28,61 @@ func TestInitializeUsesSingleSupportedProtocolVersion(t *testing.T) {
 	capabilities := result["capabilities"].(map[string]any)
 	if _, ok := capabilities["tools"]; !ok {
 		t.Fatalf("initialize capabilities missing tools: %#v", capabilities)
+	}
+}
+
+func TestStdioWriteUsesNewlineDelimitedJSON(t *testing.T) {
+	output := serveMessages(t, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "ping",
+	})
+
+	if strings.HasPrefix(string(output), "Content-Length:") {
+		t.Fatalf("stdio output should be newline-delimited JSON, got content-length frame: %q", string(output))
+	}
+	if !bytes.HasSuffix(output, []byte("\n")) {
+		t.Fatalf("stdio output should end with newline: %q", string(output))
+	}
+	response := decodeOneResponse(t, output)
+	if response["jsonrpc"] != "2.0" || response["id"].(float64) != 1 {
+		t.Fatalf("unexpected response: %#v", response)
+	}
+}
+
+func TestReadMessageAcceptsContentLengthFrame(t *testing.T) {
+	input := EncodeContentLengthMessage(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "ping",
+	})
+	output := serveRaw(t, input)
+	response := decodeOneResponse(t, output)
+	if response["error"] != nil {
+		t.Fatalf("expected content-length input to be accepted, got %#v", response)
+	}
+}
+
+func TestDebugLoggingWritesOnlyToStderr(t *testing.T) {
+	var input bytes.Buffer
+	input.Write(EncodeMessage(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/list",
+	}))
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	server := NewServer()
+	server.debug = true
+	server.debugOut = &stderr
+	if err := server.Serve(bytes.NewReader(input.Bytes()), &stdout); err != nil {
+		t.Fatalf("Serve() error = %v", err)
+	}
+	if strings.Contains(stdout.String(), "dcl-mcp:") {
+		t.Fatalf("debug logs must not be written to stdout: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "tools/list received") {
+		t.Fatalf("expected debug log on stderr, got %q", stderr.String())
 	}
 }
 
@@ -70,6 +126,27 @@ func TestUnknownToolReturnsInvalidParams(t *testing.T) {
 	response := decodeOneResponse(t, output)
 	if response["error"] == nil {
 		t.Fatalf("expected unknown tool error, got %#v", response)
+	}
+}
+
+func TestVersionToolCallReturnsVersionMetadata(t *testing.T) {
+	output := serveMessages(t, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      "dcl_version",
+			"arguments": map[string]any{},
+		},
+	})
+
+	response := decodeOneResponse(t, output)
+	result := response["result"].(map[string]any)
+	structured := result["structuredContent"].(map[string]any)
+	version := structured["version"].(map[string]any)
+	compiler := version["compiler"].(map[string]any)
+	if compiler["version"] == "" {
+		t.Fatalf("expected compiler version metadata: %#v", structured)
 	}
 }
 
@@ -241,8 +318,13 @@ func serveMessages(t *testing.T, messages ...any) []byte {
 	for _, message := range messages {
 		input.Write(EncodeMessage(message))
 	}
+	return serveRaw(t, input.Bytes())
+}
+
+func serveRaw(t *testing.T, input []byte) []byte {
+	t.Helper()
 	var output bytes.Buffer
-	if err := NewServer().Serve(bytes.NewReader(input.Bytes()), &output); err != nil {
+	if err := NewServer().Serve(bytes.NewReader(input), &output); err != nil {
 		t.Fatalf("Serve() error = %v", err)
 	}
 	return output.Bytes()
