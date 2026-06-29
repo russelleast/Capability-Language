@@ -1,0 +1,39 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { sitePath } from "../../lib/playground/links";
+
+const frontmatter = {
+  title: "Use Cases",
+  description:
+    "Use cases for applying DCL to compiler-verifiable architecture and governance problems.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Use Cases</h1>
+  <p>
+    DCL is a language for describing business capabilities in a way that is
+    explicit, analyzable, and compiler-verifiable. While it was designed around
+    capabilities, intents, outcomes, policies, and effects, those same concepts
+    apply to a wide range of architecture and governance problems.
+  </p>
+  <p>
+    Use cases show how DCL can be applied beyond traditional documentation,
+    including AI governance, regulated systems, event-driven architecture,
+    long-running workflows, and enterprise capability modelling.
+  </p>
+
+  <section class="construct-card">
+    <h2>AI Governance &amp; Regulatory Compliance</h2>
+    <p>
+      Use DCL to describe what AI-enabled capabilities do, which actors are
+      involved, what outcomes are possible, which policies apply, and what
+      effects or audit evidence must be produced.
+    </p>
+    <p class="inline-actions">
+      <a class="button secondary" href={sitePath("/use-cases/ai-governance-regulatory-compliance/")}>
+        Read the use case
+      </a>
+    </p>
+  </section>
+</DocsLayout>

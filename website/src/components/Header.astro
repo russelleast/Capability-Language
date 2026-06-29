@@ -1,5 +1,5 @@
 ---
-import { languageLabel, languageStatus } from "../config/version";
+import { languageLabel } from "../config/version";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const path = (href) => `${base}${href}`;
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/learn/", label: "Learn" },
   { href: "/guides/", label: "Guides" },
   { href: "/examples/", label: "Examples" },
+  { href: "/use-cases/", label: "Use Cases" },
   { href: "/docs/", label: "Reference" },
   { href: "/tooling/", label: "Tooling" },
   { href: "/playground/", label: "Playground" },
@@ -28,8 +29,4 @@ const navItems = [
       <a href="https://github.com/russelleast/Capability-Language">GitHub</a>
     </div>
   </nav>
-  <div class="status-bar">
-    <span>{languageLabel}</span>
-    <span>Status: {languageStatus}</span>
-  </div>
 </header>

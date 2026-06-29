@@ -1,0 +1,120 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import aiGovernanceScreening from "../../examples/ai-governance-screening.dcl?raw";
+import { playgroundExamplePath, sitePath } from "../../lib/playground/links";
+
+const frontmatter = {
+  title: "AI Governance & Regulatory Compliance",
+  description:
+    "How DCL can help describe, validate, and document AI governance and regulatory compliance concerns.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <p><a href={sitePath("/use-cases/")}>Back to Use Cases</a></p>
+  <h1>AI Governance &amp; Regulatory Compliance</h1>
+
+  <h2>Challenge</h2>
+  <p>
+    Organisations deploying AI systems face increasing governance and regulatory
+    pressure. Regulations and standards such as the EU AI Act, GDPR, HIPAA,
+    PCI-DSS, and SOX require organisations to demonstrate what systems do, how
+    decisions are made, what safeguards exist, and how decisions can be audited.
+  </p>
+  <p>
+    In many organisations this information is scattered across Word documents,
+    PowerPoint slides, wiki pages, spreadsheets, architecture diagrams, ticket
+    systems, and tribal knowledge. The result is documentation drift.
+  </p>
+  <p>
+    The architecture says one thing, the implementation does another, and the
+    audit trail is reconstructed manually after the fact. The challenge is not
+    only producing documentation. The challenge is keeping governance aligned
+    with the system as it evolves.
+  </p>
+
+  <h2>How DCL Helps</h2>
+  <p>
+    DCL brings governance into the capability model. Capabilities explicitly
+    declare the business responsibility being performed, the actor initiating or
+    participating in the capability, the accepted input, the possible outcomes,
+    the rules that constrain decisions, the effects caused by the capability,
+    the policies attached to the capability or its effects, and the events or
+    audit evidence that should be emitted.
+  </p>
+  <p>
+    Because these declarations are part of the language, they can be checked by
+    the compiler and projected into generated documentation, diagrams,
+    summaries, and reports.
+  </p>
+  <p>
+    DCL does not replace legal review or compliance tooling. Instead, it
+    provides a compiler-verifiable architectural source from which governance
+    artefacts can be generated and checked.
+  </p>
+
+  <h2>Example</h2>
+  <p>
+    This example models an AI-assisted job applicant screening capability using
+    valid DCL 1.0 syntax. It keeps the governance model explicit without
+    claiming that the compiler performs legal or operational compliance work on
+    its own.
+  </p>
+  <CodeBlock title="ai-governance-screening.dcl" code={aiGovernanceScreening} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("ai-governance-screening")}>
+      Open in Playground
+    </a>
+  </p>
+  <p>
+    The example demonstrates that the capability is explicit, possible outcomes
+    are finite, governance policies are attached in source, effects and audit
+    evidence are declared, and documentation or reports can be generated from
+    the same validated source.
+  </p>
+
+  <h2>Benefits</h2>
+
+  <h3>Single Source of Truth</h3>
+  <p>
+    DCL keeps capability behaviour, governance policies, and generated
+    documentation connected to the same source.
+  </p>
+
+  <h3>Compiler-Checked Architecture</h3>
+  <p>
+    The compiler can detect missing references, invalid attachments, incomplete
+    definitions, and unsupported constructs before the model is used downstream.
+  </p>
+
+  <h3>Reduced Documentation Drift</h3>
+  <p>
+    Documentation, diagrams, and summaries can be generated from the validated
+    DCL model rather than maintained separately.
+  </p>
+
+  <h3>Improved Audit Readiness</h3>
+  <p>
+    Capabilities, actors, outcomes, effects, policies, and events are declared
+    explicitly, making it easier to explain what the system is responsible for.
+  </p>
+
+  <h3>AI-Ready Governance</h3>
+  <p>
+    For AI-enabled systems, DCL provides a stable capability contract even when
+    implementation details such as models, prompts, and runtime tools evolve.
+  </p>
+
+  <h2>Looking Forward</h2>
+  <p>
+    AI governance is only one use case. The same pattern applies wherever
+    organisations need to describe what systems are responsible for, what rules
+    and policies apply, what outcomes are possible, and what evidence must be
+    produced.
+  </p>
+  <p>
+    DCL provides a way to move from static documentation toward
+    compiler-verifiable architecture.
+  </p>
+</DocsLayout>
