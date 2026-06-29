@@ -15,6 +15,7 @@ const examples = [
   single("supervising-lifecycle"),
   single("policy-example"),
   single("agentic-customer-support"),
+  single("ai-governance-screening"),
   single("reliability-policy"),
   single("authorisation"),
   single("observed-capability"),
