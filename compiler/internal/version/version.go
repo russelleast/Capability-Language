@@ -21,6 +21,7 @@ var (
 type Metadata struct {
 	Language ComponentMetadata `json:"language"`
 	Compiler CompilerMetadata  `json:"compiler"`
+	MCP      ComponentMetadata `json:"mcp"`
 	VSCode   VSCodeMetadata    `json:"vscode"`
 }
 
@@ -144,6 +145,9 @@ func parse(payload []byte, source string) (Metadata, error) {
 	}
 	if metadata.Compiler.Name == "" || metadata.Compiler.Version == "" || metadata.Compiler.Supports == "" {
 		return Metadata{}, fmt.Errorf("%s is missing compiler metadata", source)
+	}
+	if metadata.MCP.Name == "" || metadata.MCP.Version == "" {
+		return Metadata{}, fmt.Errorf("%s is missing MCP metadata", source)
 	}
 	return metadata, nil
 }

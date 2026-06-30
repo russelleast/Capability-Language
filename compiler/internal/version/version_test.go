@@ -24,6 +24,7 @@ func TestCurrentUsesEmbeddedMetadataWhenProvided(t *testing.T) {
 	resetCurrentForTest(`{
 		"language": {"name": "dcl", "version": "9.8"},
 		"compiler": {"name": "dcl", "version": "7.6", "supports": "9.8"},
+		"mcp": {"name": "dcl-mcp", "version": "0.1.0"},
 		"vscode": {"name": "dcl-vscode-extension", "version": "5.4", "supports": "9.8", "compiler": "7.6"}
 	}`)
 	defer resetCurrentForTest("")

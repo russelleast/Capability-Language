@@ -16,6 +16,37 @@ The server is intentionally small:
 
 Supported MCP protocol version: `2025-06-18`.
 
+## Quick Start
+
+From the repository root:
+
+```sh
+make install-mcp
+```
+
+This builds the local stdio MCP server, installs it at `./bin/dcl-mcp`, and prints a ready-to-copy VS Code / Copilot MCP configuration that uses the absolute binary path.
+
+The first version installs into the repository-local `bin/` directory instead of a user-level directory such as `~/.dcl/bin`. That keeps setup explicit, avoids modifying user shell state, and lets the source-built binary find the root `version.json` without extra packaging steps.
+
+Requirements:
+
+- Go, because this repository builds the compiler and MCP server from Go source.
+- Node.js only for `make test-mcp`, which uses the existing smoke-test script.
+
+To print the VS Code / Copilot configuration again:
+
+```sh
+make mcp-config
+```
+
+To verify the installed server:
+
+```sh
+make test-mcp
+```
+
+`make test-mcp` confirms the binary exists, is executable, responds to MCP `initialize` and `tools/list`, and can call `dcl_version` and `dcl_summary`.
+
 ## AI Access Paths
 
 DCL supports three AI access paths:
@@ -114,63 +145,61 @@ Useful LLM instructions:
 
 ## Installation
 
-### From Release Artifacts
-
-Download the `dcl-mcp` binary for your platform from the project release artifacts when available. Place it somewhere stable, then use its absolute path in your MCP client configuration.
-
-The intended release set is:
-
-- `dcl`
-- `dcl-lsp`
-- `dcl-mcp`
-
-All binaries use version metadata from root `version.json`.
-
-Current repository automation:
-
-- `.github/workflows/build.yml` compiles `dcl`, `dcl-lsp`, and `dcl-mcp` during CI.
-- `tools/vscode-extension/scripts/build-compiler-binaries.mjs` builds `dcl`, `dcl-lsp`, and `dcl-mcp` for the VS Code extension packaging targets.
-
-Standalone GitHub Release archives for the three CLI binaries are not implemented yet. Treat that as a future release workflow item separate from the VS Code extension package.
-
-### Build From Source
+### Repository-local install
 
 From the repository root:
 
 ```sh
-cd compiler
-go build -o dcl-mcp ./cmd/dcl-mcp
+make install-mcp
 ```
 
-Use the absolute path to the built binary, for example:
+The binary is installed at:
 
 ```sh
-/Users/alex/Code/Capability-Language/compiler/dcl-mcp
+./bin/dcl-mcp
 ```
 
-## Claude Desktop
+Use the absolute path printed by `make install-mcp` in MCP client configuration. Re-run the command after pulling compiler or MCP server changes.
 
-Add `dcl` to your Claude Desktop MCP configuration. Use the absolute path to `dcl-mcp`.
+### VS Code / Copilot
 
-macOS example:
+Run:
+
+```sh
+make mcp-config
+```
+
+Copy the JSON into `.vscode/mcp.json` for workspace-local setup:
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "dcl": {
-      "command": "/Users/alex/bin/dcl-mcp"
+      "type": "stdio",
+      "command": "/absolute/path/to/Capability-Language/bin/dcl-mcp"
     }
   }
 }
 ```
 
-If you built from source:
+You can also place the same server entry in your VS Code user MCP settings if you want it available outside this workspace.
+
+After editing MCP configuration:
+
+- Reload VS Code.
+- Open Copilot Chat in a mode that supports tools or agents.
+- Use the chat tool picker to confirm the DCL tools are enabled.
+- Ask for a concrete tool-backed task, such as `Use the DCL MCP server to call dcl_version`.
+
+### Claude Desktop
+
+Claude Desktop uses the `mcpServers` shape. Use the same absolute binary path printed by `make install-mcp`:
 
 ```json
 {
   "mcpServers": {
     "dcl": {
-      "command": "/Users/alex/Code/Capability-Language/compiler/dcl-mcp"
+      "command": "/absolute/path/to/Capability-Language/bin/dcl-mcp"
     }
   }
 }
@@ -188,7 +217,7 @@ Example:
 {
   "mcpServers": {
     "dcl": {
-      "command": "/Users/alex/bin/dcl-mcp"
+      "command": "/absolute/path/to/Capability-Language/bin/dcl-mcp"
     }
   }
 }
@@ -204,13 +233,28 @@ Any MCP-compatible client that supports stdio servers can launch `dcl-mcp` with 
 {
   "mcpServers": {
     "dcl": {
-      "command": "/path/to/dcl-mcp"
+      "command": "/absolute/path/to/Capability-Language/bin/dcl-mcp"
     }
   }
 }
 ```
 
 The server does not require environment variables. Clients should pass explicit source text or explicit file/workspace paths to tools.
+
+## Versioning
+
+`version.json` includes MCP server metadata:
+
+```json
+{
+  "mcp": {
+    "name": "dcl-mcp",
+    "version": "0.1.0"
+  }
+}
+```
+
+The `dcl_version` MCP tool returns the full version metadata object, including `language`, `compiler`, `mcp`, and `vscode`. The human-readable summary remains compiler-focused and continues to use the existing `dcl compiler ...` wording.
 
 ## HTTP MCP Design Note
 
@@ -251,28 +295,20 @@ This is intentionally not implemented in the CLI-first pass, because CLI access 
 
 ### Smoke-test the stdio transport
 
-MCP stdio messages are newline-delimited JSON-RPC messages. To confirm the server responds to `initialize`, build the binary and run:
+From the repository root:
 
 ```sh
-cd compiler
-go build -o ./bin/dcl-mcp ./cmd/dcl-mcp
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke-test","version":"1.0"}}}' | ./bin/dcl-mcp
+make test-mcp
 ```
 
-The response should be a single JSON-RPC response line containing `"protocolVersion":"2025-06-18"` and `"serverInfo":{"name":"dcl-mcp",...}`.
+This runs the existing smoke test against `./bin/dcl-mcp`. It validates initialization, tool discovery, `dcl_version`, and `dcl_summary`.
 
-To test initialization, tool discovery, and real tool invocation in one pass:
-
-```sh
-cd compiler
-go build -o ./bin/dcl-mcp ./cmd/dcl-mcp
-node scripts/mcp-smoke.mjs ./bin/dcl-mcp
-```
+MCP stdio responses are newline-delimited JSON-RPC messages. Human-readable logs must not be written to stdout, because stdout is reserved for protocol messages.
 
 Set `DCL_MCP_DEBUG=1` to write lifecycle and tool-call logs to stderr only:
 
 ```sh
-DCL_MCP_DEBUG=1 node scripts/mcp-smoke.mjs ./bin/dcl-mcp
+DCL_MCP_DEBUG=1 make test-mcp
 ```
 
 ### VS Code discovers tools but Copilot does not call them
@@ -288,7 +324,7 @@ Check the following:
 - Ask for a concrete tool-backed task, for example: `Use the DCL MCP server to call dcl_version` or `Use dcl_summary on this DCL source`.
 - VS Code may display server-qualified tool names internally, such as `dcl-dcl_version`, where the first `dcl` is the MCP server id from `.vscode/mcp.json`. The MCP server itself still advertises tool names like `dcl_version`.
 
-If `node scripts/mcp-smoke.mjs ./bin/dcl-mcp` passes but Copilot still says a tool is unavailable, the problem is likely VS Code/Copilot chat mode, tool enablement, trust, or model tool-selection behavior rather than DCL MCP protocol handling.
+If `make test-mcp` passes but Copilot still says a tool is unavailable, the problem is likely VS Code/Copilot chat mode, tool enablement, trust, or model tool-selection behavior rather than DCL MCP protocol handling.
 
 ### The client cannot start the server
 
@@ -296,10 +332,11 @@ If `node scripts/mcp-smoke.mjs ./bin/dcl-mcp` passes but Copilot still says a to
 - Confirm the binary exists and is executable.
 - On macOS/Linux, run `chmod +x /path/to/dcl-mcp` if needed.
 - Run `/path/to/dcl-mcp` from a terminal; it should wait for stdio input and print nothing.
+- Re-run `make install-mcp` from the repository root if the binary is missing.
 
 ### Version metadata is missing
 
-Release binaries embed metadata from `version.json`. Source builds look upward from the current working directory or executable directory for `version.json`. If you build from source and move only the binary, prefer a release binary or build with embedded metadata.
+Source builds installed by `make install-mcp` look upward from `./bin/dcl-mcp` and find the repository root `version.json`. If you move only the binary somewhere else, version metadata may be unavailable unless you also provide embedded release metadata.
 
 ### No DCL files are found
 

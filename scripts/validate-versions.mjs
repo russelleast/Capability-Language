@@ -47,6 +47,10 @@ if (!versions?.compiler?.name || !versions?.compiler?.version || !versions?.comp
   errors.push("version.json.compiler must include name, version, and supports");
 }
 
+if (!versions?.mcp?.name || !versions?.mcp?.version) {
+  errors.push("version.json.mcp must include name and version");
+}
+
 if (versions?.compiler?.supports !== versions?.language?.version) {
   errors.push(
     `version.json.compiler.supports (${versions?.compiler?.supports ?? "missing"}) must match version.json.language.version (${versions?.language?.version ?? "missing"})`,
