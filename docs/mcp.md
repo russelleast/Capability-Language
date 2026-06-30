@@ -18,14 +18,16 @@ Supported MCP protocol version: `2025-06-18`.
 
 ## Quick Start
 
-Download the DCL MCP server archive for your platform from the latest GitHub Release:
+Download the DCL MCP server archive for your platform from the [`mcp-v*` GitHub Releases](https://github.com/russelleast/Capability-Language/releases?q=mcp-v&expanded=true).
 
-| Platform | Release asset |
+MCP downloads are published on dedicated MCP releases, not VS Code extension releases. Choose the newest release named like `mcp-v0.1.0`, then download the archive for your platform:
+
+| Platform | Asset name |
 | --- | --- |
-| macOS Apple Silicon | [`dcl-mcp-darwin-arm64.tar.gz`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-darwin-arm64.tar.gz) |
-| macOS Intel | [`dcl-mcp-darwin-amd64.tar.gz`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-darwin-amd64.tar.gz) |
-| Linux x64 | [`dcl-mcp-linux-amd64.tar.gz`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-linux-amd64.tar.gz) |
-| Windows x64 | [`dcl-mcp-windows-amd64.zip`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-windows-amd64.zip) |
+| macOS Apple Silicon | `dcl-mcp-darwin-arm64.tar.gz` |
+| macOS Intel | `dcl-mcp-darwin-amd64.tar.gz` |
+| Linux x64 | `dcl-mcp-linux-amd64.tar.gz` |
+| Windows x64 | `dcl-mcp-windows-amd64.zip` |
 
 Extract the archive, then run the included install script.
 
@@ -174,7 +176,7 @@ Useful LLM instructions:
 
 ### Release binaries
 
-Release archives are attached to tagged GitHub Releases and use stable asset names:
+Release archives are attached to dedicated `mcp-v*` GitHub Releases and use stable asset names:
 
 - `dcl-mcp-darwin-arm64.tar.gz`
 - `dcl-mcp-darwin-amd64.tar.gz`
@@ -197,11 +199,13 @@ The packaged binaries embed version metadata from `version.json`, so users do no
 Tagged MCP releases are packaged by GitHub Actions. Push a tag like:
 
 ```sh
-git tag dcl-mcp-v0.1.0
-git push origin dcl-mcp-v0.1.0
+git tag mcp-v0.1.0
+git push origin mcp-v0.1.0
 ```
 
-The release workflow builds the four supported platform binaries, creates the stable archive assets, and attaches them to the GitHub Release for that tag.
+The release workflow runs on `mcp-v*` tags, builds the four supported platform binaries, creates the stable archive assets, and attaches them to a GitHub Release titled like `DCL MCP Server v0.1.0`.
+
+MCP archives must not be attached to `vscode-extension-*` releases. The VS Code extension release flow remains separate and continues to publish VSIX assets only.
 
 ### Repository-local source install
 
