@@ -18,17 +18,44 @@ Supported MCP protocol version: `2025-06-18`.
 
 ## Quick Start
 
-From the repository root:
+Download the DCL MCP server archive for your platform from the latest GitHub Release:
+
+| Platform | Release asset |
+| --- | --- |
+| macOS Apple Silicon | [`dcl-mcp-darwin-arm64.tar.gz`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-darwin-arm64.tar.gz) |
+| macOS Intel | [`dcl-mcp-darwin-amd64.tar.gz`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-darwin-amd64.tar.gz) |
+| Linux x64 | [`dcl-mcp-linux-amd64.tar.gz`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-linux-amd64.tar.gz) |
+| Windows x64 | [`dcl-mcp-windows-amd64.zip`](https://github.com/russelleast/Capability-Language/releases/latest/download/dcl-mcp-windows-amd64.zip) |
+
+Extract the archive, then run the included install script.
+
+macOS/Linux:
+
+```sh
+./install.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\install.ps1
+```
+
+The installer copies `dcl-mcp` to a predictable user-level location and prints ready-to-copy VS Code / Copilot MCP configuration.
+
+Release binaries do not require Go or a repository checkout.
+
+To build from source as a contributor instead, run this from the repository root:
 
 ```sh
 make install-mcp
 ```
 
-This builds the local stdio MCP server, installs it at `./bin/dcl-mcp`, and prints a ready-to-copy VS Code / Copilot MCP configuration that uses the absolute binary path.
+This builds the local stdio MCP server, installs it at `./bin/dcl-mcp`, and prints ready-to-copy VS Code / Copilot MCP configuration that uses the absolute binary path.
 
-The first version installs into the repository-local `bin/` directory instead of a user-level directory such as `~/.dcl/bin`. That keeps setup explicit, avoids modifying user shell state, and lets the source-built binary find the root `version.json` without extra packaging steps.
+The source install path uses the repository-local `bin/` directory instead of a user-level directory such as `~/.dcl/bin`. That keeps contributor setup explicit, avoids modifying user shell state, and lets the source-built binary find the root `version.json` without extra packaging steps.
 
-Requirements:
+Source-build requirements:
 
 - Go, because this repository builds the compiler and MCP server from Go source.
 - Node.js only for `make test-mcp`, which uses the existing smoke-test script.
@@ -145,7 +172,38 @@ Useful LLM instructions:
 
 ## Installation
 
-### Repository-local install
+### Release binaries
+
+Release archives are attached to tagged GitHub Releases and use stable asset names:
+
+- `dcl-mcp-darwin-arm64.tar.gz`
+- `dcl-mcp-darwin-amd64.tar.gz`
+- `dcl-mcp-linux-amd64.tar.gz`
+- `dcl-mcp-windows-amd64.zip`
+
+Each archive includes:
+
+- the `dcl-mcp` binary for that platform
+- a package README
+- `mcp.vscode.json`
+- `mcp.claude-desktop.json`
+- an install script where practical
+- the project license
+
+The packaged binaries embed version metadata from `version.json`, so users do not need Go installed and do not need to clone the repository.
+
+### Release publishing
+
+Tagged MCP releases are packaged by GitHub Actions. Push a tag like:
+
+```sh
+git tag dcl-mcp-v0.1.0
+git push origin dcl-mcp-v0.1.0
+```
+
+The release workflow builds the four supported platform binaries, creates the stable archive assets, and attaches them to the GitHub Release for that tag.
+
+### Repository-local source install
 
 From the repository root:
 
@@ -169,7 +227,9 @@ Run:
 make mcp-config
 ```
 
-Copy the JSON into `.vscode/mcp.json` for workspace-local setup:
+For release installs, use the JSON printed by `install.sh` or `install.ps1`, or adapt the included `mcp.vscode.json` file.
+
+For source installs, copy the JSON printed by `make mcp-config` into `.vscode/mcp.json` for workspace-local setup:
 
 ```json
 {
@@ -336,7 +396,7 @@ If `make test-mcp` passes but Copilot still says a tool is unavailable, the prob
 
 ### Version metadata is missing
 
-Source builds installed by `make install-mcp` look upward from `./bin/dcl-mcp` and find the repository root `version.json`. If you move only the binary somewhere else, version metadata may be unavailable unless you also provide embedded release metadata.
+Release binaries embed metadata from `version.json`. Source builds installed by `make install-mcp` look upward from `./bin/dcl-mcp` and find the repository root `version.json`. If you move only a source-built binary somewhere else, version metadata may be unavailable unless you also provide embedded release metadata.
 
 ### No DCL files are found
 

@@ -3,3 +3,4 @@ compiler/dcl
 compiler/dcl-lsp
 compiler/dcl-mcp
 bin/
+build/

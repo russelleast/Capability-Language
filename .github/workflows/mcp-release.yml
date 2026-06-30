@@ -1,0 +1,70 @@
+name: Release DCL MCP Server
+
+on:
+  push:
+    tags:
+      - "dcl-mcp-v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing or new release tag, for example dcl-mcp-v0.1.0."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package MCP Release Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: compiler/go.mod
+          cache-dependency-path: compiler/go.mod
+
+      - name: Validate repository versions
+        run: node scripts/validate-versions.mjs
+
+      - name: Run compiler tests
+        run: go test ./...
+        working-directory: compiler
+
+      - name: Package MCP archives
+        run: node scripts/package-mcp-release.mjs
+
+      - name: Upload MCP archive artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dcl-mcp-release-assets
+          path: build/mcp-release/assets/*
+          if-no-files-found: error
+
+      - name: Resolve release tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "RELEASE_TAG=${{ github.event.inputs.tag_name }}" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          fi
+
+      - name: Create or update GitHub Release
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" build/mcp-release/assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" build/mcp-release/assets/* --title "$RELEASE_TAG" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,6 +1,15 @@
 ---
 import DocsLayout from "../layouts/DocsLayout.astro";
-import { compilerVersion, languageLabel, vscodeExtensionMarketplaceUrl } from "../config/version";
+import {
+  compilerVersion,
+  languageLabel,
+  mcpDarwinAmd64Url,
+  mcpDarwinArm64Url,
+  mcpLinuxAmd64Url,
+  mcpReleasePageUrl,
+  mcpWindowsAmd64Url,
+  vscodeExtensionMarketplaceUrl,
+} from "../config/version";
 import { sitePath } from "../lib/playground/links";
 
 const frontmatter = {
@@ -62,10 +71,17 @@ dcl ir ../website/src/examples/ai-demo-workspace --json</code></pre>
   </p>
   <p>
     Setup instructions, client configuration examples, troubleshooting, and the
-    MCP roadmap are maintained in the repository documentation.
+    MCP roadmap are maintained in the repository documentation. Release archives
+    include the binary, example MCP client configuration, and an install script
+    where practical.
   </p>
   <div class="actions">
-    <a class="button primary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp.md">MCP setup guide</a>
+    <a class="button primary" href={mcpDarwinArm64Url}>Download macOS Apple Silicon</a>
+    <a class="button secondary" href={mcpDarwinAmd64Url}>Download macOS Intel</a>
+    <a class="button secondary" href={mcpLinuxAmd64Url}>Download Linux x64</a>
+    <a class="button secondary" href={mcpWindowsAmd64Url}>Download Windows x64</a>
+    <a class="button secondary" href={mcpReleasePageUrl}>All MCP downloads</a>
+    <a class="button secondary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp.md">MCP setup guide</a>
     <a class="button secondary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp-roadmap.md">MCP roadmap</a>
   </div>
 
