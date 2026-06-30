@@ -3,6 +3,7 @@ import DocsLayout from "../layouts/DocsLayout.astro";
 import {
   compilerVersion,
   languageLabel,
+  mcpAllReleasesUrl,
   mcpReleasePageUrl,
   vscodeExtensionMarketplaceUrl,
 } from "../config/version";
@@ -73,6 +74,7 @@ dcl ir ../website/src/examples/ai-demo-workspace --json</code></pre>
   </p>
   <div class="actions">
     <a class="button primary" href={mcpReleasePageUrl}>Download MCP server</a>
+    <a class="button secondary" href={mcpAllReleasesUrl}>All MCP releases</a>
     <a class="button secondary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp.md">MCP setup guide</a>
     <a class="button secondary" href="https://github.com/russelleast/Capability-Language/blob/main/docs/mcp-roadmap.md">MCP roadmap</a>
   </div>
