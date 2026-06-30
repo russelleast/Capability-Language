@@ -18,9 +18,9 @@ Supported MCP protocol version: `2025-06-18`.
 
 ## Quick Start
 
-Download the DCL MCP server archive for your platform from the [`mcp-v*` GitHub Releases](https://github.com/russelleast/Capability-Language/releases?q=mcp-v&expanded=true).
+Download the DCL MCP server archive for your platform from the [current MCP release](https://github.com/russelleast/Capability-Language/releases/tag/mcp-v0.1.0).
 
-MCP downloads are published on dedicated MCP releases, not VS Code extension releases. Choose the newest release named like `mcp-v0.1.0`, then download the archive for your platform:
+MCP downloads are published on dedicated MCP releases, not VS Code extension releases. Current and older MCP releases can be found by searching GitHub Releases for [`DCL MCP Server`](https://github.com/russelleast/Capability-Language/releases?q=DCL+MCP+Server&expanded=true). Choose the newest release named like `DCL MCP Server v0.1.0`, then download the archive for your platform:
 
 | Platform | Asset name |
 | --- | --- |

@@ -10,4 +10,7 @@ export const vscodeExtensionVsixName = `dcl-vscode-extension-v${vscodeExtensionV
 export const vscodeExtensionReleaseUrl = `https://github.com/russelleast/Capability-Language/releases/latest/download/${vscodeExtensionVsixName}`;
 export const vscodeExtensionMarketplaceUrl = "https://marketplace.visualstudio.com/items?itemName=dcl.dcl-vscode-extension";
 export const vscodeExtensionSourceUrl = "https://github.com/russelleast/Capability-Language/tree/main/tools/vscode-extension";
-export const mcpReleasePageUrl = "https://github.com/russelleast/Capability-Language/releases?q=mcp-v&expanded=true";
+export const mcpVersion = version.mcp.version;
+export const mcpReleaseTag = `mcp-v${mcpVersion}`;
+export const mcpReleasePageUrl = `https://github.com/russelleast/Capability-Language/releases/tag/${mcpReleaseTag}`;
+export const mcpAllReleasesUrl = "https://github.com/russelleast/Capability-Language/releases?q=DCL+MCP+Server&expanded=true";
