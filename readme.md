@@ -14,7 +14,7 @@ Current versions:
 
 See [version.json](version.json) for the current project versions.
 
-For local AI-assisted DCL analysis, see the [DCL MCP server documentation](docs/mcp.md).
+For local AI-assisted DCL analysis, run `make install-mcp` from the repository root and see the [DCL MCP server setup guide](docs/mcp.md). The local stdio MCP server exposes compiler-backed tools for validation, compilation, IR inspection, diagnostics explanation, version metadata, and semantic summaries.
 
 DCL v1.0 defines the stable core language for describing capabilities, intents, outcomes, rules, effects, events, lifecycles, actors, policies, observations, and contexts.
 

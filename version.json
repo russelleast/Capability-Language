@@ -8,6 +8,10 @@
     "version": "1.0",
     "supports": "1.0"
   },
+  "mcp": {
+    "name": "dcl-mcp",
+    "version": "0.1.0"
+  },
   "vscode": {
     "name": "dcl-vscode-extension",
     "version": "1.0.4",
