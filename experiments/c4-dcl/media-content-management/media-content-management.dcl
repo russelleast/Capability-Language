@@ -5,12 +5,47 @@ context Media.ContentManagement
 actor ContentUser is human
 actor ContentApprover is human
 actor DigitalSignagePlayer is system
-actor ContentPlayback is system
+actor ContentProcessingAgent is system
 
-shape UploadBatchInput {
-  batchId: Uuid required
-  uploadedBy: Uuid required
-  items: List<MediaUploadItem> required
+effect StoreUploadedMedia is persistence
+effect AppendContentEvent is persistence
+effect UpdateContentReadModel is persistence
+effect AnalyseUploadedFile is invocation
+effect GenerateThumbnailAsset is invocation
+effect TranscodeVideoAsset is invocation
+effect PublishPlaylistVersion is invocation
+effect ServePlaylistVersion is invocation
+effect DownloadMediaAssets is invocation
+effect PersistPlaybackCount is persistence
+
+policy ContentProcessingReliability {
+  reliability {
+    retry {
+      attempts 3
+      backoff exponential
+    }
+    idempotency required
+    timeout 5 minutes
+  }
+}
+
+policy EventSourcedAudit {
+  governance {
+    audit required
+    evidence required
+  }
+}
+
+policy PlaylistServingPerformance {
+  performance {
+    latency p95 under 500ms
+    budget 2 seconds
+  }
+}
+
+shape ContentAttribute {
+  name: Text required
+  value: Text required
 }
 
 shape MediaUploadItem {
@@ -20,13 +55,19 @@ shape MediaUploadItem {
   attributes: List<ContentAttribute> required
 }
 
-shape ContentAttribute {
-  name: Text required
-  value: Text required
+shape UploadBatchIntent {
+  batchId: Uuid required
+  uploadedBy: Uuid required
+  items: List<MediaUploadItem> required
 }
 
-shape ContentIdInput {
+shape ContentIntent {
   contentId: Uuid required
+}
+
+shape MediaAnalysisIntent {
+  contentId: Uuid required
+  filename: Text required
 }
 
 shape PlayerPlaylistRequest {
@@ -34,7 +75,7 @@ shape PlayerPlaylistRequest {
   currentPlaylistVersion: Number
 }
 
-shape PlaybackEventInput {
+shape PlaybackEventIntent {
   playerId: Uuid required
   contentId: Uuid required
   playedAt: DateTime required
@@ -45,11 +86,6 @@ event ContentBatchUploaded is {
 }
 
 event MediaFileAnalysed is {
-  contentId: Uuid required
-  detectedMediaType: Text required
-}
-
-event UnsupportedMediaDetected is {
   contentId: Uuid required
   detectedMediaType: Text required
 }
@@ -77,56 +113,12 @@ event ContentPlayed is {
   playedAt: DateTime required
 }
 
-effect StoreUploadedMedia is persistence
-effect AppendContentEvent is persistence
-effect UpdateContentReadModel is persistence
-effect AnalyseUploadedFile is invocation
-effect GenerateThumbnailAsset is invocation
-effect TranscodeVideoAsset is invocation
-effect PublishPlaylistVersion is invocation
-effect ServePlaylistVersion is invocation
-effect DownloadMediaAssets is invocation
-effect PersistPlaybackCount is persistence
-
-policy ContentProcessingReliability {
-  reliability {
-    retry attempts 3
-  }
-
-  observability {
-    trace required
-    metrics required
-  }
-}
-
-policy EventSourcedAudit {
-  governance {
-    audit required
-    evidence required
-  }
-
-  observability {
-    trace required
-  }
-}
-
-policy PlaylistAvailability {
-  availability {
-    target 99.9 percent
-  }
-
-  performance {
-    latency below 500 ms
-  }
-}
-
 capability UploadContentBatch {
-  input UploadBatchInput from ContentUser
+  intent UploadBatchIntent from ContentUser
 
   outcomes {
     BatchAccepted
-    BatchRejected
-    StorageFailed
+    StorageDeferred
   }
 
   effects {
@@ -135,119 +127,138 @@ capability UploadContentBatch {
     UpdateContentReadModel after AppendContentEvent
   }
 
+  events {
+    emits ContentBatchUploaded
+  }
+
   policies {
-    EventSourcedAudit
-    ContentProcessingReliability applies to effect StoreUploadedMedia
+    ContentProcessingReliability governs effect StoreUploadedMedia
+    EventSourcedAudit governs effect AppendContentEvent
+  }
+
+  observe {
+    capability duration as upload_batch_duration
+    outcome BatchAccepted count as content_batches_uploaded
+    effect StoreUploadedMedia count failures as upload_storage_failures
+    event ContentBatchUploaded count as content_batch_uploaded_events
   }
 
   when {
-    effect StoreUploadedMedia failed => StorageFailed
-    otherwise => BatchAccepted
-  }
-
-  emits {
-    BatchAccepted emits ContentBatchUploaded
+    StoreUploadedMedia unresolved then StorageDeferred
+    otherwise then BatchAccepted
   }
 }
 
 capability AnalyseMediaFile {
-  input ContentIdInput from ContentPlayback
+  intent MediaAnalysisIntent from ContentProcessingAgent
 
   outcomes {
-    VideoDetected
-    ImageDetected
-    AudioDetected
-    MicrositeDetected
-    UnsupportedMediaType
-    AnalysisFailed
+    MediaAnalysed
+    AnalysisDeferred
   }
 
   effects {
     AnalyseUploadedFile
     AppendContentEvent after AnalyseUploadedFile
+    UpdateContentReadModel after AppendContentEvent
+  }
+
+  events {
+    emits MediaFileAnalysed
   }
 
   policies {
-    EventSourcedAudit
-    ContentProcessingReliability applies to effect AnalyseUploadedFile
+    ContentProcessingReliability governs effect AnalyseUploadedFile
+    EventSourcedAudit governs effect AppendContentEvent
+  }
+
+  observe {
+    capability duration as media_analysis_duration
+    effect AnalyseUploadedFile count failures as media_analysis_failures
+    event MediaFileAnalysed count as media_files_analysed
   }
 
   when {
-    effect AnalyseUploadedFile failed => AnalysisFailed
-    otherwise => VideoDetected
-  }
-
-  emits {
-    VideoDetected emits MediaFileAnalysed
-    ImageDetected emits MediaFileAnalysed
-    AudioDetected emits MediaFileAnalysed
-    MicrositeDetected emits MediaFileAnalysed
-    UnsupportedMediaType emits UnsupportedMediaDetected
+    AnalyseUploadedFile unresolved then AnalysisDeferred
+    otherwise then MediaAnalysed
   }
 }
 
 capability GenerateThumbnail {
-  input ContentIdInput from ContentPlayback
+  intent ContentIntent from ContentProcessingAgent
 
   outcomes {
     ThumbnailCreated
-    ThumbnailFailed
+    ThumbnailDeferred
   }
 
   effects {
     GenerateThumbnailAsset
     AppendContentEvent after GenerateThumbnailAsset
+    UpdateContentReadModel after AppendContentEvent
+  }
+
+  events {
+    emits ThumbnailGenerated
   }
 
   policies {
-    ContentProcessingReliability applies to effect GenerateThumbnailAsset
-    EventSourcedAudit
+    ContentProcessingReliability governs effect GenerateThumbnailAsset
+    EventSourcedAudit governs effect AppendContentEvent
+  }
+
+  observe {
+    capability duration as thumbnail_generation_duration
+    effect GenerateThumbnailAsset count failures as thumbnail_generation_failures
+    event ThumbnailGenerated count as thumbnails_generated
   }
 
   when {
-    effect GenerateThumbnailAsset failed => ThumbnailFailed
-    otherwise => ThumbnailCreated
-  }
-
-  emits {
-    ThumbnailCreated emits ThumbnailGenerated
+    GenerateThumbnailAsset unresolved then ThumbnailDeferred
+    otherwise then ThumbnailCreated
   }
 }
 
 capability TranscodeVideo {
-  input ContentIdInput from ContentPlayback
+  intent ContentIntent from ContentProcessingAgent
 
   outcomes {
     VideoReady
-    TranscodeFailed
+    TranscodeDeferred
   }
 
   effects {
     TranscodeVideoAsset
     AppendContentEvent after TranscodeVideoAsset
+    UpdateContentReadModel after AppendContentEvent
+  }
+
+  events {
+    emits VideoTranscoded
   }
 
   policies {
-    ContentProcessingReliability applies to effect TranscodeVideoAsset
-    EventSourcedAudit
+    ContentProcessingReliability governs effect TranscodeVideoAsset
+    EventSourcedAudit governs effect AppendContentEvent
+  }
+
+  observe {
+    capability duration as video_transcoding_duration
+    effect TranscodeVideoAsset count failures as video_transcoding_failures
+    event VideoTranscoded count as videos_transcoded
   }
 
   when {
-    effect TranscodeVideoAsset failed => TranscodeFailed
-    otherwise => VideoReady
-  }
-
-  emits {
-    VideoReady emits VideoTranscoded
+    TranscodeVideoAsset unresolved then TranscodeDeferred
+    otherwise then VideoReady
   }
 }
 
 capability ApproveContent {
-  input ContentIdInput from ContentUser
+  intent ContentIntent from ContentApprover
 
   outcomes {
-    Approved
-    ApprovalRejected
+    ContentApprovedForPublishing
   }
 
   effects {
@@ -255,27 +266,30 @@ capability ApproveContent {
     UpdateContentReadModel after AppendContentEvent
   }
 
+  events {
+    emits ContentApproved
+  }
+
   policies {
-    EventSourcedAudit
+    EventSourcedAudit governs effect AppendContentEvent
+  }
+
+  observe {
+    outcome ContentApprovedForPublishing count as content_approved
+    event ContentApproved count as content_approved_events
   }
 
   when {
-    otherwise => Approved
-  }
-
-  emits {
-    Approved emits ContentApproved
+    always ContentApprovedForPublishing
   }
 }
 
 capability PublishContentToPlaylist {
-  input ContentIdInput from ContentPlayback
+  intent ContentIntent from ContentProcessingAgent
 
   outcomes {
-    PlaylistMatched
-    PlaylistCreated
-    NoMatchingPlaylist
-    PlaylistPublicationFailed
+    PlaylistPublished
+    PlaylistPublicationDeferred
   }
 
   effects {
@@ -284,28 +298,32 @@ capability PublishContentToPlaylist {
     UpdateContentReadModel after AppendContentEvent
   }
 
+  events {
+    emits PlaylistUpdated
+  }
+
   policies {
-    ContentProcessingReliability applies to effect PublishPlaylistVersion
-    EventSourcedAudit
+    ContentProcessingReliability governs effect PublishPlaylistVersion
+    EventSourcedAudit governs effect AppendContentEvent
+  }
+
+  observe {
+    capability duration as playlist_publication_duration
+    outcome PlaylistPublished count as playlist_publications
+    event PlaylistUpdated count as playlist_updated_events
   }
 
   when {
-    effect PublishPlaylistVersion failed => PlaylistPublicationFailed
-    otherwise => PlaylistMatched
-  }
-
-  emits {
-    PlaylistMatched emits PlaylistUpdated
-    PlaylistCreated emits PlaylistUpdated
+    PublishPlaylistVersion unresolved then PlaylistPublicationDeferred
+    otherwise then PlaylistPublished
   }
 }
 
 capability ServePlaylistToPlayer {
-  input PlayerPlaylistRequest from DigitalSignagePlayer
+  intent PlayerPlaylistRequest from DigitalSignagePlayer
 
   outcomes {
-    NewPlaylistAvailable
-    NoPlaylistChange
+    PlaylistServed
     PlaylistUnavailable
   }
 
@@ -315,21 +333,26 @@ capability ServePlaylistToPlayer {
   }
 
   policies {
-    PlaylistAvailability
+    PlaylistServingPerformance governs effect ServePlaylistVersion
+  }
+
+  observe {
+    capability duration as playlist_serving_duration
+    effect ServePlaylistVersion count failures as playlist_serving_failures
   }
 
   when {
-    effect ServePlaylistVersion failed => PlaylistUnavailable
-    otherwise => NewPlaylistAvailable
+    ServePlaylistVersion unresolved then PlaylistUnavailable
+    otherwise then PlaylistServed
   }
 }
 
 capability RecordPlaybackAnalytics {
-  input PlaybackEventInput from DigitalSignagePlayer
+  intent PlaybackEventIntent from DigitalSignagePlayer
 
   outcomes {
     PlaybackRecorded
-    AnalyticsWriteFailed
+    AnalyticsWriteDeferred
   }
 
   effects {
@@ -337,17 +360,23 @@ capability RecordPlaybackAnalytics {
     AppendContentEvent after PersistPlaybackCount
   }
 
+  events {
+    emits ContentPlayed
+  }
+
   policies {
-    EventSourcedAudit
-    ContentProcessingReliability applies effect PersistPlaybackCount
+    ContentProcessingReliability governs effect PersistPlaybackCount
+    EventSourcedAudit governs event ContentPlayed
+  }
+
+  observe {
+    outcome PlaybackRecorded count as playback_events_recorded
+    effect PersistPlaybackCount count failures as playback_analytics_failures
+    event ContentPlayed count as content_played_events
   }
 
   when {
-    effect PersistPlaybackCount failed then AnalyticsWriteFailed
+    PersistPlaybackCount unresolved then AnalyticsWriteDeferred
     otherwise then PlaybackRecorded
-  }
-
-  emits {
-    PlaybackRecorded emits ContentPlayed
   }
 }

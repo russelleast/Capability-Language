@@ -9,10 +9,10 @@ Without using predefined mappings, identify which C4 containers appear to realis
 
 Explain your reasoning using:
 
-names
-responsibilities
-effects
-events
-relationships
+- names
+- responsibilities
+- effects
+- events
+- relationships
 
-For each capability provide a confidence score between 0 and 1.
+For each capability, provide a confidence score between 0 and 1. Do not assume a manual mapping file exists.

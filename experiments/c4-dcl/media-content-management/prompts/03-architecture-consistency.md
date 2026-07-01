@@ -3,6 +3,7 @@
 Compare the C4 and DCL models.
 
 Identify inconsistencies between the structural and behavioural views.
+Assume there is no manual mapping file; correlate using names, responsibilities, effects, events, actors, and relationships.
 
 Examples include:
 
@@ -13,4 +14,3 @@ Examples include:
 - actors appearing in only one model
 - events that cannot be explained by the structure
 - missing dependencies
-
