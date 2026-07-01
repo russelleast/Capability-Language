@@ -3,7 +3,7 @@
 This experiment models the same media content management system in two complementary ways:
 
 - `workspace.dsl` describes the container-level C4 structural architecture.
-- `media-content-management.dcl` describes the behavioural capability architecture.
+- `media-content-management.dcl` describes the behavioural capability architecture and media item lifecycle.
 - `prompts/` contains LLM prompts for correlating the two models without a manual mapping file.
 
 C4 describes structural architecture. DCL describes capability behaviour. The experiment tests whether an LLM can correlate both representations without a manual mapping file.
@@ -35,8 +35,10 @@ ok (DCL language 1.0)
 
 ## Modelling Notes
 
-The DCL model is intentionally focused on capabilities, intents, outcomes, effects, events, policies, and observable behaviour. It does not describe containers, databases, queues, deployment, or implementation wiring; those belong in the C4 model.
+The DCL model is intentionally focused on capabilities, intents, outcomes, effects, events, policies, lifecycle, and observable behaviour. It does not describe containers, databases, queues, deployment, or implementation wiring; those belong in the C4 model.
 
 Current DCL syntax does not express conditional media-type routing such as "if video then thumbnail and transcode in parallel" as executable branching syntax. The model therefore records the semantic capabilities and events (`AnalyseMediaFile`, `GenerateThumbnail`, `TranscodeVideo`, `MediaFileAnalysed`, `ThumbnailGenerated`, `VideoTranscoded`) and leaves structural routing relationships to `workspace.dsl`.
+
+The `MediaItemLifecycle` is a single business lifecycle for uploaded media items. It covers `Uploaded`, `Analysed`, `Processing`, `ReadyForApproval`, `Approved`, `Published`, `Rejected`, and `Failed` states.
 
 No YAML, JSON, or other manual mapping file is used. Correlation is expected to come from names, responsibilities, effects, events, and prompt-driven reasoning.

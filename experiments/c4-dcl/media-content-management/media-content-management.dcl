@@ -65,6 +65,11 @@ shape ContentIntent {
   contentId: Uuid required
 }
 
+shape ApprovalIntent {
+  contentId: Uuid required
+  approved: Boolean required
+}
+
 shape MediaAnalysisIntent {
   contentId: Uuid required
   filename: Text required
@@ -255,11 +260,14 @@ capability TranscodeVideo {
 }
 
 capability ApproveContent {
-  intent ContentIntent from ContentApprover
+  intent ApprovalIntent from ContentApprover
 
   outcomes {
     ContentApprovedForPublishing
+    ContentRejected
   }
+
+  rule ApprovalGranted: input.approved is true
 
   effects {
     AppendContentEvent
@@ -276,11 +284,95 @@ capability ApproveContent {
 
   observe {
     outcome ContentApprovedForPublishing count as content_approved
+    outcome ContentRejected count as content_rejected
     event ContentApproved count as content_approved_events
   }
 
   when {
-    always ContentApprovedForPublishing
+    ApprovalGranted violated then ContentRejected
+    otherwise then ContentApprovedForPublishing
+  }
+}
+
+capability ManageMediaItemLifecycle {
+  intent ContentIntent from ContentProcessingAgent
+
+  outcome MediaLifecycleTracked
+
+  policies {
+    EventSourcedAudit governs lifecycle
+  }
+
+  observe {
+    lifecycle transitions
+  }
+
+  when {
+    always MediaLifecycleTracked
+  }
+
+  supervises lifecycle MediaItemLifecycle {
+    identity contentId
+
+    contributors {
+      AnalyseMediaFile
+      GenerateThumbnail
+      TranscodeVideo
+      ApproveContent
+      PublishContentToPlaylist
+    }
+
+    begin Uploaded
+
+    step Uploaded waits for event MediaFileAnalysed from AnalyseMediaFile
+
+    step Analysed
+
+    step Processing {
+      waits for event ThumbnailGenerated from GenerateThumbnail
+      waits for event VideoTranscoded from TranscodeVideo
+    }
+
+    step ReadyForApproval requires decision from ContentApprover
+
+    step Approved
+
+    end Published
+    end Rejected
+    end Failed
+
+    move Uploaded to Analysed
+      on event MediaFileAnalysed from AnalyseMediaFile
+
+    move Analysed to Processing
+      on outcome MediaAnalysed from AnalyseMediaFile
+
+    move Uploaded to Failed
+      on outcome AnalysisDeferred from AnalyseMediaFile
+
+    move Processing to ReadyForApproval
+      on event ThumbnailGenerated from GenerateThumbnail
+
+    move Processing to ReadyForApproval
+      on event VideoTranscoded from TranscodeVideo
+
+    move Processing to Failed
+      on outcome ThumbnailDeferred from GenerateThumbnail
+
+    move Processing to Failed
+      on outcome TranscodeDeferred from TranscodeVideo
+
+    move ReadyForApproval to Approved
+      on outcome ContentApprovedForPublishing from ApproveContent
+
+    move ReadyForApproval to Rejected
+      on outcome ContentRejected from ApproveContent
+
+    move Approved to Published
+      on event PlaylistUpdated from PublishContentToPlaylist
+
+    move Approved to Failed
+      on outcome PlaylistPublicationDeferred from PublishContentToPlaylist
   }
 }
 
