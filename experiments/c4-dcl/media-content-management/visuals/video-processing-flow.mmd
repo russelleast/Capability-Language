@@ -1,0 +1,34 @@
+flowchart LR
+  %% Derived view for communication. Source models remain C4 workspace.dsl and DCL media-content-management.dcl.
+
+  Upload["UploadContentBatch<br/>ContentBatchUploaded"]
+  Analyse["AnalyseMediaFile<br/>MediaFileAnalysed"]
+  ProcessingStart["Video detected<br/>enter Processing"]
+
+  subgraph Parallel["Parallel video processing"]
+    Thumbnail["GenerateThumbnail<br/>ThumbnailGenerated"]
+    Transcode["TranscodeVideo<br/>VideoTranscoded"]
+  end
+
+  Ready["ReadyForApproval"]
+  Approve["ApproveContent<br/>ContentApprovedForPublishing"]
+  Publish["PublishContentToPlaylist<br/>PlaylistUpdated"]
+  Published["Published"]
+  Failed["Failed"]
+
+  Upload --> Analyse --> ProcessingStart
+  ProcessingStart --> Thumbnail
+  ProcessingStart --> Transcode
+  Thumbnail --> Ready
+  Transcode --> Ready
+  Thumbnail -.->|"ThumbnailDeferred"| Failed
+  Transcode -.->|"TranscodeDeferred"| Failed
+  Ready --> Approve --> Publish --> Published
+
+  classDef capability fill:#e8f4ff,stroke:#2f6fa3,color:#102a43
+  classDef lifecycle fill:#eef8ee,stroke:#4f8a4f,color:#153515
+  classDef failure fill:#fff1f0,stroke:#b42318,color:#5f1b14
+
+  class Upload,Analyse,Thumbnail,Transcode,Approve,Publish capability
+  class ProcessingStart,Ready,Published lifecycle
+  class Failed failure

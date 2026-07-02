@@ -1,0 +1,85 @@
+flowchart LR
+  %% Derived from Prompt 1 results in ../findings.md.
+  %% C4 remains the structural source of truth; DCL remains the behavioural source of truth.
+
+  subgraph DCL["DCL capabilities"]
+    UploadContentBatch["UploadContentBatch"]
+    AnalyseMediaFile["AnalyseMediaFile"]
+    GenerateThumbnail["GenerateThumbnail"]
+    TranscodeVideo["TranscodeVideo"]
+    ApproveContent["ApproveContent"]
+    ManageMediaItemLifecycle["ManageMediaItemLifecycle"]
+    PublishContentToPlaylist["PublishContentToPlaylist"]
+    ServePlaylistToPlayer["ServePlaylistToPlayer"]
+    RecordPlaybackAnalytics["RecordPlaybackAnalytics"]
+  end
+
+  subgraph C4["C4 containers and external systems"]
+    Portal["Portal"]
+    CMA["Content Management Application"]
+    FileAnalyser["File Analyser Service"]
+    ThumbnailService["Thumbnail Service"]
+    VideoTranscoding["Video Transcoding Service"]
+    PlaylistPublisher["Playlist Publisher"]
+    PlaylistService["Playlist Service"]
+    AnalyticsService["Analytics Service"]
+    MediaStorage[("Media Storage")]
+    QueryStore[("Query Store")]
+    EventBus[["Event Bus"]]
+    AnalyticsDB[("Analytics Database")]
+    Player["Digital Signage Player"]
+  end
+
+  UploadContentBatch -->|"0.95 primary"| Portal
+  UploadContentBatch -->|"0.95 command/event owner"| CMA
+  UploadContentBatch -.->|"stores media"| MediaStorage
+  UploadContentBatch -.->|"appends events"| EventBus
+  UploadContentBatch -.->|"updates read model"| QueryStore
+
+  AnalyseMediaFile -->|"0.98 primary"| FileAnalyser
+  AnalyseMediaFile -.->|"reads uploaded media"| MediaStorage
+  AnalyseMediaFile -.->|"publishes MediaFileAnalysed"| EventBus
+  AnalyseMediaFile -.->|"updates read model"| QueryStore
+
+  GenerateThumbnail -->|"0.97 primary"| ThumbnailService
+  GenerateThumbnail -.->|"writes thumbnail asset"| MediaStorage
+  GenerateThumbnail -.->|"publishes ThumbnailGenerated"| EventBus
+
+  TranscodeVideo -->|"0.98 primary"| VideoTranscoding
+  TranscodeVideo -.->|"writes video renditions"| MediaStorage
+  TranscodeVideo -.->|"publishes VideoTranscoded"| EventBus
+
+  ApproveContent -->|"0.88 user interaction"| Portal
+  ApproveContent -->|"0.88 workflow owner"| CMA
+  ApproveContent -.->|"approval event"| EventBus
+  ApproveContent -.->|"approval read model"| QueryStore
+
+  ManageMediaItemLifecycle -->|"0.74 best structural owner"| CMA
+  ManageMediaItemLifecycle -.->|"analysis signal"| FileAnalyser
+  ManageMediaItemLifecycle -.->|"processing signal"| ThumbnailService
+  ManageMediaItemLifecycle -.->|"processing signal"| VideoTranscoding
+  ManageMediaItemLifecycle -.->|"publication signal"| PlaylistPublisher
+
+  PublishContentToPlaylist -->|"0.96 primary"| PlaylistPublisher
+  PublishContentToPlaylist -.->|"reads tags/projections"| QueryStore
+  PublishContentToPlaylist -.->|"publishes PlaylistUpdated"| EventBus
+  PublishContentToPlaylist -.->|"publishes version"| PlaylistService
+
+  ServePlaylistToPlayer -->|"0.92 primary"| PlaylistService
+  ServePlaylistToPlayer -.->|"reads playlist version"| QueryStore
+  ServePlaylistToPlayer -.->|"media asset download"| MediaStorage
+  ServePlaylistToPlayer -.->|"external requester"| Player
+
+  RecordPlaybackAnalytics -->|"0.95 primary"| AnalyticsService
+  RecordPlaybackAnalytics -.->|"persists counts"| AnalyticsDB
+  RecordPlaybackAnalytics -.->|"optionally appends ContentPlayed"| EventBus
+
+  classDef capability fill:#e8f4ff,stroke:#2f6fa3,color:#102a43
+  classDef container fill:#fff7e6,stroke:#aa6b00,color:#3d2800
+  classDef data fill:#eef8ee,stroke:#4f8a4f,color:#153515
+  classDef bus fill:#f4ecff,stroke:#7651a6,color:#24103a
+
+  class UploadContentBatch,AnalyseMediaFile,GenerateThumbnail,TranscodeVideo,ApproveContent,ManageMediaItemLifecycle,PublishContentToPlaylist,ServePlaylistToPlayer,RecordPlaybackAnalytics capability
+  class Portal,CMA,FileAnalyser,ThumbnailService,VideoTranscoding,PlaylistPublisher,PlaylistService,AnalyticsService,Player container
+  class MediaStorage,QueryStore,AnalyticsDB data
+  class EventBus bus

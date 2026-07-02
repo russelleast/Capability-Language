@@ -1,0 +1,85 @@
+@startuml
+' Derived from Prompt 1 results in ../findings.md.
+' C4 remains the structural source of truth; DCL remains the behavioural source of truth.
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam rectangle {
+  RoundCorner 8
+}
+
+package "DCL capabilities" as DCL {
+  rectangle "UploadContentBatch" as UploadContentBatch
+  rectangle "AnalyseMediaFile" as AnalyseMediaFile
+  rectangle "GenerateThumbnail" as GenerateThumbnail
+  rectangle "TranscodeVideo" as TranscodeVideo
+  rectangle "ApproveContent" as ApproveContent
+  rectangle "ManageMediaItemLifecycle" as ManageMediaItemLifecycle
+  rectangle "PublishContentToPlaylist" as PublishContentToPlaylist
+  rectangle "ServePlaylistToPlayer" as ServePlaylistToPlayer
+  rectangle "RecordPlaybackAnalytics" as RecordPlaybackAnalytics
+}
+
+package "C4 containers and external systems" as C4 {
+  rectangle "Portal" as Portal
+  rectangle "Content Management Application" as CMA
+  rectangle "File Analyser Service" as FileAnalyser
+  rectangle "Thumbnail Service" as ThumbnailService
+  rectangle "Video Transcoding Service" as VideoTranscoding
+  rectangle "Playlist Publisher" as PlaylistPublisher
+  rectangle "Playlist Service" as PlaylistService
+  rectangle "Analytics Service" as AnalyticsService
+  database "Media Storage" as MediaStorage
+  database "Query Store" as QueryStore
+  queue "Event Bus" as EventBus
+  database "Analytics Database" as AnalyticsDB
+  rectangle "Digital Signage Player" as Player
+}
+
+UploadContentBatch --> Portal : 0.95 primary
+UploadContentBatch --> CMA : 0.95 command/event owner
+UploadContentBatch ..> MediaStorage : stores media
+UploadContentBatch ..> EventBus : appends events
+UploadContentBatch ..> QueryStore : updates read model
+
+AnalyseMediaFile --> FileAnalyser : 0.98 primary
+AnalyseMediaFile ..> MediaStorage : reads uploaded media
+AnalyseMediaFile ..> EventBus : publishes MediaFileAnalysed
+AnalyseMediaFile ..> QueryStore : updates read model
+
+GenerateThumbnail --> ThumbnailService : 0.97 primary
+GenerateThumbnail ..> MediaStorage : writes thumbnail asset
+GenerateThumbnail ..> EventBus : publishes ThumbnailGenerated
+
+TranscodeVideo --> VideoTranscoding : 0.98 primary
+TranscodeVideo ..> MediaStorage : writes video renditions
+TranscodeVideo ..> EventBus : publishes VideoTranscoded
+
+ApproveContent --> Portal : 0.88 user interaction
+ApproveContent --> CMA : 0.88 workflow owner
+ApproveContent ..> EventBus : approval event
+ApproveContent ..> QueryStore : approval read model
+
+ManageMediaItemLifecycle --> CMA : 0.74 best structural owner
+ManageMediaItemLifecycle ..> FileAnalyser : analysis signal
+ManageMediaItemLifecycle ..> ThumbnailService : processing signal
+ManageMediaItemLifecycle ..> VideoTranscoding : processing signal
+ManageMediaItemLifecycle ..> PlaylistPublisher : publication signal
+
+PublishContentToPlaylist --> PlaylistPublisher : 0.96 primary
+PublishContentToPlaylist ..> QueryStore : reads tags/projections
+PublishContentToPlaylist ..> EventBus : publishes PlaylistUpdated
+PublishContentToPlaylist ..> PlaylistService : publishes version
+
+ServePlaylistToPlayer --> PlaylistService : 0.92 primary
+ServePlaylistToPlayer ..> QueryStore : reads playlist version
+ServePlaylistToPlayer ..> MediaStorage : media asset download
+ServePlaylistToPlayer ..> Player : external requester
+
+RecordPlaybackAnalytics --> AnalyticsService : 0.95 primary
+RecordPlaybackAnalytics ..> AnalyticsDB : persists counts
+RecordPlaybackAnalytics ..> EventBus : optionally appends ContentPlayed
+
+@enduml

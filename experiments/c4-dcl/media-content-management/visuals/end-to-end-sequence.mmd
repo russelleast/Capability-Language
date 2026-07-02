@@ -1,0 +1,52 @@
+sequenceDiagram
+  autonumber
+  actor User as Content User
+  participant Portal as Web Portal
+  participant CMA as Content Management Application
+  participant Media as Media Storage
+  participant EventBus as Event Bus
+  participant Analyser as File Analyser Service
+  participant Thumb as Thumbnail Service
+  participant Transcoder as Video Transcoding Service
+  actor Approver as Content Approver
+  participant Publisher as Playlist Publisher
+  participant Playlist as Playlist Service
+  participant Player as Digital Signage Player
+  participant Analytics as Analytics Service
+  participant AnalyticsDB as Analytics Database
+
+  User->>Portal: Upload batch and assign attributes
+  Portal->>CMA: Submit upload command
+  CMA->>Media: Store uploaded media
+  CMA->>EventBus: Append/publish ContentBatchUploaded
+  CMA->>CMA: Update content read model
+
+  EventBus->>Analyser: Request media analysis
+  Analyser->>Media: Read uploaded media
+  Analyser->>EventBus: Publish MediaFileAnalysed
+
+  par Thumbnail generation
+    Analyser->>Thumb: Route video for thumbnail generation
+    Thumb->>Media: Write generated thumbnail
+    Thumb->>EventBus: Publish ThumbnailGenerated
+  and Video transcoding
+    Analyser->>Transcoder: Route video for transcoding
+    Transcoder->>Media: Write transcoded video renditions
+    Transcoder->>EventBus: Publish VideoTranscoded
+  end
+
+  Approver->>Portal: Approve content
+  Portal->>CMA: Submit approval decision
+  CMA->>EventBus: Append/publish ContentApproved
+  EventBus->>Publisher: Notify approved content is ready
+
+  Publisher->>CMA: Read content attributes and projections
+  Publisher->>Playlist: Publish new playlist version
+  Publisher->>EventBus: Publish PlaylistUpdated
+
+  Player->>Playlist: Poll for new playlist version
+  Playlist-->>Player: Return playlist version
+  Player->>Media: Download playlist media assets
+  Player->>Analytics: Send ContentPlayed event
+  Analytics->>AnalyticsDB: Persist playback count
+  Analytics->>EventBus: Optionally append playback event
