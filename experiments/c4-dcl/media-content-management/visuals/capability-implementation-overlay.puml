@@ -1,0 +1,122 @@
+@startuml
+' Business-logic implementation overlay for the capability map.
+' This view intentionally includes only services, containers, and external systems that execute business behaviour.
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  RoundCorner 6
+}
+skinparam package {
+  BorderColor #2F3A4A
+  BackgroundColor #FFFFFF
+}
+
+skinparam rectangle<<Anchor>> {
+  BackgroundColor #D8EBFF
+  BorderColor #1F5F99
+  BorderThickness 2
+}
+skinparam rectangle<<Capability>> {
+  BackgroundColor #FFFFFF
+  BorderColor #94A3B8
+}
+skinparam rectangle<<Service>> {
+  BackgroundColor #FFF3D9
+  BorderColor #A76600
+}
+skinparam rectangle<<External>> {
+  BackgroundColor #F3E8FF
+  BorderColor #7C3FB0
+}
+
+legend right
+  |= Style |= Meaning |
+  | <back:#D8EBFF> capability </back> | Central capability/lifecycle anchor |
+  | <back:#FFFFFF> capability </back> | Business capability |
+  | <back:#FFF3D9> service </back> | C4 container that implements business logic |
+  | <back:#F3E8FF> external </back> | External system participating in business behaviour |
+endlegend
+
+title Media Content Management Capability Implementation Overlay
+
+package "Media Upload" as UploadArea {
+  rectangle "UploadContentBatch" <<Capability>> as UploadContentBatch
+  rectangle "Web Portal\nContent Management Application" <<Service>> as UploadImpl
+}
+
+package "Metadata & Attributes" as MetadataArea {
+  rectangle "Assign attributes and tags" <<Capability>> as AssignAttributes
+  rectangle "Web Portal\nContent Management Application" <<Service>> as MetadataImpl
+}
+
+package "Content Management" as ContentManagement {
+  rectangle "ManageMediaItemLifecycle\n\nUploaded -> Analysed -> Processing\nReadyForApproval -> Approved\nPublished / Rejected / Failed" <<Anchor>> as ManageMediaItemLifecycle
+  rectangle "Content Management Application" <<Service>> as LifecycleImpl
+}
+
+package "Media Processing" as ProcessingArea {
+  rectangle "AnalyseMediaFile" <<Capability>> as AnalyseMediaFile
+  rectangle "File Analyser Service" <<Service>> as AnalyseImpl
+
+  rectangle "GenerateThumbnail" <<Capability>> as GenerateThumbnail
+  rectangle "Thumbnail Service" <<Service>> as ThumbnailImpl
+
+  rectangle "TranscodeVideo" <<Capability>> as TranscodeVideo
+  rectangle "Video Transcoding Service" <<Service>> as TranscodeImpl
+}
+
+package "Approval" as ApprovalArea {
+  rectangle "ApproveContent" <<Capability>> as ApproveContent
+  rectangle "Web Portal\nContent Management Application" <<Service>> as ApprovalImpl
+}
+
+package "Playlist Publishing" as PublishingArea {
+  rectangle "PublishContentToPlaylist" <<Capability>> as PublishContentToPlaylist
+  rectangle "Playlist Publisher" <<Service>> as PublishImpl
+}
+
+package "Playlist Serving" as ServingArea {
+  rectangle "ServePlaylistToPlayer" <<Capability>> as ServePlaylistToPlayer
+  rectangle "Playlist Service" <<Service>> as ServeImpl
+}
+
+package "Digital Signage Playback" as PlaybackArea {
+  rectangle "Play published content" <<Capability>> as PlayPublishedContent
+  rectangle "Digital Signage Player" <<External>> as PlaybackImpl
+}
+
+package "Playback Analytics" as AnalyticsArea {
+  rectangle "RecordPlaybackAnalytics" <<Capability>> as RecordPlaybackAnalytics
+  rectangle "Analytics Service" <<Service>> as AnalyticsImpl
+}
+
+UploadContentBatch -down- UploadImpl
+AssignAttributes -down- MetadataImpl
+ManageMediaItemLifecycle -down- LifecycleImpl
+AnalyseMediaFile -down- AnalyseImpl
+GenerateThumbnail -down- ThumbnailImpl
+TranscodeVideo -down- TranscodeImpl
+ApproveContent -down- ApprovalImpl
+PublishContentToPlaylist -down- PublishImpl
+ServePlaylistToPlayer -down- ServeImpl
+PlayPublishedContent -down- PlaybackImpl
+RecordPlaybackAnalytics -down- AnalyticsImpl
+
+UploadContentBatch -right- AssignAttributes
+AssignAttributes -right- ManageMediaItemLifecycle
+UploadContentBatch -down- AnalyseMediaFile
+AnalyseMediaFile -right- GenerateThumbnail
+AnalyseMediaFile -down- TranscodeVideo
+GenerateThumbnail -right- ManageMediaItemLifecycle
+TranscodeVideo -right- ManageMediaItemLifecycle
+ManageMediaItemLifecycle -right- ApproveContent
+ApproveContent -right- PublishContentToPlaylist
+PublishContentToPlaylist -right- ServePlaylistToPlayer
+ServePlaylistToPlayer -right- PlayPublishedContent
+PlayPublishedContent -down- RecordPlaybackAnalytics
+
+@enduml

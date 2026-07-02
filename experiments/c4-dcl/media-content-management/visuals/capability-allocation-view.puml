@@ -1,0 +1,66 @@
+@startuml
+' Derived functional architecture projection from Prompt 6 analysis.
+' C4 remains the structural source; DCL remains the behavioural source.
+' This diagram is not a manual mapping file.
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam defaultTextAlignment left
+skinparam rectangle {
+  RoundCorner 8
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+}
+
+legend right
+  |= Tag |= Meaning |
+  | <back:#D8EBFF> P </back> | Primary structural realiser |
+  | <back:#FFF3D9> S </back> | Supporting business container |
+  | <back:#E8F7E8> D </back> | Data store |
+  | <back:#FDE7F3> E </back> | Eventing infrastructure |
+  | <back:#F3E8FF> X </back> | External actor/system |
+endlegend
+
+package "Manage Content" {
+  rectangle "<b>UploadContentBatch</b>  conf 0.95\n<back:#D8EBFF> P </back> Content Management Application\n<back:#FFF3D9> S </back> Portal\n<back:#E8F7E8> D </back> Media Storage, Event Store, Query Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: UI, command handling, media persistence, events, read model</i>" as Upload
+
+  rectangle "<b>ApproveContent</b>  conf 0.88\n<back:#D8EBFF> P </back> Content Management Application\n<back:#FFF3D9> S </back> Portal\n<back:#E8F7E8> D </back> Event Store, Query Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: human approval UI, workflow, event sourcing, projection</i>" as Approve
+}
+
+package "Process Media" {
+  rectangle "<b>AnalyseMediaFile</b>  conf 0.98\n<back:#D8EBFF> P </back> File Analyser Service\n<back:#E8F7E8> D </back> Media Storage, Event Store, Query Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: specialist analysis plus shared storage/events/projection</i>" as Analyse
+
+  rectangle "<b>GenerateThumbnail</b>  conf 0.97\n<back:#D8EBFF> P </back> Thumbnail Service\n<back:#E8F7E8> D </back> Media Storage, Event Store, Query Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: asset generation plus event-sourced completion</i>" as Thumbnail
+
+  rectangle "<b>TranscodeVideo</b>  conf 0.98\n<back:#D8EBFF> P </back> Video Transcoding Service\n<back:#E8F7E8> D </back> Media Storage, Event Store, Query Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: long-running processing plus rendition/event state</i>" as Transcode
+}
+
+package "Cross-cutting Lifecycle / Manage Content" {
+  rectangle "<b>ManageMediaItemLifecycle</b>  conf 0.74\n<back:#D8EBFF> P </back> Content Management Application, as best structural owner\n<back:#FFF3D9> S </back> File Analyser, Thumbnail, Video Transcoding, Playlist Publisher\n<back:#E8F7E8> D </back> Event Store, Query Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Cross-cutting: event milestones across analysis, processing, approval, publication</i>" as Lifecycle
+}
+
+package "Publish Content" {
+  rectangle "<b>PublishContentToPlaylist</b>  conf 0.96\n<back:#D8EBFF> P </back> Playlist Publisher\n<back:#FFF3D9> S </back> Playlist Service\n<back:#E8F7E8> D </back> Query Store, Event Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: projection reads, playlist versioning, publication event</i>" as Publish
+}
+
+package "Operate Digital Signage" {
+  rectangle "<b>ServePlaylistToPlayer</b>  conf 0.92\n<back:#D8EBFF> P </back> Playlist Service\n<back:#F3E8FF> X </back> Digital Signage Player\n<back:#E8F7E8> D </back> Query Store, Media Storage\n<i>Fragmented: playlist polling plus direct asset download</i>" as Serve
+}
+
+package "Measure Playback" {
+  rectangle "<b>RecordPlaybackAnalytics</b>  conf 0.95\n<back:#D8EBFF> P </back> Analytics Service\n<back:#F3E8FF> X </back> Digital Signage Player\n<back:#E8F7E8> D </back> Analytics Database, Event Store\n<back:#FDE7F3> E </back> Event Bus\n<i>Fragmented: event ingestion, count persistence, optional event append</i>" as Analytics
+}
+
+Upload --> Analyse : ContentBatchUploaded
+Analyse --> Thumbnail : media route
+Analyse --> Transcode : video route
+Thumbnail --> Lifecycle : ThumbnailGenerated
+Transcode --> Lifecycle : VideoTranscoded
+Lifecycle --> Approve : ReadyForApproval
+Approve --> Publish : ContentApproved
+Publish --> Serve : PlaylistUpdated
+Serve --> Analytics : ContentPlayed
+
+@enduml

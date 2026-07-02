@@ -1,0 +1,84 @@
+@startuml
+' Pure functional capability map for the C4 + DCL experiment.
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  RoundCorner 6
+}
+skinparam package {
+  BorderColor #2F3A4A
+  BackgroundColor #FFFFFF
+}
+
+skinparam rectangle<<Anchor>> {
+  BackgroundColor #D8EBFF
+  BorderColor #1F5F99
+  BorderThickness 2
+}
+skinparam rectangle<<Area>> {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+}
+skinparam rectangle<<Capability>> {
+  BackgroundColor #FFFFFF
+  BorderColor #94A3B8
+}
+
+title Media Content Management Capability Map
+
+package "Media Upload" as UploadArea {
+  rectangle "UploadContentBatch" <<Capability>> as UploadContentBatch
+}
+
+package "Metadata & Attributes" as MetadataArea {
+  rectangle "Assign attributes and tags" <<Capability>> as AssignAttributes
+}
+
+package "Content Management" as ContentManagement {
+  rectangle "ManageMediaItemLifecycle\n\nUploaded -> Analysed -> Processing\nReadyForApproval -> Approved\nPublished / Rejected / Failed" <<Anchor>> as ManageMediaItemLifecycle
+}
+
+package "Media Processing" as ProcessingArea {
+  rectangle "AnalyseMediaFile" <<Capability>> as AnalyseMediaFile
+  rectangle "GenerateThumbnail" <<Capability>> as GenerateThumbnail
+  rectangle "TranscodeVideo" <<Capability>> as TranscodeVideo
+}
+
+package "Approval" as ApprovalArea {
+  rectangle "ApproveContent" <<Capability>> as ApproveContent
+}
+
+package "Playlist Publishing" as PublishingArea {
+  rectangle "PublishContentToPlaylist" <<Capability>> as PublishContentToPlaylist
+}
+
+package "Playlist Serving" as ServingArea {
+  rectangle "ServePlaylistToPlayer" <<Capability>> as ServePlaylistToPlayer
+}
+
+package "Digital Signage Playback" as PlaybackArea {
+  rectangle "Play published content" <<Capability>> as PlayPublishedContent
+}
+
+package "Playback Analytics" as AnalyticsArea {
+  rectangle "RecordPlaybackAnalytics" <<Capability>> as RecordPlaybackAnalytics
+}
+
+UploadContentBatch -right- AssignAttributes
+AssignAttributes -right- ManageMediaItemLifecycle
+UploadContentBatch -down- AnalyseMediaFile
+AnalyseMediaFile -right- GenerateThumbnail
+AnalyseMediaFile -down- TranscodeVideo
+GenerateThumbnail -right- ManageMediaItemLifecycle
+TranscodeVideo -right- ManageMediaItemLifecycle
+ManageMediaItemLifecycle -right- ApproveContent
+ApproveContent -right- PublishContentToPlaylist
+PublishContentToPlaylist -right- ServePlaylistToPlayer
+ServePlaylistToPlayer -right- PlayPublishedContent
+PlayPublishedContent -down- RecordPlaybackAnalytics
+
+@enduml
