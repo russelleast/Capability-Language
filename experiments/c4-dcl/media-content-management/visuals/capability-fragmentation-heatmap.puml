@@ -1,0 +1,51 @@
+@startuml
+' Derived from Prompt 2 and Prompt 6 findings.
+' This is a communication view, not a source-of-truth mapping file.
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName Arial
+skinparam rectangle {
+  RoundCorner 8
+}
+
+skinparam rectangle<<Low>> {
+  BackgroundColor #DDF7E5
+  BorderColor #2F855A
+}
+skinparam rectangle<<Medium>> {
+  BackgroundColor #FFF3D9
+  BorderColor #A76600
+}
+skinparam rectangle<<High>> {
+  BackgroundColor #FFE4E1
+  BorderColor #B83232
+}
+skinparam rectangle<<CrossCutting>> {
+  BackgroundColor #E8DAFF
+  BorderColor #6B46C1
+  BorderThickness 2
+}
+
+title Capability Fragmentation Heatmap
+
+package "Low\nmostly one primary business container" {
+  rectangle "AnalyseMediaFile\nFile Analyser Service\nshared: media/events/read model" <<Low>>
+  rectangle "GenerateThumbnail\nThumbnail Service\nshared: media/events/read model" <<Low>>
+  rectangle "TranscodeVideo\nVideo Transcoding Service\nshared: media/events/read model" <<Low>>
+  rectangle "RecordPlaybackAnalytics\nAnalytics Service\nshared: database/eventing" <<Low>>
+}
+
+package "Medium\nprimary plus UI or shared infrastructure" {
+  rectangle "UploadContentBatch\nPortal + Content Management Application\nshared: storage/eventing/read model" <<Medium>>
+  rectangle "ApproveContent\nPortal + Content Management Application\nshared: eventing/read model" <<Medium>>
+  rectangle "PublishContentToPlaylist\nPlaylist Publisher + Playlist Service\nshared: query/eventing" <<Medium>>
+  rectangle "ServePlaylistToPlayer\nPlaylist Service + Digital Signage Player\nshared: query/media storage" <<Medium>>
+}
+
+package "Cross-cutting\nlifecycle/workflow across many containers" {
+  rectangle "ManageMediaItemLifecycle\nContent Management Application as best owner\nsignals from analysis, processing, approval, publication" <<CrossCutting>>
+}
+
+@enduml

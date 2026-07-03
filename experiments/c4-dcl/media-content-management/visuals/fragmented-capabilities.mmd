@@ -1,0 +1,93 @@
+flowchart LR
+  %% Derived visual from Prompt 2 in ../findings.md.
+  %% C4 remains the structural source; DCL remains the behavioural source.
+  %% This is not a manual mapping file.
+
+  subgraph UploadContentBatch["UploadContentBatch<br/><small>Fragmented by UI, command handling, media storage, events, and read model</small>"]
+    U_Portal["Portal<br/>primary UI"]:::primary
+    U_CMA["Content Management Application<br/>primary command owner"]:::primary
+    U_Media["Media Storage<br/>data store"]:::data
+    U_EventBus["Event Bus<br/>supporting"]:::support
+    U_EventStore["Event Store<br/>data store"]:::data
+    U_Query["Query Store<br/>data store"]:::data
+  end
+
+  subgraph AnalyseMediaFile["AnalyseMediaFile<br/><small>Fragmented by async analysis, media reads, events, and projections</small>"]
+    A_FileAnalyser["File Analyser Service<br/>primary"]:::primary
+    A_Media["Media Storage<br/>data store"]:::data
+    A_EventBus["Event Bus<br/>supporting"]:::support
+    A_EventStore["Event Store<br/>data store"]:::data
+    A_Query["Query Store<br/>data store"]:::data
+  end
+
+  subgraph GenerateThumbnail["GenerateThumbnail<br/><small>Fragmented by specialist processing, asset writes, events, and projections</small>"]
+    G_Thumb["Thumbnail Service<br/>primary"]:::primary
+    G_Media["Media Storage<br/>data store"]:::data
+    G_EventBus["Event Bus<br/>supporting"]:::support
+    G_EventStore["Event Store<br/>data store"]:::data
+    G_Query["Query Store<br/>data store"]:::data
+  end
+
+  subgraph TranscodeVideo["TranscodeVideo<br/><small>Fragmented by long-running processing, rendition storage, events, and projections</small>"]
+    T_Transcoder["Video Transcoding Service<br/>primary"]:::primary
+    T_Media["Media Storage<br/>data store"]:::data
+    T_EventBus["Event Bus<br/>supporting"]:::support
+    T_EventStore["Event Store<br/>data store"]:::data
+    T_Query["Query Store<br/>data store"]:::data
+  end
+
+  subgraph ApproveContent["ApproveContent<br/><small>Fragmented by human UI, workflow command handling, events, and read model</small>"]
+    AP_Portal["Portal<br/>primary UI"]:::primary
+    AP_CMA["Content Management Application<br/>primary workflow owner"]:::primary
+    AP_EventBus["Event Bus<br/>supporting"]:::support
+    AP_EventStore["Event Store<br/>data store"]:::data
+    AP_Query["Query Store<br/>data store"]:::data
+  end
+
+  subgraph ManageMediaItemLifecycle["ManageMediaItemLifecycle<br/><small>Fragmented by event-driven milestones across analysis, processing, approval, and publication</small>"]
+    M_CMA["Content Management Application<br/>best structural owner"]:::primary
+    M_FileAnalyser["File Analyser Service<br/>supporting"]:::support
+    M_Thumb["Thumbnail Service<br/>supporting"]:::support
+    M_Transcoder["Video Transcoding Service<br/>supporting"]:::support
+    M_Publisher["Playlist Publisher<br/>supporting"]:::support
+    M_EventBus["Event Bus<br/>supporting"]:::support
+    M_EventStore["Event Store<br/>data store"]:::data
+    M_Query["Query Store<br/>data store"]:::data
+  end
+
+  subgraph PublishContentToPlaylist["PublishContentToPlaylist<br/><small>Fragmented by projection reads, playlist versioning, publication, and events</small>"]
+    P_Publisher["Playlist Publisher<br/>primary"]:::primary
+    P_Query["Query Store<br/>data store"]:::data
+    P_EventBus["Event Bus<br/>supporting"]:::support
+    P_EventStore["Event Store<br/>data store"]:::data
+    P_Playlist["Playlist Service<br/>supporting"]:::support
+  end
+
+  subgraph ServePlaylistToPlayer["ServePlaylistToPlayer<br/><small>Fragmented by playlist serving, asset download, and player polling</small>"]
+    S_Playlist["Playlist Service<br/>primary"]:::primary
+    S_Query["Query Store<br/>data store"]:::data
+    S_Media["Media Storage<br/>data store"]:::data
+    S_Player["Digital Signage Player<br/>external"]:::external
+  end
+
+  subgraph RecordPlaybackAnalytics["RecordPlaybackAnalytics<br/><small>Fragmented by event ingestion, count persistence, and optional event append</small>"]
+    R_Analytics["Analytics Service<br/>primary"]:::primary
+    R_DB["Analytics Database<br/>data store"]:::data
+    R_EventBus["Event Bus<br/>supporting"]:::support
+    R_EventStore["Event Store<br/>optional data store"]:::data
+  end
+
+  UploadContentBatch --> AnalyseMediaFile
+  AnalyseMediaFile --> GenerateThumbnail
+  AnalyseMediaFile --> TranscodeVideo
+  GenerateThumbnail --> ManageMediaItemLifecycle
+  TranscodeVideo --> ManageMediaItemLifecycle
+  ManageMediaItemLifecycle --> ApproveContent
+  ApproveContent --> PublishContentToPlaylist
+  PublishContentToPlaylist --> ServePlaylistToPlayer
+  ServePlaylistToPlayer --> RecordPlaybackAnalytics
+
+  classDef primary fill:#d8ebff,stroke:#1f5f99,stroke-width:2px,color:#0f2742
+  classDef support fill:#fff3d9,stroke:#a76600,stroke-width:1.5px,color:#3a2600
+  classDef external fill:#f3e8ff,stroke:#7c3fb0,stroke-width:1.5px,color:#2b1242
+  classDef data fill:#e8f7e8,stroke:#3f7f3f,stroke-width:1.5px,color:#143414

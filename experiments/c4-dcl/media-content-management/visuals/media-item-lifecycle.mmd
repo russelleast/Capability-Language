@@ -1,0 +1,31 @@
+stateDiagram-v2
+  %% Derived from the DCL MediaItemLifecycle in ../media-content-management.dcl.
+
+  [*] --> Uploaded
+
+  Uploaded --> Analysed: MediaFileAnalysed
+  Uploaded --> Failed: AnalysisDeferred
+
+  Analysed --> Processing: MediaAnalysed
+
+  Processing --> ReadyForApproval: ThumbnailGenerated
+  Processing --> ReadyForApproval: VideoTranscoded
+  Processing --> Failed: ThumbnailDeferred
+  Processing --> Failed: TranscodeDeferred
+
+  ReadyForApproval --> Approved: ContentApprovedForPublishing
+  ReadyForApproval --> Rejected: ContentRejected
+
+  Approved --> Published: PlaylistUpdated
+  Approved --> Failed: PlaylistPublicationDeferred
+
+  Published --> [*]
+  Rejected --> [*]
+  Failed --> [*]
+
+  note right of Processing
+    Current DCL lifecycle syntax models
+    processing completion signals as transitions.
+    It does not express a guarded video join
+    requiring both thumbnail and transcoding.
+  end note
