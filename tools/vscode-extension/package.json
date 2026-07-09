@@ -57,6 +57,7 @@
     "onCommand:dcl.focusGraphFromExplorer",
     "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
+    "onCommand:dcl.showCapabilityMap",
     "onCommand:dcl.showCauseEffectGraph",
     "onCommand:dcl.showContextMap",
     "onCommand:dcl.showEventFlowGraph",
@@ -190,6 +191,11 @@
       {
         "command": "dcl.showCapabilityGraph",
         "title": "DCL: Show Capability Graph",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showCapabilityMap",
+        "title": "DCL: Show Capability Map",
         "category": "DCL"
       },
       {
@@ -335,6 +341,9 @@
         },
         {
           "command": "dcl.showCapabilityGraph"
+        },
+        {
+          "command": "dcl.showCapabilityMap"
         },
         {
           "command": "dcl.showCauseEffectGraph"

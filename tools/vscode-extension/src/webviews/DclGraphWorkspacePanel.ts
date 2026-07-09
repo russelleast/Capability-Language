@@ -1,9 +1,11 @@
 import * as path from "path";
 import * as vscode from "vscode";
+import { capabilityMapItems, DclCapabilityMapItem, DclCapabilityMapModel } from "../graphs/DclCapabilityMapBuilder";
 import { DclGraphExportFormat } from "../graphs/DclGraphExport";
 import { DclGraphModel } from "../graphs/DclGraphModel";
 import { DclGraphWorkspaceSelection, DclGraphWorkspaceState, DclGraphWorkspaceType } from "../graphs/DclGraphWorkspaceState";
 import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "../graphs/DclSemanticIdentity";
+import { DclSourceLocation } from "../source/DclSourceLocation";
 
 type GraphWorkspaceMessage = {
   type: "selectionChanged";
@@ -41,21 +43,37 @@ type WebviewGraphModel = Omit<DclGraphModel, "nodes"> & {
   nodes: Array<Omit<DclGraphModel["nodes"][number], "source"> & { hasSource: boolean }>;
 };
 
+type WebviewCapabilityMapModel = Omit<DclCapabilityMapModel, "root"> & {
+  root: WebviewCapabilityMapContext;
+};
+
+type WebviewCapabilityMapContext = Omit<DclCapabilityMapModel["root"], "source" | "capabilities" | "children"> & {
+  hasSource: boolean;
+  capabilities: WebviewCapabilityMapCapability[];
+  children: WebviewCapabilityMapContext[];
+};
+
+type WebviewCapabilityMapCapability = Omit<DclCapabilityMapModel["root"]["capabilities"][number], "source"> & {
+  hasSource: boolean;
+};
+
 type GraphWorkspaceCallbacks = {
   onSelectionChanged(selection: DclGraphWorkspaceSelection): void;
   onRefresh(): void;
   onCompileWorkspace(): void;
-  onRevealSource(location: NonNullable<DclGraphModel["nodes"][number]["source"]>): void;
+  onRevealSource(location: DclSourceLocation): void;
 };
 
 export class DclGraphWorkspacePanel {
   private static currentPanel: vscode.WebviewPanel | undefined;
   private static currentGraph: DclGraphModel | undefined;
+  private static currentCapabilityMap: DclCapabilityMapModel | undefined;
   private static callbacks: GraphWorkspaceCallbacks | undefined;
 
   static show(extensionUri: vscode.Uri, state: DclGraphWorkspaceState, callbacks: GraphWorkspaceCallbacks): void {
     DclGraphWorkspacePanel.callbacks = callbacks;
     DclGraphWorkspacePanel.currentGraph = state.graph;
+    DclGraphWorkspacePanel.currentCapabilityMap = state.capabilityMap;
 
     if (DclGraphWorkspacePanel.currentPanel) {
       DclGraphWorkspacePanel.currentPanel.title = "DCL Graph Workspace";
@@ -86,6 +104,7 @@ export class DclGraphWorkspacePanel {
     panel.onDidDispose(() => {
       DclGraphWorkspacePanel.currentPanel = undefined;
       DclGraphWorkspacePanel.currentGraph = undefined;
+      DclGraphWorkspacePanel.currentCapabilityMap = undefined;
       DclGraphWorkspacePanel.callbacks = undefined;
     });
   }
@@ -102,6 +121,7 @@ export class DclGraphWorkspacePanel {
   static showCompileFailed(message = "Compile failed. Fix compiler diagnostics and refresh the graph workspace."): void {
     if (!DclGraphWorkspacePanel.currentPanel) return;
     DclGraphWorkspacePanel.currentGraph = undefined;
+    DclGraphWorkspacePanel.currentCapabilityMap = undefined;
     DclGraphWorkspacePanel.currentPanel.webview.html = renderEmptyHtml("Compile Failed", message, true);
   }
 
@@ -116,19 +136,23 @@ export class DclGraphWorkspacePanel {
 
   static focusSemanticIdentity(identity: DclSemanticIdentity | undefined, options: { reveal?: boolean } = {}): boolean {
     const node = findGraphNodeBySemanticIdentity(DclGraphWorkspacePanel.currentGraph, identity);
-    if (!node || !DclGraphWorkspacePanel.currentPanel) return false;
+    const mapItem = capabilityMapItems(DclGraphWorkspacePanel.currentCapabilityMap).find((item) => (
+      identity && item.semanticIdentity.kind === identity.kind && item.semanticIdentity.name === identity.name
+    ));
+    const itemId = node?.id ?? mapItem?.id;
+    if (!itemId || !DclGraphWorkspacePanel.currentPanel) return false;
     if (options.reveal !== false) {
       DclGraphWorkspacePanel.currentPanel.reveal(vscode.ViewColumn.Active);
     } else if (!DclGraphWorkspacePanel.currentPanel.visible) {
       return false;
     }
-    void DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "focusNode", nodeId: node.id });
+    void DclGraphWorkspacePanel.currentPanel.webview.postMessage({ type: "focusNode", nodeId: itemId });
     return true;
   }
 
   static async exportCurrentGraph(format?: DclGraphExportFormat): Promise<void> {
-    if (!DclGraphWorkspacePanel.currentPanel || !DclGraphWorkspacePanel.currentGraph) {
-      void vscode.window.showWarningMessage("Open a DCL graph before exporting.");
+    if (!DclGraphWorkspacePanel.currentPanel || (!DclGraphWorkspacePanel.currentGraph && !DclGraphWorkspacePanel.currentCapabilityMap)) {
+      void vscode.window.showWarningMessage("Open a DCL visual before exporting.");
       return;
     }
 
@@ -152,6 +176,7 @@ export class DclGraphWorkspacePanel {
   ): void {
     DclGraphWorkspacePanel.callbacks = callbacks;
     DclGraphWorkspacePanel.currentGraph = undefined;
+    DclGraphWorkspacePanel.currentCapabilityMap = undefined;
 
     if (DclGraphWorkspacePanel.currentPanel) {
       DclGraphWorkspacePanel.currentPanel.webview.html = renderEmptyHtml(title, message, true);
@@ -174,6 +199,7 @@ export class DclGraphWorkspacePanel {
     panel.onDidDispose(() => {
       DclGraphWorkspacePanel.currentPanel = undefined;
       DclGraphWorkspacePanel.currentGraph = undefined;
+      DclGraphWorkspacePanel.currentCapabilityMap = undefined;
       DclGraphWorkspacePanel.callbacks = undefined;
     });
   }
@@ -223,15 +249,21 @@ export class DclGraphWorkspacePanel {
     if (message.type === "nodeSelected") return;
 
     const node = DclGraphWorkspacePanel.currentGraph?.nodes.find((item) => item.id === message.nodeId);
-    if (!node) return;
+    const mapItem = capabilityMapItems(DclGraphWorkspacePanel.currentCapabilityMap).find((item) => item.id === message.nodeId);
+    const item = node ?? mapItem;
+    if (!item) return;
 
-    if (!node.source) {
-      void vscode.window.showWarningMessage(`No source location is available for graph node '${node.sourceName ?? node.label}'.`);
+    if (!item.source) {
+      void vscode.window.showWarningMessage(`No source location is available for '${itemName(item)}'.`);
       return;
     }
 
-    DclGraphWorkspacePanel.callbacks?.onRevealSource(node.source);
+    DclGraphWorkspacePanel.callbacks?.onRevealSource(item.source);
   }
+}
+
+function itemName(item: NonNullable<DclGraphModel["nodes"][number]> | DclCapabilityMapItem): string {
+  return "label" in item ? item.sourceName ?? item.label : item.name;
 }
 
 async function saveGraphExport(message: Extract<GraphWorkspaceMessage, { type: "graphExported" }>): Promise<void> {
@@ -278,8 +310,14 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
   const nonce = nonceValue();
   const cytoscapeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "cytoscape.min.js"));
   const graphJson = escapeScriptJson(state.graph ? toWebviewGraph(state.graph) : undefined);
+  const mapJson = escapeScriptJson(state.capabilityMap ? toWebviewCapabilityMap(state.capabilityMap) : undefined);
   const stateJson = escapeScriptJson(toWebviewState(state));
   const graph = state.graph;
+  const map = state.capabilityMap;
+  const visualAvailable = Boolean(graph || map);
+  const visualLabel = map ? "map" : "graph";
+  const visualLabelTitle = map ? "visual" : "graph";
+  const actionLabel = map ? "Map actions" : "Graph actions";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -338,6 +376,23 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     .swatch.child-context { background: #1f9d8a; border-color: #64d8cb; }
     .swatch.external-context { background: #6e7681; border-color: #9da7b3; }
     .swatch.initial-step { background: #2ea043; border-color: #7ee787; }
+    .map-viewport { position: absolute; inset: 0; overflow: hidden; background: var(--vscode-editor-background); cursor: grab; }
+    .map-viewport.dragging { cursor: grabbing; }
+    .capability-map-svg { display: block; transform-origin: 0 0; }
+    .map-context-rect { fill: color-mix(in srgb, var(--vscode-sideBar-background) 68%, transparent); stroke: var(--vscode-panel-border); stroke-width: 1.2; }
+    .map-context-header { fill: var(--vscode-sideBar-background); stroke: var(--vscode-panel-border); stroke-width: 1; }
+    .map-context-label { fill: var(--vscode-editor-foreground); font-size: 13px; font-weight: 700; }
+    .map-context-meta { fill: var(--vscode-descriptionForeground); font-size: 10px; }
+    .map-tile { fill: var(--vscode-editorWidget-background, #252526); stroke: var(--vscode-panel-border); stroke-width: 1.2; }
+    .map-tile-title { fill: var(--vscode-editor-foreground); font-size: 12px; font-weight: 700; }
+    .map-badge { fill: var(--vscode-badge-background); }
+    .map-badge-text { fill: var(--vscode-badge-foreground); font-size: 9px; font-weight: 700; }
+    .map-item { cursor: pointer; }
+    .map-item.selected .map-context-rect, .map-item.selected .map-tile { stroke: var(--vscode-focusBorder, #007fd4); stroke-width: 2.5; }
+    .map-help { margin: 0 0 14px; padding: 10px; border: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); background: var(--vscode-editor-background); line-height: 1.45; }
+    .map-legend-context { background: transparent; border-color: var(--vscode-panel-border); }
+    .map-legend-capability { background: var(--vscode-editorWidget-background, #252526); border-color: var(--vscode-panel-border); }
+    .swatch.badge { background: var(--vscode-badge-background); border-color: var(--vscode-badge-background); }
     .hidden { display: none; }
   </style>
 </head>
@@ -365,55 +420,62 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         </select>
       </label>
     </div>
-    <div class="action-group" aria-label="Graph actions">
+    <div class="action-group" aria-label="${actionLabel}">
       <button id="refresh" type="button" title="Refresh graph data" aria-label="Refresh graph data">↻</button>
       <button id="compile-workspace" class="primary" type="button" title="Compile workspace" aria-label="Compile workspace">Compile</button>
-      <button id="export-svg" type="button" title="Export graph as SVG" aria-label="Export graph as SVG"${graph ? "" : " disabled"}>SVG</button>
-      <button id="export-png" type="button" title="Export graph as PNG" aria-label="Export graph as PNG"${graph ? "" : " disabled"}>PNG</button>
-      <button id="fit-graph" type="button" title="Fit graph to view" aria-label="Fit graph to view"${graph ? "" : " disabled"}>Fit</button>
-      <button id="reset-layout" type="button" title="Reset graph layout" aria-label="Reset graph layout"${graph ? "" : " disabled"}>Reset</button>
-      <button id="center-selection" type="button" title="Center selected node" aria-label="Center selected node"${graph ? "" : " disabled"}>Center</button>
+      <button id="export-svg" type="button" title="Export ${visualLabelTitle} as SVG" aria-label="Export ${visualLabelTitle} as SVG"${visualAvailable ? "" : " disabled"}>SVG</button>
+      <button id="export-png" type="button" title="Export ${visualLabelTitle} as PNG" aria-label="Export ${visualLabelTitle} as PNG"${visualAvailable ? "" : " disabled"}>PNG</button>
+      <button id="fit-graph" type="button" title="Fit ${visualLabel} to view" aria-label="Fit ${visualLabel} to view"${visualAvailable ? "" : " disabled"}>Fit</button>
+      <button id="reset-layout" type="button" title="Reset ${visualLabel} layout" aria-label="Reset ${visualLabel} layout"${visualAvailable ? "" : " disabled"}>Reset</button>
+      <button id="center-selection" type="button" title="Center selected ${map ? "item" : "node"}" aria-label="Center selected ${map ? "item" : "node"}"${visualAvailable ? "" : " disabled"}>Center</button>
     </div>
   </header>
-  <div class="graph-status" aria-live="polite">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships${graph.warnings?.length ? `, ${graph.warnings.length} warning${graph.warnings.length === 1 ? "" : "s"}` : ""}` : "No graph"}</div>
-  ${graph?.description ? `<div class="graph-note">${escapeHtml(graph.description)}</div>` : ""}
-  ${graph?.warnings?.length ? `<div class="graph-warnings"><strong>Warnings</strong><ul>${graph.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></div>` : ""}
+  <div class="graph-status" aria-live="polite">${statusText(graph, map)}</div>
+  ${(graph?.description ?? map?.description) ? `<div class="graph-note">${escapeHtml(graph?.description ?? map?.description ?? "")}</div>` : ""}
+  ${(graph?.warnings ?? map?.warnings)?.length ? `<div class="graph-warnings"><strong>Warnings</strong><ul>${(graph?.warnings ?? map?.warnings ?? []).map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></div>` : ""}
   <main class="content">
-    <section id="graph" aria-label="DCL graph workspace">
-      ${graph ? "" : `<div class="empty-state"><div><h1>${escapeHtml(state.emptyTitle ?? "No Graph Available")}</h1><p>${escapeHtml(state.emptyMessage ?? "Compile DCL or choose another graph subject.")}</p><button id="empty-compile" class="primary" type="button">Compile Workspace</button></div></div>`}
+    <section id="graph" aria-label="DCL visual workspace">
+      ${visualAvailable ? "" : `<div class="empty-state"><div><h1>${escapeHtml(state.emptyTitle ?? "No Visual Available")}</h1><p>${escapeHtml(state.emptyMessage ?? "Compile DCL or choose another visual subject.")}</p><button id="empty-compile" class="primary" type="button">Compile Workspace</button></div></div>`}
     </section>
     <aside class="details" aria-live="polite">
-      <h2 class="details-title">Node Details</h2>
-      <p id="details-empty" class="empty-detail">Select a node to inspect it.</p>
+      <h2 class="details-title">${map ? "Map Details" : "Node Details"}</h2>
+      ${map ? `<p class="map-help">${escapeHtml(map.description)}</p>` : ""}
+      <p id="details-empty" class="empty-detail">Select a ${map ? "context or capability" : "node"} to inspect it.</p>
       <div id="details-content" class="hidden">
-        <p class="detail-row"><span class="detail-label">Graph Size</span><span class="detail-value">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships` : "No graph"}</span></p>
+        <p class="detail-row"><span class="detail-label">${map ? "Map Size" : "Graph Size"}</span><span class="detail-value">${statusText(graph, map)}</span></p>
         <p class="detail-row"><span class="detail-label">Display Label</span><span id="detail-label" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Source Name</span><span id="detail-source-name" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Kind</span><span id="detail-kind" class="detail-value"></span></p>
-        <p class="detail-row"><span class="detail-label">Relationships</span><span id="detail-relationships" class="detail-value"></span></p>
+        <p class="detail-row"><span class="detail-label">${map ? "Declarations" : "Relationships"}</span><span id="detail-relationships" class="detail-value"></span></p>
         <div id="source-section" class="detail-row hidden"><span class="detail-label">Source</span><div class="detail-actions"><button id="open-source" type="button">Open Source</button></div></div>
         <div id="show-in-section" class="detail-row hidden"><span class="detail-label">Show In</span><div id="show-in-actions" class="detail-actions"></div></div>
       </div>
       <section class="legend">
         <h2 class="details-title">Legend</h2>
-        <div class="legend-grid">${legendItemsHtml(graph)}</div>
+        <div class="legend-grid">${map ? capabilityMapLegendHtml() : legendItemsHtml(graph)}</div>
       </section>
     </aside>
   </main>
-  <script nonce="${nonce}" src="${cytoscapeUri}"></script>
+  ${graph ? `<script nonce="${nonce}" src="${cytoscapeUri}"></script>` : ""}
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
     const workspaceState = ${stateJson};
     const graph = ${graphJson};
+    const capabilityMap = ${mapJson};
     const editorBackground = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background').trim() || '#1e1e1e';
     const graphTypeInput = document.getElementById('graph-type');
     const subjectInput = document.getElementById('subject');
     const detailInput = document.getElementById('architecture-detail');
     const layoutInput = document.getElementById('layout-mode');
     const nodeById = new Map((graph?.nodes || []).map((node) => [node.id, node]));
+    const mapItemById = new Map();
     const incomingByNode = new Map();
     const outgoingByNode = new Map();
     let cy;
+    let mapSvg;
+    let mapGroup;
+    let mapLayout = new Map();
+    let mapTransform = { x: 24, y: 24, scale: 1 };
     let lastSelectedNodeId;
     let layoutMode = 'default';
 
@@ -422,6 +484,11 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       if (!incomingByNode.has(edge.target)) incomingByNode.set(edge.target, []);
       outgoingByNode.get(edge.source).push(edge);
       incomingByNode.get(edge.target).push(edge);
+    }
+    if (capabilityMap) {
+      for (const item of flattenMapItems(capabilityMap.root)) {
+        mapItemById.set(item.id, item);
+      }
     }
 
     graphTypeInput.addEventListener('change', () => postSelection());
@@ -449,7 +516,21 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       }
     });
 
-    if (graph) {
+    if (capabilityMap) {
+      renderCapabilityMap();
+      document.getElementById('fit-graph').addEventListener('click', () => fitMap());
+      document.getElementById('reset-layout').addEventListener('click', () => {
+        renderCapabilityMap();
+        fitMap();
+      });
+      document.getElementById('center-selection').addEventListener('click', () => centerMapSelection());
+      requestAnimationFrame(() => {
+        fitMap();
+        if (workspaceState.focusNodeId) {
+          window.setTimeout(() => focusNode(workspaceState.focusNodeId), 80);
+        }
+      });
+    } else if (graph) {
       const elements = [
         ...graph.nodes.map((node) => ({ data: { id: node.id, label: node.label, kind: node.kind }, classes: node.kind })),
         ...graph.edges.map((edge) => ({ data: { id: edge.id, source: edge.source, target: edge.target, label: edge.label, kind: edge.kind } }))
@@ -504,6 +585,229 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       }
       cy.layout(layoutOptions()).run();
       if (fitAfter) window.setTimeout(() => fitVisible(), 100);
+    }
+
+    function renderCapabilityMap() {
+      const container = document.getElementById('graph');
+      container.replaceChildren();
+      const viewport = document.createElement('div');
+      viewport.className = 'map-viewport';
+      container.appendChild(viewport);
+      const layout = layoutMapContext(capabilityMap.root, 0);
+      mapLayout = collectMapLayout(layout);
+      mapSvg = svgElement('svg');
+      mapSvg.classList.add('capability-map-svg');
+      mapSvg.setAttribute('width', String(layout.width + 48));
+      mapSvg.setAttribute('height', String(layout.height + 48));
+      mapSvg.setAttribute('viewBox', '0 0 ' + (layout.width + 48) + ' ' + (layout.height + 48));
+      mapGroup = svgElement('g');
+      mapGroup.setAttribute('transform', transformValue());
+      mapSvg.appendChild(mapGroup);
+      drawMapContext(mapGroup, layout, 0, 0);
+      viewport.appendChild(mapSvg);
+      wireMapPanZoom(viewport);
+    }
+
+    function layoutMapContext(context, depth) {
+      const padding = 18;
+      const headerHeight = 34;
+      const tileWidth = 174;
+      const tileHeight = 72;
+      const gap = 14;
+      const childLayouts = context.children.map((child) => layoutMapContext(child, depth + 1));
+      const tileRows = [];
+      const columns = Math.max(1, Math.min(3, Math.ceil(Math.sqrt(Math.max(1, context.capabilities.length)))));
+      context.capabilities.forEach((capability, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        tileRows.push({ item: capability, x: padding + column * (tileWidth + gap), y: headerHeight + padding + row * (tileHeight + gap), width: tileWidth, height: tileHeight });
+      });
+      const tileAreaWidth = context.capabilities.length ? padding * 2 + columns * tileWidth + (columns - 1) * gap : 280;
+      const tileAreaHeight = context.capabilities.length ? headerHeight + padding * 2 + Math.ceil(context.capabilities.length / columns) * tileHeight + (Math.ceil(context.capabilities.length / columns) - 1) * gap : headerHeight + padding * 2 + 28;
+      let cursorY = tileAreaHeight;
+      let contentWidth = tileAreaWidth;
+      const children = childLayouts.map((child) => {
+        const placed = { ...child, x: padding, y: cursorY, width: child.width, height: child.height };
+        cursorY += child.height + gap;
+        contentWidth = Math.max(contentWidth, child.width + padding * 2);
+        return placed;
+      });
+      return {
+        item: context,
+        x: 0,
+        y: 0,
+        width: Math.max(contentWidth, 300),
+        height: Math.max(cursorY + padding, tileAreaHeight),
+        tiles: tileRows,
+        children
+      };
+    }
+
+    function collectMapLayout(contextLayout) {
+      const result = new Map();
+      function visit(layout, offsetX, offsetY) {
+        result.set(layout.item.id, { x: offsetX, y: offsetY, width: layout.width, height: layout.height, item: layout.item });
+        for (const tile of layout.tiles) {
+          result.set(tile.item.id, { x: offsetX + tile.x, y: offsetY + tile.y, width: tile.width, height: tile.height, item: tile.item });
+        }
+        for (const child of layout.children) visit(child, offsetX + child.x, offsetY + child.y);
+      }
+      visit(contextLayout, 0, 0);
+      return result;
+    }
+
+    function drawMapContext(parent, layout, offsetX, offsetY) {
+      const x = offsetX + layout.x;
+      const y = offsetY + layout.y;
+      const group = mapItemGroup(layout.item);
+      group.appendChild(svgRect(x, y, layout.width, layout.height, 8, 'map-context-rect'));
+      group.appendChild(svgRect(x, y, layout.width, 34, 8, 'map-context-header'));
+      group.appendChild(svgText(layout.item.name, x + 14, y + 22, 'map-context-label'));
+      const declarationCount = declarationCountForContext(layout.item);
+      group.appendChild(svgText(declarationCount + ' declaration' + (declarationCount === 1 ? '' : 's'), x + layout.width - 14, y + 22, 'map-context-meta', 'end'));
+      parent.appendChild(group);
+
+      for (const tile of layout.tiles) drawCapabilityTile(parent, tile, x, y);
+      for (const child of layout.children) drawMapContext(parent, child, x, y);
+    }
+
+    function drawCapabilityTile(parent, tile, offsetX, offsetY) {
+      const x = offsetX + tile.x;
+      const y = offsetY + tile.y;
+      const group = mapItemGroup(tile.item);
+      group.appendChild(svgRect(x, y, tile.width, tile.height, 6, 'map-tile'));
+      for (const line of wrapWords(tile.item.name, 22).slice(0, 2)) {
+        group.appendChild(svgText(line.text, x + 12, y + 20 + line.index * 15, 'map-tile-title'));
+      }
+      let badgeX = x + 12;
+      for (const badge of tile.item.badges || []) {
+        const text = badge.count ? badge.label + ' ' + badge.count : badge.label;
+        const width = Math.max(48, text.length * 6 + 14);
+        group.appendChild(svgRect(badgeX, y + tile.height - 24, width, 16, 8, 'map-badge'));
+        group.appendChild(svgText(text, badgeX + width / 2, y + tile.height - 12, 'map-badge-text', 'middle'));
+        badgeX += width + 6;
+      }
+      parent.appendChild(group);
+    }
+
+    function mapItemGroup(item) {
+      const group = svgElement('g');
+      group.classList.add('map-item');
+      group.dataset.itemId = item.id;
+      group.addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectMapItem(item.id);
+      });
+      if (item.kind === 'capability') {
+        group.addEventListener('dblclick', (event) => {
+          event.stopPropagation();
+          vscode.postMessage({ type: 'revealSource', nodeId: item.id });
+        });
+      }
+      return group;
+    }
+
+    function selectMapItem(itemId) {
+      lastSelectedNodeId = itemId;
+      document.querySelectorAll('.map-item.selected').forEach((element) => element.classList.remove('selected'));
+      document.querySelectorAll('.map-item').forEach((element) => {
+        if (element.dataset.itemId === itemId) element.classList.add('selected');
+      });
+      updateMapDetails(itemId);
+      vscode.postMessage({ type: 'nodeSelected', nodeId: itemId });
+    }
+
+    function updateMapDetails(itemId) {
+      const item = mapItemById.get(itemId);
+      if (!item) return;
+      document.getElementById('details-empty').classList.add('hidden');
+      document.getElementById('details-content').classList.remove('hidden');
+      document.getElementById('detail-label').textContent = item.name;
+      document.getElementById('detail-source-name').textContent = item.name;
+      document.getElementById('detail-kind').textContent = item.kind === 'capability' ? 'capability tile' : 'context container';
+      document.getElementById('detail-relationships').textContent = item.kind === 'capability' ? capabilityDetail(item) : contextDetail(item);
+      document.getElementById('source-section').classList.toggle('hidden', !item.hasSource);
+      updateShowInActions(itemId);
+    }
+
+    function capabilityDetail(item) {
+      const badges = (item.badges || []).map((badge) => badge.count ? badge.label + ' ' + badge.count : badge.label);
+      return badges.length ? badges.join('; ') : 'No metadata badges';
+    }
+
+    function contextDetail(item) {
+      const capabilityCount = countCapabilities(item);
+      const contextCount = item.children?.length || 0;
+      return capabilityCount + ' capabilit' + (capabilityCount === 1 ? 'y' : 'ies') + ', ' + contextCount + ' child context' + (contextCount === 1 ? '' : 's');
+    }
+
+    function declarationCountForContext(item) {
+      return countCapabilities(item) + (item.children?.length || 0);
+    }
+
+    function countCapabilities(item) {
+      return (item.capabilities?.length || 0) + (item.children || []).reduce((sum, child) => sum + countCapabilities(child), 0);
+    }
+
+    function flattenMapItems(root) {
+      const items = [];
+      function visit(context) {
+        items.push(context);
+        for (const capability of context.capabilities || []) items.push(capability);
+        for (const child of context.children || []) visit(child);
+      }
+      visit(root);
+      return items;
+    }
+
+    function wireMapPanZoom(viewport) {
+      let dragStart;
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        dragStart = { x: event.clientX, y: event.clientY, tx: mapTransform.x, ty: mapTransform.y };
+        viewport.setPointerCapture(event.pointerId);
+        viewport.classList.add('dragging');
+      });
+      viewport.addEventListener('pointermove', (event) => {
+        if (!dragStart) return;
+        mapTransform.x = dragStart.tx + event.clientX - dragStart.x;
+        mapTransform.y = dragStart.ty + event.clientY - dragStart.y;
+        applyMapTransform();
+      });
+      viewport.addEventListener('pointerup', (event) => {
+        dragStart = undefined;
+        viewport.releasePointerCapture(event.pointerId);
+        viewport.classList.remove('dragging');
+      });
+      viewport.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const scale = Math.max(0.25, Math.min(2.4, mapTransform.scale * (event.deltaY > 0 ? 0.9 : 1.1)));
+        mapTransform.scale = scale;
+        applyMapTransform();
+      }, { passive: false });
+    }
+
+    function fitMap() {
+      if (!mapSvg || !capabilityMap) return;
+      const container = document.getElementById('graph');
+      const width = Number(mapSvg.getAttribute('width')) || 800;
+      const height = Number(mapSvg.getAttribute('height')) || 600;
+      const scale = Math.max(0.25, Math.min(1.2, Math.min((container.clientWidth - 32) / width, (container.clientHeight - 32) / height)));
+      mapTransform = { x: 16, y: 16, scale };
+      applyMapTransform();
+    }
+
+    function centerMapSelection() {
+      const itemId = lastSelectedNodeId || capabilityMap.root.id;
+      focusNode(itemId);
+    }
+
+    function applyMapTransform() {
+      mapGroup?.setAttribute('transform', transformValue());
+    }
+
+    function transformValue() {
+      return 'translate(' + round(mapTransform.x) + ' ' + round(mapTransform.y) + ') scale(' + round(mapTransform.scale) + ')';
     }
 
     function layoutOptions() {
@@ -577,6 +881,16 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     }
 
     function focusNode(nodeId) {
+      if (capabilityMap) {
+        const item = mapLayout.get(nodeId);
+        if (!item) return;
+        const container = document.getElementById('graph');
+        mapTransform.x = container.clientWidth / 2 - (item.x + item.width / 2) * mapTransform.scale;
+        mapTransform.y = container.clientHeight / 2 - (item.y + item.height / 2) * mapTransform.scale;
+        applyMapTransform();
+        selectMapItem(nodeId);
+        return;
+      }
       if (!cy || !nodeId) return;
       const node = cy.getElementById(nodeId);
       if (node.length) {
@@ -589,6 +903,10 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     }
 
     function exportGraph(format) {
+      if (capabilityMap) {
+        exportCapabilityMap(format);
+        return;
+      }
       if (!cy || !graph) {
         vscode.postMessage({ type: 'graphExportFailed', reason: 'No graph is currently visible.' });
         return;
@@ -617,6 +935,130 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
           reason: error instanceof Error ? error.message : String(error)
         });
       }
+    }
+
+    function exportCapabilityMap(format) {
+      if (!mapSvg || !capabilityMap) {
+        vscode.postMessage({ type: 'graphExportFailed', reason: 'No capability map is currently visible.' });
+        return;
+      }
+
+      try {
+        const svg = serializeCapabilityMapSvg();
+        if (format === 'svg') {
+          vscode.postMessage({
+            type: 'graphExported',
+            format: 'svg',
+            filename: workspaceState.exportBaseName + '.svg',
+            text: svg
+          });
+          return;
+        }
+
+        const width = Number(mapSvg.getAttribute('width')) || 800;
+        const height = Number(mapSvg.getAttribute('height')) || 600;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(width * 2);
+        canvas.height = Math.ceil(height * 2);
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        drawMapCanvas(ctx, capabilityMap.root, mapLayout);
+        vscode.postMessage({
+          type: 'graphExported',
+          format: 'png',
+          filename: workspaceState.exportBaseName + '.png',
+          dataUri: canvas.toDataURL('image/png')
+        });
+      } catch (error) {
+        vscode.postMessage({
+          type: 'graphExportFailed',
+          reason: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    function serializeCapabilityMapSvg() {
+      const clone = mapSvg.cloneNode(true);
+      const group = clone.querySelector('g');
+      group?.setAttribute('transform', 'translate(24 24)');
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const width = Number(mapSvg.getAttribute('width')) || 800;
+      const height = Number(mapSvg.getAttribute('height')) || 600;
+      const style = '<style>.map-context-rect{fill:#f6f8fa;stroke:#8c959f;stroke-width:1.2}.map-context-header{fill:#eaeef2;stroke:#8c959f;stroke-width:1}.map-context-label{fill:#24292f;font:700 13px Inter,Segoe UI,Arial,sans-serif}.map-context-meta{fill:#57606a;font:10px Inter,Segoe UI,Arial,sans-serif}.map-tile{fill:#ffffff;stroke:#8c959f;stroke-width:1.2}.map-tile-title{fill:#24292f;font:700 12px Inter,Segoe UI,Arial,sans-serif}.map-badge{fill:#0969da}.map-badge-text{fill:#ffffff;font:700 9px Inter,Segoe UI,Arial,sans-serif}</style>';
+      return [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.ceil(width) + '" height="' + Math.ceil(height) + '" viewBox="0 0 ' + Math.ceil(width) + ' ' + Math.ceil(height) + '">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        style,
+        clone.innerHTML,
+        '</svg>'
+      ].join('');
+    }
+
+    function drawMapCanvas(ctx, root, layoutMap) {
+      ctx.font = '700 13px Inter, Segoe UI, Arial, sans-serif';
+      function drawContext(context) {
+        const box = layoutMap.get(context.id);
+        if (!box) return;
+        ctx.fillStyle = '#f6f8fa';
+        ctx.strokeStyle = '#8c959f';
+        roundRect(ctx, box.x + 24, box.y + 24, box.width, box.height, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#eaeef2';
+        roundRect(ctx, box.x + 24, box.y + 24, box.width, 34, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#24292f';
+        ctx.fillText(context.name, box.x + 38, box.y + 46);
+        for (const capability of context.capabilities || []) drawCapability(capability);
+        for (const child of context.children || []) drawContext(child);
+      }
+      function drawCapability(capability) {
+        const box = layoutMap.get(capability.id);
+        if (!box) return;
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#8c959f';
+        roundRect(ctx, box.x + 24, box.y + 24, box.width, box.height, 6);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#24292f';
+        ctx.font = '700 12px Inter, Segoe UI, Arial, sans-serif';
+        for (const line of wrapWords(capability.name, 22).slice(0, 2)) {
+          ctx.fillText(line.text, box.x + 36, box.y + 44 + line.index * 15);
+        }
+        ctx.font = '700 9px Inter, Segoe UI, Arial, sans-serif';
+        let badgeX = box.x + 36;
+        for (const badge of capability.badges || []) {
+          const text = badge.count ? badge.label + ' ' + badge.count : badge.label;
+          const width = Math.max(48, text.length * 6 + 14);
+          ctx.fillStyle = '#0969da';
+          roundRect(ctx, badgeX, box.y + box.height + 24 - 24, width, 16, 8);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.fillText(text, badgeX + width / 2, box.y + box.height + 24 - 12);
+          ctx.textAlign = 'left';
+          badgeX += width + 6;
+        }
+      }
+      drawContext(root);
+    }
+
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
     }
 
     function serializeSvg() {
@@ -714,6 +1156,48 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
 
     function round(value) {
       return Math.round(value * 100) / 100;
+    }
+
+    function svgElement(name) {
+      return document.createElementNS('http://www.w3.org/2000/svg', name);
+    }
+
+    function svgRect(x, y, width, height, radius, className) {
+      const rect = svgElement('rect');
+      rect.setAttribute('x', String(round(x)));
+      rect.setAttribute('y', String(round(y)));
+      rect.setAttribute('width', String(round(width)));
+      rect.setAttribute('height', String(round(height)));
+      rect.setAttribute('rx', String(radius));
+      rect.classList.add(className);
+      return rect;
+    }
+
+    function svgText(text, x, y, className, anchor = 'start') {
+      const element = svgElement('text');
+      element.setAttribute('x', String(round(x)));
+      element.setAttribute('y', String(round(y)));
+      element.setAttribute('text-anchor', anchor);
+      element.classList.add(className);
+      element.textContent = text;
+      return element;
+    }
+
+    function wrapWords(label, maxLength) {
+      const words = String(label || '').split(/\\s+/).filter(Boolean);
+      const lines = [];
+      let current = '';
+      for (const word of words) {
+        const next = current ? current + ' ' + word : word;
+        if (next.length > maxLength && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = next;
+        }
+      }
+      if (current) lines.push(current);
+      return lines.map((text, index) => ({ text, index }));
     }
 
     function xml(value) {
@@ -834,6 +1318,7 @@ function isGraphWorkspaceMessage(message: unknown): message is GraphWorkspaceMes
 function isGraphWorkspaceType(value: unknown): value is DclGraphWorkspaceType {
   return value === "architecture"
     || value === "capability"
+    || value === "capability-map"
     || value === "lifecycle"
     || value === "event-flow"
     || value === "context-map"
@@ -864,8 +1349,35 @@ function toWebviewGraph(graph: DclGraphModel): WebviewGraphModel {
   };
 }
 
-function toWebviewState(state: DclGraphWorkspaceState): Omit<DclGraphWorkspaceState, "graph"> {
-  const { graph: _graph, ...rest } = state;
+function toWebviewCapabilityMap(map: DclCapabilityMapModel): WebviewCapabilityMapModel {
+  return {
+    ...map,
+    root: toWebviewCapabilityMapContext(map.root),
+  };
+}
+
+function toWebviewCapabilityMapContext(context: DclCapabilityMapModel["root"]): WebviewCapabilityMapContext {
+  const { source, capabilities, children, ...rest } = context;
+  return {
+    ...rest,
+    hasSource: Boolean(source),
+    capabilities: capabilities.map(toWebviewCapabilityMapCapability),
+    children: children.map(toWebviewCapabilityMapContext),
+  };
+}
+
+function toWebviewCapabilityMapCapability(
+  capability: DclCapabilityMapModel["root"]["capabilities"][number],
+): WebviewCapabilityMapCapability {
+  const { source, ...rest } = capability;
+  return {
+    ...rest,
+    hasSource: Boolean(source),
+  };
+}
+
+function toWebviewState(state: DclGraphWorkspaceState): Omit<DclGraphWorkspaceState, "graph" | "capabilityMap"> {
+  const { graph: _graph, capabilityMap: _capabilityMap, ...rest } = state;
   return rest;
 }
 
@@ -883,8 +1395,29 @@ function legendItemsHtml(graph: DclGraphModel | undefined): string {
     .join("");
 }
 
+function capabilityMapLegendHtml(): string {
+  return [
+    `<span class="legend-item"><span class="swatch map-legend-context"></span>context container</span>`,
+    `<span class="legend-item"><span class="swatch map-legend-capability"></span>capability tile</span>`,
+    `<span class="legend-item"><span class="swatch badge"></span>metadata badge</span>`,
+  ].join("");
+}
+
+function statusText(graph: DclGraphModel | undefined, map: DclCapabilityMapModel | undefined): string {
+  if (graph) {
+    return `${graph.nodes.length} nodes, ${graph.edges.length} relationships${graph.warnings?.length ? `, ${graph.warnings.length} warning${graph.warnings.length === 1 ? "" : "s"}` : ""}`;
+  }
+  if (map) {
+    const items = capabilityMapItems(map);
+    const contexts = items.filter((item) => item.kind === "context").length;
+    const capabilities = items.filter((item) => item.kind === "capability").length;
+    return `${contexts} context container${contexts === 1 ? "" : "s"}, ${capabilities} capability tile${capabilities === 1 ? "" : "s"}${map.warnings?.length ? `, ${map.warnings.length} warning${map.warnings.length === 1 ? "" : "s"}` : ""}`;
+  }
+  return "No visual";
+}
+
 function escapeScriptJson(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, "\\u003c");
+  return value === undefined ? "undefined" : JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 function escapeHtml(value: string): string {

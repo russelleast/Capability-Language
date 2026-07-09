@@ -20,7 +20,28 @@ function summarizeCompilerOutput(output) {
         effects: topLevelItems(program.effects, "effect", symbolLocations),
         events: topLevelItems(program.events, "event", symbolLocations),
         lifecycles: nonEmpty(capabilities.map(formatLifecycleItem)),
+        diagnostics: summarizeDiagnostics(program.diagnostics),
     };
+}
+function summarizeDiagnostics(diagnostics) {
+    if (!Array.isArray(diagnostics))
+        return undefined;
+    return nonEmpty(diagnostics.map((diagnostic) => {
+        if (!isObject(diagnostic) || !diagnostic.message)
+            return undefined;
+        return {
+            code: diagnostic.code,
+            severity: diagnosticSeverity(diagnostic.severity),
+            message: diagnostic.message,
+            node: diagnostic.node,
+            location: normalizedCompilerLocation(diagnostic.span),
+        };
+    }));
+}
+function diagnosticSeverity(value) {
+    if (value === "error" || value === "warning" || value === "info")
+        return value;
+    return "info";
 }
 function summarizeCapability(capability, effectivePolicies, symbolLocations) {
     const name = capability.name ?? "Unnamed capability";

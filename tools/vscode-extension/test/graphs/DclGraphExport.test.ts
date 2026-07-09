@@ -8,6 +8,7 @@ describe("DclGraphExport", () => {
   it.each([
     ["architecture", undefined, "dcl-architecture-overview"],
     ["capability", "PlaceOrder", "dcl-capability-place-order"],
+    ["capability-map", undefined, "dcl-capability-map"],
     ["cause-effect", "PlaceOrder", "dcl-cause-effect-place-order"],
     ["lifecycle", "OrderFulfilment", "dcl-lifecycle-order-fulfilment"],
     ["event-flow", "OrderSubmitted", "dcl-event-flow-order-submitted"],
@@ -31,6 +32,10 @@ describe("DclGraphExport", () => {
         expect.objectContaining({
           command: "dcl.exportCurrentGraph",
           title: "DCL: Export Current Graph",
+        }),
+        expect.objectContaining({
+          command: "dcl.showCapabilityMap",
+          title: "DCL: Show Capability Map",
         }),
       ]),
     );

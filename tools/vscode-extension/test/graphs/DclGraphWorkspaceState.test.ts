@@ -39,6 +39,20 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.graph?.title).toBe("AcceptOrder Cause and Effect Graph");
   });
 
+  it("builds the capability map as a separate visual without a subject", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }), { graphType: "capability-map" });
+
+    expect(state.graphType).toBe("capability-map");
+    expect(state.subject).toBeUndefined();
+    expect(state.graph).toBeUndefined();
+    expect(state.capabilityMap?.title).toBe("DCL Capability Map");
+    expect(state.exportBaseName).toBe("dcl-capability-map");
+    expect(state.graphTypes).toContainEqual({ label: "Capability Map", value: "capability-map" });
+  });
+
   it("only offers lifecycle subjects with lifecycle data", () => {
     const state = buildGraphWorkspaceState(summary({
       capabilities: [
@@ -107,6 +121,16 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.emptyMessage).toMatch(/explicit when branches/);
   });
 
+  it("returns friendly empty state when capability map has no capabilities", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "Sales" }],
+      capabilities: [],
+    }), { graphType: "capability-map" });
+
+    expect(state.capabilityMap).toBeUndefined();
+    expect(state.emptyTitle).toBe("No Capabilities Found");
+  });
+
   it("offers graph sync from architecture capability nodes to capability graph", () => {
     const state = buildGraphWorkspaceState(summary({
       contexts: [{ name: "Sales" }],
@@ -122,6 +146,21 @@ describe("DclGraphWorkspaceState", () => {
       focusIdentity: { kind: "capability", name: "AcceptOrder" },
     }));
     expect(state.graphSyncTargets[capability!.id].some((target) => target.graphType === "architecture")).toBe(false);
+  });
+
+  it("offers graph sync from architecture capability nodes to capability map", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }), { graphType: "architecture" });
+    const capability = state.graph?.nodes.find((node) => node.semanticIdentity?.kind === "capability");
+
+    expect(capability).toBeDefined();
+    expect(state.graphSyncTargets[capability!.id]).toContainEqual(expect.objectContaining({
+      label: "Show in Capability Map",
+      graphType: "capability-map",
+      focusIdentity: { kind: "capability", name: "AcceptOrder" },
+    }));
   });
 
   it("offers graph sync from capability identities to cause and effect graph when causation exists", () => {

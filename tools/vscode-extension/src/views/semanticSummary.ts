@@ -8,6 +8,7 @@ export type SemanticSummary = {
   effects?: SemanticItem[];
   events?: SemanticItem[];
   lifecycles?: SemanticItem[];
+  diagnostics?: SemanticDiagnosticSummary[];
 };
 
 export type ContextSummary = {
@@ -84,6 +85,14 @@ export type EventFlowSummary = {
   sourceOutcome?: string;
 };
 
+export type SemanticDiagnosticSummary = {
+  code?: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  node?: string;
+  location?: SourceLocation;
+};
+
 type ProgramOutput = {
   capabilities?: CapabilityOutput[];
   contexts?: ContextOutput[];
@@ -93,6 +102,7 @@ type ProgramOutput = {
   events?: NamedOutput[];
   effective_policies?: EffectivePolicyOutput[];
   symbols?: SymbolOutput[];
+  diagnostics?: DiagnosticOutput[];
 };
 
 type CapabilityOutput = {
@@ -214,6 +224,14 @@ type SourceLocationOutput = {
   column?: number;
 };
 
+type DiagnosticOutput = {
+  code?: string;
+  severity?: string;
+  message?: string;
+  node?: string;
+  span?: SourceLocationOutput;
+};
+
 type SymbolLocationIndex = Map<string, SourceLocation>;
 
 export function summarizeCompilerOutput(output: unknown): SemanticSummary {
@@ -232,7 +250,30 @@ export function summarizeCompilerOutput(output: unknown): SemanticSummary {
     effects: topLevelItems(program.effects, "effect", symbolLocations),
     events: topLevelItems(program.events, "event", symbolLocations),
     lifecycles: nonEmpty(capabilities.map(formatLifecycleItem)),
+    diagnostics: summarizeDiagnostics(program.diagnostics),
   };
+}
+
+function summarizeDiagnostics(diagnostics: DiagnosticOutput[] | undefined): SemanticDiagnosticSummary[] | undefined {
+  if (!Array.isArray(diagnostics)) return undefined;
+
+  return nonEmpty(
+    diagnostics.map((diagnostic) => {
+      if (!isObject(diagnostic) || !diagnostic.message) return undefined;
+      return {
+        code: diagnostic.code,
+        severity: diagnosticSeverity(diagnostic.severity),
+        message: diagnostic.message,
+        node: diagnostic.node,
+        location: normalizedCompilerLocation(diagnostic.span),
+      };
+    }),
+  );
+}
+
+function diagnosticSeverity(value: string | undefined): SemanticDiagnosticSummary["severity"] {
+  if (value === "error" || value === "warning" || value === "info") return value;
+  return "info";
 }
 
 function summarizeCapability(

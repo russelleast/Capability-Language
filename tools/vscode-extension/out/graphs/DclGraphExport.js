@@ -9,6 +9,8 @@ function graphExportBaseName(graphType, subject) {
             return "dcl-architecture-overview";
         case "capability":
             return `dcl-capability-${kebabSubject(subject)}`;
+        case "capability-map":
+            return "dcl-capability-map";
         case "cause-effect":
             return `dcl-cause-effect-${kebabSubject(subject)}`;
         case "lifecycle":

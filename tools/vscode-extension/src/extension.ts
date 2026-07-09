@@ -76,6 +76,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dcl.exportCurrentGraph", () => DclGraphWorkspacePanel.exportCurrentGraph()),
     vscode.commands.registerCommand("dcl.showArchitectureOverview", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "architecture" })),
     vscode.commands.registerCommand("dcl.showCapabilityGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "capability", subject: node?.capabilityName })),
+    vscode.commands.registerCommand("dcl.showCapabilityMap", () => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "capability-map" })),
     vscode.commands.registerCommand("dcl.showCauseEffectGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "cause-effect", subject: node?.capabilityName })),
     vscode.commands.registerCommand("dcl.showContextMap", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "context-map", subject: node?.kind === "context" ? String(node.label) : undefined })),
     vscode.commands.registerCommand("dcl.showEventFlowGraph", (node?: DclExplorerNode) => openGraphWorkspace(context.extensionUri, diagnostics, summary, explorer, { graphType: "event-flow", subject: node?.eventName })),

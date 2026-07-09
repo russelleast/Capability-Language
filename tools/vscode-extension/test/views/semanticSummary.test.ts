@@ -50,6 +50,27 @@ describe("semantic summary normalization", () => {
     ]);
   });
 
+  it("normalizes compiler diagnostics for semantic visual metadata", () => {
+    const summary = summarizeCompilerOutput({
+      diagnostics: [{
+        code: "DCL_SEM_WARNING",
+        severity: "warning",
+        message: "Ambiguous analysis warning",
+        node: "AssessClaim",
+        span: { file: "claims.dcl", line: 4, column: 2 },
+      }],
+      capabilities: [{ name: "AssessClaim" }],
+    });
+
+    expect(summary.diagnostics).toEqual([{
+      code: "DCL_SEM_WARNING",
+      severity: "warning",
+      message: "Ambiguous analysis warning",
+      node: "AssessClaim",
+      location: { file: "claims.dcl", line: 4, column: 2, indexBase: "oneBased" },
+    }]);
+  });
+
   it("handles missing optional arrays and invalid summary shapes", () => {
     expect(summarizeCompilerOutput({}).capabilities).toEqual([]);
     const summary = summarizeCompilerOutput(fixture("invalid-summary-shape.json"));
