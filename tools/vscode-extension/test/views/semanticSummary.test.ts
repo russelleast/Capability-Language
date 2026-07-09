@@ -31,6 +31,25 @@ describe("semantic summary normalization", () => {
     expect(summary.lifecycles?.map((item) => item.label)).toEqual(["AcceptOrder"]);
   });
 
+  it("normalizes compiler outcome causation from capability analysis", () => {
+    const summary = summarizeCompilerOutput({
+      capabilities: [{
+        name: "AcceptOrder",
+        analysis: {
+          outcome_causes: [
+            { outcome: "Rejected", source: "rule:TermsAccepted", condition: "violated", precedence: 0 },
+            { outcome: "Accepted", source: "capability:AcceptOrder", condition: "otherwise", precedence: 1 },
+          ],
+        },
+      }],
+    });
+
+    expect(summary.capabilities[0].causation?.outcomeCauses).toEqual([
+      { outcome: "Rejected", sourceKind: "rule", sourceName: "TermsAccepted", condition: "violated", precedence: 0 },
+      { outcome: "Accepted", sourceKind: "capability", sourceName: "AcceptOrder", condition: "otherwise", precedence: 1 },
+    ]);
+  });
+
   it("handles missing optional arrays and invalid summary shapes", () => {
     expect(summarizeCompilerOutput({}).capabilities).toEqual([]);
     const summary = summarizeCompilerOutput(fixture("invalid-summary-shape.json"));

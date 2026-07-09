@@ -46,10 +46,23 @@ export type CapabilitySummary = {
     stepDetails?: LifecycleStepSummary[];
     transitionDetails?: LifecycleTransitionSummary[];
   };
+  causation?: CapabilityCausationSummary;
   itemLocations?: Partial<Record<CapabilityItemKind, Record<string, SourceLocation>>>;
 };
 
 export type CapabilityItemKind = "intents" | "actors" | "outcomes" | "rules" | "effects" | "events" | "policies" | "lifecycle";
+
+export type CapabilityCausationSummary = {
+  outcomeCauses?: OutcomeCauseSummary[];
+};
+
+export type OutcomeCauseSummary = {
+  outcome: string;
+  sourceKind: string;
+  sourceName?: string;
+  condition?: string;
+  precedence: number;
+};
 
 export type LifecycleStepSummary = {
   name: string;
@@ -96,6 +109,18 @@ type CapabilityOutput = {
   emitted_events?: EmittedEventOutput[];
   policies?: PolicyUseOutput[];
   lifecycle?: LifecycleOutput;
+  analysis?: CapabilityAnalysisOutput;
+};
+
+type CapabilityAnalysisOutput = {
+  outcome_causes?: OutcomeCauseOutput[];
+};
+
+type OutcomeCauseOutput = {
+  outcome?: string;
+  source?: string;
+  condition?: string;
+  precedence?: number;
 };
 
 type ContextOutput = {
@@ -250,7 +275,27 @@ function summarizeCapability(
     lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails
       ? { begin, ends, steps, transitions, stepDetails, transitionDetails }
       : undefined,
+    causation: summarizeCausation(capability.analysis),
     itemLocations: summarizeItemLocations(capability, effectivePolicies, symbolLocations, context),
+  };
+}
+
+function summarizeCausation(analysis: CapabilityAnalysisOutput | undefined): CapabilityCausationSummary | undefined {
+  const outcomeCauses = nonEmpty(arrayItems(analysis?.outcome_causes).map(summarizeOutcomeCause));
+  return outcomeCauses ? { outcomeCauses } : undefined;
+}
+
+function summarizeOutcomeCause(cause: OutcomeCauseOutput | undefined): OutcomeCauseSummary | undefined {
+  if (!cause?.outcome || !cause.source) return undefined;
+  const separator = cause.source.indexOf(":");
+  const sourceKind = separator >= 0 ? cause.source.slice(0, separator) : cause.source;
+  const sourceName = separator >= 0 ? cause.source.slice(separator + 1) : undefined;
+  return {
+    outcome: cause.outcome,
+    sourceKind,
+    sourceName: sourceName || undefined,
+    condition: cause.condition,
+    precedence: typeof cause.precedence === "number" ? cause.precedence : 0,
   };
 }
 

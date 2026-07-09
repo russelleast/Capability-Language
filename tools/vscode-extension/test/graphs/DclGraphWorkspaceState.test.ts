@@ -26,6 +26,19 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.graph?.nodes[0]).toMatchObject({ id: "capability:acceptorder" });
   });
 
+  it("selects the first capability for cause and effect graph", () => {
+    const state = buildGraphWorkspaceState(summary({
+      capabilities: [{
+        name: "AcceptOrder",
+        causation: { outcomeCauses: [{ outcome: "Accepted", sourceKind: "capability", sourceName: "AcceptOrder", condition: "otherwise", precedence: 0 }] },
+      }],
+    }), { graphType: "cause-effect" });
+
+    expect(state.subject).toBe("AcceptOrder");
+    expect(state.exportBaseName).toBe("dcl-cause-effect-accept-order");
+    expect(state.graph?.title).toBe("AcceptOrder Cause and Effect Graph");
+  });
+
   it("only offers lifecycle subjects with lifecycle data", () => {
     const state = buildGraphWorkspaceState(summary({
       capabilities: [
@@ -84,6 +97,16 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.emptyTitle).toBe("No Events Declared");
   });
 
+  it("returns friendly empty state when cause and effect graph has no explicit causation", () => {
+    const state = buildGraphWorkspaceState(summary({
+      capabilities: [{ name: "AcceptOrder" }],
+    }), { graphType: "cause-effect" });
+
+    expect(state.graph).toBeUndefined();
+    expect(state.emptyTitle).toBe("No Cause-And-Effect Relationships");
+    expect(state.emptyMessage).toMatch(/explicit when branches/);
+  });
+
   it("offers graph sync from architecture capability nodes to capability graph", () => {
     const state = buildGraphWorkspaceState(summary({
       contexts: [{ name: "Sales" }],
@@ -99,6 +122,22 @@ describe("DclGraphWorkspaceState", () => {
       focusIdentity: { kind: "capability", name: "AcceptOrder" },
     }));
     expect(state.graphSyncTargets[capability!.id].some((target) => target.graphType === "architecture")).toBe(false);
+  });
+
+  it("offers graph sync from capability identities to cause and effect graph when causation exists", () => {
+    const targets = graphSyncTargetsForIdentity(summary({
+      capabilities: [{
+        name: "AcceptOrder",
+        causation: { outcomeCauses: [{ outcome: "Accepted", sourceKind: "capability", sourceName: "AcceptOrder", condition: "otherwise", precedence: 0 }] },
+      }],
+    }), { kind: "capability", name: "AcceptOrder" }, "architecture");
+
+    expect(targets).toContainEqual(expect.objectContaining({
+      label: "Show in Cause and Effect Graph",
+      graphType: "cause-effect",
+      subject: "AcceptOrder",
+      focusIdentity: { kind: "capability", name: "AcceptOrder" },
+    }));
   });
 
   it("offers graph sync from event nodes to event flow graph", () => {

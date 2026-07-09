@@ -8,6 +8,7 @@ describe("DclGraphExport", () => {
   it.each([
     ["architecture", undefined, "dcl-architecture-overview"],
     ["capability", "PlaceOrder", "dcl-capability-place-order"],
+    ["cause-effect", "PlaceOrder", "dcl-cause-effect-place-order"],
     ["lifecycle", "OrderFulfilment", "dcl-lifecycle-order-fulfilment"],
     ["event-flow", "OrderSubmitted", "dcl-event-flow-order-submitted"],
     ["event-flow", ALL_EVENT_FLOWS, "dcl-event-flow-all-events"],

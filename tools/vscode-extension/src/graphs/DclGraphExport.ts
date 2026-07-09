@@ -8,6 +8,8 @@ export function graphExportBaseName(graphType: DclGraphWorkspaceType, subject?: 
       return "dcl-architecture-overview";
     case "capability":
       return `dcl-capability-${kebabSubject(subject)}`;
+    case "cause-effect":
+      return `dcl-cause-effect-${kebabSubject(subject)}`;
     case "lifecycle":
       return `dcl-lifecycle-${kebabSubject(subject)}`;
     case "event-flow":

@@ -57,7 +57,26 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
         lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails
             ? { begin, ends, steps, transitions, stepDetails, transitionDetails }
             : undefined,
+        causation: summarizeCausation(capability.analysis),
         itemLocations: summarizeItemLocations(capability, effectivePolicies, symbolLocations, context),
+    };
+}
+function summarizeCausation(analysis) {
+    const outcomeCauses = nonEmpty(arrayItems(analysis?.outcome_causes).map(summarizeOutcomeCause));
+    return outcomeCauses ? { outcomeCauses } : undefined;
+}
+function summarizeOutcomeCause(cause) {
+    if (!cause?.outcome || !cause.source)
+        return undefined;
+    const separator = cause.source.indexOf(":");
+    const sourceKind = separator >= 0 ? cause.source.slice(0, separator) : cause.source;
+    const sourceName = separator >= 0 ? cause.source.slice(separator + 1) : undefined;
+    return {
+        outcome: cause.outcome,
+        sourceKind,
+        sourceName: sourceName || undefined,
+        condition: cause.condition,
+        precedence: typeof cause.precedence === "number" ? cause.precedence : 0,
     };
 }
 function summarizeItemLocations(capability, effectivePolicies, symbolLocations, context) {

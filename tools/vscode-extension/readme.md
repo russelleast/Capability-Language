@@ -58,10 +58,13 @@ Event Flow and Lifecycle graph views:
 
 - Architecture Overview
 - Capability Graph
+- Cause and Effect Graph
 - Lifecycle Graph
 - Event Flow Graph
 - Context Map
 - SVG and PNG graph export
+
+The cause-and-effect graph shows how intents, rules, policies, effects and outcomes are causally connected. Entry edges such as intent starts capability are shown for orientation, but outcomes, events, and lifecycle movement are only connected when causation is explicit in source or compiler IR.
 
 ### Language Intelligence
 
@@ -86,6 +89,7 @@ Event Flow and Lifecycle graph views:
 - `DCL: Open Graph Workspace`
 - `DCL: Show Architecture Overview`
 - `DCL: Show Capability Graph`
+- `DCL: Show Cause and Effect Graph`
 - `DCL: Show Lifecycle Graph`
 - `DCL: Show Event Flow Graph`
 - `DCL: Show Context Map`

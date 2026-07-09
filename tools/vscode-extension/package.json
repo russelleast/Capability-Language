@@ -57,6 +57,7 @@
     "onCommand:dcl.focusGraphFromExplorer",
     "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
+    "onCommand:dcl.showCauseEffectGraph",
     "onCommand:dcl.showContextMap",
     "onCommand:dcl.showEventFlowGraph",
     "onCommand:dcl.showLifecycleGraph",
@@ -189,6 +190,11 @@
       {
         "command": "dcl.showCapabilityGraph",
         "title": "DCL: Show Capability Graph",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showCauseEffectGraph",
+        "title": "DCL: Show Cause and Effect Graph",
         "category": "DCL"
       },
       {
@@ -331,6 +337,9 @@
           "command": "dcl.showCapabilityGraph"
         },
         {
+          "command": "dcl.showCauseEffectGraph"
+        },
+        {
           "command": "dcl.showContextMap"
         },
         {
@@ -435,6 +444,11 @@
           "command": "dcl.showCapabilityGraph",
           "when": "view == dclExplorer && viewItem == dclExplorer.capability.located.lifecycle.events",
           "group": "inline"
+        },
+        {
+          "command": "dcl.showCauseEffectGraph",
+          "when": "view == dclExplorer && viewItem =~ /dclExplorer\\.capability.*/",
+          "group": "inline@3"
         },
         {
           "command": "dcl.showEventFlowGraph",

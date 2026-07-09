@@ -305,6 +305,9 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     .toolbar button.primary:hover { background: var(--vscode-button-hoverBackground); }
     .toolbar button:disabled { opacity: 0.55; cursor: default; }
     .graph-status { box-sizing: border-box; min-height: 22px; display: flex; align-items: center; gap: 12px; padding: 3px 10px; border-bottom: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .graph-note { box-sizing: border-box; padding: 6px 10px; border-bottom: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 11px; line-height: 1.4; }
+    .graph-warnings { box-sizing: border-box; padding: 6px 10px; border-bottom: 1px solid var(--vscode-panel-border); color: var(--vscode-editorWarning-foreground, #cca700); font-size: 11px; line-height: 1.4; }
+    .graph-warnings ul { margin: 4px 0 0 18px; padding: 0; }
     .content { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1fr) 290px; width: 100vw; min-height: 0; }
     #graph { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
     .empty-state { display: grid; place-items: center; height: 100%; padding: 24px; box-sizing: border-box; text-align: center; }
@@ -372,7 +375,9 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       <button id="center-selection" type="button" title="Center selected node" aria-label="Center selected node"${graph ? "" : " disabled"}>Center</button>
     </div>
   </header>
-  <div class="graph-status" aria-live="polite">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships` : "No graph"}</div>
+  <div class="graph-status" aria-live="polite">${graph ? `${graph.nodes.length} nodes, ${graph.edges.length} relationships${graph.warnings?.length ? `, ${graph.warnings.length} warning${graph.warnings.length === 1 ? "" : "s"}` : ""}` : "No graph"}</div>
+  ${graph?.description ? `<div class="graph-note">${escapeHtml(graph.description)}</div>` : ""}
+  ${graph?.warnings?.length ? `<div class="graph-warnings"><strong>Warnings</strong><ul>${graph.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></div>` : ""}
   <main class="content">
     <section id="graph" aria-label="DCL graph workspace">
       ${graph ? "" : `<div class="empty-state"><div><h1>${escapeHtml(state.emptyTitle ?? "No Graph Available")}</h1><p>${escapeHtml(state.emptyMessage ?? "Compile DCL or choose another graph subject.")}</p><button id="empty-compile" class="primary" type="button">Compile Workspace</button></div></div>`}
@@ -502,6 +507,9 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     }
 
     function layoutOptions() {
+      if (workspaceState.graphType === 'cause-effect') {
+        return { name: 'preset', positions: causeEffectPositions(), padding: 48, animate: false };
+      }
       if (workspaceState.graphType === 'capability' && layoutMode === 'radial') {
         const capabilityId = graph.nodes.find((node) => node.kind === 'capability')?.id;
         return { name: 'concentric', concentric: (node) => node.id() === capabilityId ? 3 : 1, levelWidth: () => 1, minNodeSpacing: 42, padding: 36, animate: false };
@@ -525,6 +533,28 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
           nodes.forEach((node, index) => node.position({ x: 40 + (index % columns) * columnWidth, y: startY + kindIndex * rowHeight + Math.floor(index / columns) * 74 }));
         });
       });
+    }
+
+    function causeEffectPositions() {
+      const order = ['intent', 'capability', 'rule', 'policy', 'effect', 'outcome', 'event', 'lifecycle-transition', 'step', 'terminal-step'];
+      const byKind = new Map();
+      for (const node of graph.nodes) {
+        const kind = node.kind;
+        if (!byKind.has(kind)) byKind.set(kind, []);
+        byKind.get(kind).push(node);
+      }
+      const positions = {};
+      const columnWidth = 190;
+      const rowHeight = 106;
+      for (const [kind, nodes] of byKind.entries()) {
+        const column = Math.max(0, order.indexOf(kind));
+        const sorted = nodes.slice().sort((a, b) => String(a.label).localeCompare(String(b.label)) || String(a.id).localeCompare(String(b.id)));
+        const startY = -((sorted.length - 1) * rowHeight) / 2;
+        sorted.forEach((node, index) => {
+          positions[node.id] = { x: column * columnWidth, y: startY + index * rowHeight };
+        });
+      }
+      return positions;
     }
 
     function fitVisible() {
@@ -757,7 +787,8 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         { selector: 'node.external-context', style: { 'background-color': '#6e7681', 'border-color': '#9da7b3' } },
         { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#f2cc60', 'overlay-color': '#f2cc60', 'overlay-opacity': 0.16 } },
         { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'line-color': '#6e7681', 'target-arrow-color': '#6e7681', 'font-size': 9, 'color': '#9da7b3', 'text-background-color': editorBackground, 'text-background-opacity': 1, 'text-background-padding': 2, 'width': 1.4 } },
-        { selector: 'edge[kind *= "contains"], edge[kind = "begins"]', style: { 'line-style': 'dashed' } }
+        { selector: 'edge[kind *= "contains"], edge[kind = "begins"], edge[kind = "lifecycle-target"]', style: { 'line-style': 'dashed' } },
+        { selector: 'edge[kind = "entry"]', style: { 'line-style': 'dashed', 'line-color': '#4f6bed', 'target-arrow-color': '#4f6bed', 'color': '#9db0ff', 'width': 1.2 } }
       ];
     }
   </script>
@@ -805,7 +836,8 @@ function isGraphWorkspaceType(value: unknown): value is DclGraphWorkspaceType {
     || value === "capability"
     || value === "lifecycle"
     || value === "event-flow"
-    || value === "context-map";
+    || value === "context-map"
+    || value === "cause-effect";
 }
 
 function isSemanticIdentity(value: unknown): value is DclSemanticIdentity {

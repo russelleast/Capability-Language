@@ -5,6 +5,7 @@ exports.buildGraphWorkspaceState = buildGraphWorkspaceState;
 exports.graphSyncTargetsForIdentity = graphSyncTargetsForIdentity;
 const DclArchitectureOverviewGraphBuilder_1 = require("./DclArchitectureOverviewGraphBuilder");
 const DclCapabilityGraphBuilder_1 = require("./DclCapabilityGraphBuilder");
+const DclCauseEffectGraphBuilder_1 = require("./DclCauseEffectGraphBuilder");
 const DclContextMapGraphBuilder_1 = require("./DclContextMapGraphBuilder");
 const DclEventFlowGraphBuilder_1 = require("./DclEventFlowGraphBuilder");
 const DclGraphExport_1 = require("./DclGraphExport");
@@ -83,6 +84,7 @@ function graphSelectionsForIdentity(summary, identity) {
     }
     for (const subject of capabilitySubjectsForIdentity(summary, identity)) {
         selections.push({ graphType: "capability", subject, focusIdentity: identity });
+        selections.push({ graphType: "cause-effect", subject, focusIdentity: identity });
     }
     if (identity.kind === "event") {
         selections.push({ graphType: "event-flow", subject: identity.name, focusIdentity: identity });
@@ -157,6 +159,8 @@ function showInLabel(graphType) {
             return "Show in Event Flow Graph";
         case "context-map":
             return "Show in Context Map";
+        case "cause-effect":
+            return "Show in Cause and Effect Graph";
     }
 }
 function buildSelectedGraph(summary, graphType, subject, architectureDetailLevel) {
@@ -167,6 +171,8 @@ function buildSelectedGraph(summary, graphType, subject, architectureDetailLevel
                 : undefined;
         case "capability":
             return subject ? (0, DclCapabilityGraphBuilder_1.buildCapabilityGraph)(summary, subject) : undefined;
+        case "cause-effect":
+            return subject ? (0, DclCauseEffectGraphBuilder_1.buildCauseEffectGraph)(summary, subject) : undefined;
         case "lifecycle":
             return subject ? (0, DclLifecycleGraphBuilder_1.buildLifecycleGraph)(summary, subject) : undefined;
         case "event-flow":
@@ -187,6 +193,7 @@ function subjectOptions(summary, graphType) {
         case "architecture":
             return [];
         case "capability":
+        case "cause-effect":
             return summary.capabilities.map((capability) => ({
                 label: capability.name,
                 value: capability.name,
@@ -268,12 +275,20 @@ function emptyState(summary, graphType, subject) {
                 title: "No Contexts Declared",
                 message: "The compiled semantic summary does not include declared contexts.",
             };
+        case "cause-effect":
+            return {
+                title: "No Cause-And-Effect Relationships",
+                message: summary.capabilities.length
+                    ? `No explicit cause-and-effect relationships are available for '${subject ?? ""}'. Add explicit when branches, outcome-scoped emits, effects, policies, or lifecycle declarations.`
+                    : "The compiled semantic summary does not include capabilities.",
+            };
     }
 }
 function graphTypeOptions() {
     return [
         { label: "Architecture Overview", value: "architecture" },
         { label: "Capability Graph", value: "capability" },
+        { label: "Cause and Effect Graph", value: "cause-effect" },
         { label: "Lifecycle Graph", value: "lifecycle" },
         { label: "Event Flow Graph", value: "event-flow" },
         { label: "Context Map", value: "context-map" },

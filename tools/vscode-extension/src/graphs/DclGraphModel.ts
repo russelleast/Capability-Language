@@ -20,6 +20,8 @@ export type DclGraphEdge = {
 
 export type DclGraphModel = {
   title: string;
+  description?: string;
+  warnings?: string[];
   nodes: DclGraphNode[];
   edges: DclGraphEdge[];
 };
