@@ -58,10 +58,19 @@ Event Flow and Lifecycle graph views:
 
 - Architecture Overview
 - Capability Graph
+- Capability Map
+- Capability Influence Graph
+- Cause and Effect Graph
 - Lifecycle Graph
 - Event Flow Graph
 - Context Map
 - SVG and PNG graph export
+
+The Capability Map shows declared capabilities grouped by DCL context. It is a business responsibility map, not an implementation, dependency, runtime, service, or infrastructure diagram. Contexts are shown as labelled containers, capabilities are shown as tiles, and badges indicate available semantic metadata such as lifecycle, effects, events, policies, and compiler analysis warnings.
+
+The Capability Influence Graph shows explicit compiler-derived semantic influence between capabilities. It does not show all dependencies, shared ownership, similarity, or implementation coupling. Thicker arrows indicate stronger explicit semantic influence from compiler-derived evidence such as lifecycle supervision, event-triggered transitions, effect targets, policy constraints, explicit capability references, or concrete context dependency references. It does not infer influence from naming, folder layout, shared actors, or context proximity.
+
+The cause-and-effect graph shows how intents, rules, policies, effects and outcomes are causally connected. Entry edges such as intent starts capability are shown for orientation, but outcomes, events, and lifecycle movement are only connected when causation is explicit in source or compiler IR.
 
 ### Language Intelligence
 
@@ -86,6 +95,9 @@ Event Flow and Lifecycle graph views:
 - `DCL: Open Graph Workspace`
 - `DCL: Show Architecture Overview`
 - `DCL: Show Capability Graph`
+- `DCL: Show Capability Map`
+- `DCL: Show Capability Influence Graph`
+- `DCL: Show Cause and Effect Graph`
 - `DCL: Show Lifecycle Graph`
 - `DCL: Show Event Flow Graph`
 - `DCL: Show Context Map`

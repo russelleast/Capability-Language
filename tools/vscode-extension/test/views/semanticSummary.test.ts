@@ -31,6 +31,98 @@ describe("semantic summary normalization", () => {
     expect(summary.lifecycles?.map((item) => item.label)).toEqual(["AcceptOrder"]);
   });
 
+  it("normalizes compiler outcome causation from capability analysis", () => {
+    const summary = summarizeCompilerOutput({
+      capabilities: [{
+        name: "AcceptOrder",
+        analysis: {
+          outcome_causes: [
+            { outcome: "Rejected", source: "rule:TermsAccepted", condition: "violated", precedence: 0 },
+            { outcome: "Accepted", source: "capability:AcceptOrder", condition: "otherwise", precedence: 1 },
+          ],
+        },
+      }],
+    });
+
+    expect(summary.capabilities[0].causation?.outcomeCauses).toEqual([
+      { outcome: "Rejected", sourceKind: "rule", sourceName: "TermsAccepted", condition: "violated", precedence: 0 },
+      { outcome: "Accepted", sourceKind: "capability", sourceName: "AcceptOrder", condition: "otherwise", precedence: 1 },
+    ]);
+  });
+
+  it("preserves semantic influence evidence fields", () => {
+    const summary = summarizeCompilerOutput({
+      dependencies: [{
+        source_context: "Sales",
+        target_context: "Shared",
+        referenced_symbols: ["Shared.AuthorizePayment"],
+      }],
+      effective_policies: [{
+        containing_capability: "PlaceOrder",
+        applied_policies: ["PaymentConstraint"],
+        target_kind: "capability",
+        target_symbol: "AuthorizePayment",
+      }],
+      capabilities: [{
+        name: "PlaceOrder",
+        effects: [{ effect: "ReserveStock", target_kind: "capability", target_name: "AllocateStock" }],
+        policies: [{ policy: "OrderPolicy", target_kind: "capability", target_name: "AuthorizePayment" }],
+        lifecycle: {
+          participating_capabilities: ["AuthorizePayment"],
+          contributors: [{ capability: "AllocateStock", used_by_transitions: ["Requested -> Allocated"] }],
+        },
+        relations: [{ kind: "depends_on", from: "PlaceOrder", to: "AuthorizePayment", condition: "required" }],
+      }],
+    });
+
+    expect(summary.dependencies).toEqual([{
+      sourceContext: "Sales",
+      targetContext: "Shared",
+      referencedSymbols: ["Shared.AuthorizePayment"],
+    }]);
+    expect(summary.capabilities[0].effectDetails).toEqual([{
+      effect: "ReserveStock",
+      targetKind: "capability",
+      targetName: "AllocateStock",
+    }]);
+    expect(summary.capabilities[0].policyDetails).toEqual([
+      { policy: "OrderPolicy", targetKind: "capability", targetName: "AuthorizePayment" },
+      { policy: "PaymentConstraint", targetKind: "capability", targetName: "AuthorizePayment" },
+    ]);
+    expect(summary.capabilities[0].lifecycle?.participatingCapabilities).toEqual(["AuthorizePayment"]);
+    expect(summary.capabilities[0].lifecycle?.contributors).toEqual([{
+      capability: "AllocateStock",
+      usedByTransitions: ["Requested -> Allocated"],
+    }]);
+    expect(summary.capabilities[0].relations).toEqual([{
+      kind: "depends_on",
+      from: "PlaceOrder",
+      to: "AuthorizePayment",
+      condition: "required",
+    }]);
+  });
+
+  it("normalizes compiler diagnostics for semantic visual metadata", () => {
+    const summary = summarizeCompilerOutput({
+      diagnostics: [{
+        code: "DCL_SEM_WARNING",
+        severity: "warning",
+        message: "Ambiguous analysis warning",
+        node: "AssessClaim",
+        span: { file: "claims.dcl", line: 4, column: 2 },
+      }],
+      capabilities: [{ name: "AssessClaim" }],
+    });
+
+    expect(summary.diagnostics).toEqual([{
+      code: "DCL_SEM_WARNING",
+      severity: "warning",
+      message: "Ambiguous analysis warning",
+      node: "AssessClaim",
+      location: { file: "claims.dcl", line: 4, column: 2, indexBase: "oneBased" },
+    }]);
+  });
+
   it("handles missing optional arrays and invalid summary shapes", () => {
     expect(summarizeCompilerOutput({}).capabilities).toEqual([]);
     const summary = summarizeCompilerOutput(fixture("invalid-summary-shape.json"));

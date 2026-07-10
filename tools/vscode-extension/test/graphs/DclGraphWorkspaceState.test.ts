@@ -26,6 +26,48 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.graph?.nodes[0]).toMatchObject({ id: "capability:acceptorder" });
   });
 
+  it("selects the first capability for cause and effect graph", () => {
+    const state = buildGraphWorkspaceState(summary({
+      capabilities: [{
+        name: "AcceptOrder",
+        causation: { outcomeCauses: [{ outcome: "Accepted", sourceKind: "capability", sourceName: "AcceptOrder", condition: "otherwise", precedence: 0 }] },
+      }],
+    }), { graphType: "cause-effect" });
+
+    expect(state.subject).toBe("AcceptOrder");
+    expect(state.exportBaseName).toBe("dcl-cause-effect-accept-order");
+    expect(state.graph?.title).toBe("AcceptOrder Cause and Effect Graph");
+  });
+
+  it("builds the capability map as a separate visual without a subject", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }), { graphType: "capability-map" });
+
+    expect(state.graphType).toBe("capability-map");
+    expect(state.subject).toBeUndefined();
+    expect(state.graph).toBeUndefined();
+    expect(state.capabilityMap?.title).toBe("DCL Capability Map");
+    expect(state.exportBaseName).toBe("dcl-capability-map");
+    expect(state.graphTypes).toContainEqual({ label: "Capability Map", value: "capability-map" });
+  });
+
+  it("builds the capability influence graph without a subject", () => {
+    const state = buildGraphWorkspaceState(summary({
+      capabilities: [
+        { name: "StartJob" },
+        { name: "ManageJob", lifecycle: { transitionDetails: [{ from: "Queued", to: "Started", sourceCapability: "StartJob" }] } },
+      ],
+    }), { graphType: "capability-influence" });
+
+    expect(state.graphType).toBe("capability-influence");
+    expect(state.subject).toBeUndefined();
+    expect(state.graph?.title).toBe("DCL Capability Influence Graph");
+    expect(state.exportBaseName).toBe("dcl-capability-influence-graph");
+    expect(state.graphTypes).toContainEqual({ label: "Capability Influence Graph", value: "capability-influence" });
+  });
+
   it("only offers lifecycle subjects with lifecycle data", () => {
     const state = buildGraphWorkspaceState(summary({
       capabilities: [
@@ -84,6 +126,40 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.emptyTitle).toBe("No Events Declared");
   });
 
+  it("returns friendly empty state when cause and effect graph has no explicit causation", () => {
+    const state = buildGraphWorkspaceState(summary({
+      capabilities: [{ name: "AcceptOrder" }],
+    }), { graphType: "cause-effect" });
+
+    expect(state.graph).toBeUndefined();
+    expect(state.emptyTitle).toBe("No Cause-And-Effect Relationships");
+    expect(state.emptyMessage).toMatch(/explicit when branches/);
+  });
+
+  it("returns friendly empty state when capability map has no capabilities", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "Sales" }],
+      capabilities: [],
+    }), { graphType: "capability-map" });
+
+    expect(state.capabilityMap).toBeUndefined();
+    expect(state.emptyTitle).toBe("No Capabilities Found");
+  });
+
+  it("returns friendly empty states for capability influence graph", () => {
+    const notEnough = buildGraphWorkspaceState(summary({
+      capabilities: [{ name: "OnlyOne" }],
+    }), { graphType: "capability-influence" });
+    const none = buildGraphWorkspaceState(summary({
+      capabilities: [{ name: "A" }, { name: "B" }],
+    }), { graphType: "capability-influence" });
+
+    expect(notEnough.emptyTitle).toBe("Not Enough Capabilities");
+    expect(notEnough.emptyMessage).toMatch(/explicit semantic influence/i);
+    expect(none.emptyTitle).toBe("No Explicit Capability Influence Found");
+    expect(none.emptyMessage).toMatch(/explicit compiler-derived semantic influence/i);
+  });
+
   it("offers graph sync from architecture capability nodes to capability graph", () => {
     const state = buildGraphWorkspaceState(summary({
       contexts: [{ name: "Sales" }],
@@ -99,6 +175,37 @@ describe("DclGraphWorkspaceState", () => {
       focusIdentity: { kind: "capability", name: "AcceptOrder" },
     }));
     expect(state.graphSyncTargets[capability!.id].some((target) => target.graphType === "architecture")).toBe(false);
+  });
+
+  it("offers graph sync from architecture capability nodes to capability map", () => {
+    const state = buildGraphWorkspaceState(summary({
+      contexts: [{ name: "Sales" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }],
+    }), { graphType: "architecture" });
+    const capability = state.graph?.nodes.find((node) => node.semanticIdentity?.kind === "capability");
+
+    expect(capability).toBeDefined();
+    expect(state.graphSyncTargets[capability!.id]).toContainEqual(expect.objectContaining({
+      label: "Show in Capability Map",
+      graphType: "capability-map",
+      focusIdentity: { kind: "capability", name: "AcceptOrder" },
+    }));
+  });
+
+  it("offers graph sync from capability identities to cause and effect graph when causation exists", () => {
+    const targets = graphSyncTargetsForIdentity(summary({
+      capabilities: [{
+        name: "AcceptOrder",
+        causation: { outcomeCauses: [{ outcome: "Accepted", sourceKind: "capability", sourceName: "AcceptOrder", condition: "otherwise", precedence: 0 }] },
+      }],
+    }), { kind: "capability", name: "AcceptOrder" }, "architecture");
+
+    expect(targets).toContainEqual(expect.objectContaining({
+      label: "Show in Cause and Effect Graph",
+      graphType: "cause-effect",
+      subject: "AcceptOrder",
+      focusIdentity: { kind: "capability", name: "AcceptOrder" },
+    }));
   });
 
   it("offers graph sync from event nodes to event flow graph", () => {

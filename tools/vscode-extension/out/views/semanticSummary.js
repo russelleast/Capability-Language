@@ -15,12 +15,34 @@ function summarizeCompilerOutput(output) {
     return {
         capabilities: summarizedCapabilities,
         contexts: normalizeContextsForDisplay(summarizeContexts(program.contexts, symbolLocations), summarizedCapabilities, symbols),
+        dependencies: summarizeDependencies(program.dependencies),
         actors: topLevelItems(program.actors, "actor", symbolLocations),
         policies: topLevelItems(program.policies, "policy", symbolLocations),
         effects: topLevelItems(program.effects, "effect", symbolLocations),
         events: topLevelItems(program.events, "event", symbolLocations),
         lifecycles: nonEmpty(capabilities.map(formatLifecycleItem)),
+        diagnostics: summarizeDiagnostics(program.diagnostics),
     };
+}
+function summarizeDiagnostics(diagnostics) {
+    if (!Array.isArray(diagnostics))
+        return undefined;
+    return nonEmpty(diagnostics.map((diagnostic) => {
+        if (!isObject(diagnostic) || !diagnostic.message)
+            return undefined;
+        return {
+            code: diagnostic.code,
+            severity: diagnosticSeverity(diagnostic.severity),
+            message: diagnostic.message,
+            node: diagnostic.node,
+            location: normalizedCompilerLocation(diagnostic.span),
+        };
+    }));
+}
+function diagnosticSeverity(value) {
+    if (value === "error" || value === "warning" || value === "info")
+        return value;
+    return "info";
 }
 function summarizeCapability(capability, effectivePolicies, symbolLocations) {
     const name = capability.name ?? "Unnamed capability";
@@ -29,6 +51,8 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
     const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
     const stepDetails = nonEmpty(capability.lifecycle?.steps?.map(summarizeLifecycleStep));
     const transitionDetails = nonEmpty(capability.lifecycle?.transitions?.map(summarizeLifecycleTransition));
+    const contributors = nonEmpty(capability.lifecycle?.contributors?.map(summarizeLifecycleContributor));
+    const participatingCapabilities = nonEmpty(arrayItems(capability.lifecycle?.participating_capabilities));
     const eventDetails = nonEmpty([
         ...arrayItems(capability.emitted_events).map(summarizeEmittedEvent),
         ...arrayItems(capability.events).map(summarizeEventEmission),
@@ -45,6 +69,7 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
         outcomes: nonEmpty(arrayItems(capability.outcomes).map((outcome) => isObject(outcome) ? outcome.name : undefined)),
         rules: nonEmpty(arrayItems(capability.invariants).map((rule) => isObject(rule) ? rule.name : undefined)),
         effects: nonEmpty(arrayItems(capability.effects).map(formatEffectUse)),
+        effectDetails: nonEmpty(arrayItems(capability.effects).map(summarizeEffectUse)),
         events: nonEmpty([
             ...arrayItems(capability.emitted_events).map((event) => isObject(event) ? event.event : undefined),
             ...arrayItems(capability.events).map(formatEventEmission),
@@ -54,10 +79,34 @@ function summarizeCapability(capability, effectivePolicies, symbolLocations) {
             ...arrayItems(capability.policies).map(formatPolicyUse),
             ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
         ]),
-        lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails
-            ? { begin, ends, steps, transitions, stepDetails, transitionDetails }
+        policyDetails: nonEmpty([
+            ...arrayItems(capability.policies).map(summarizePolicyUse),
+            ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(summarizeEffectivePolicy),
+        ]),
+        lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails || contributors || participatingCapabilities
+            ? { begin, ends, steps, transitions, stepDetails, transitionDetails, contributors, participatingCapabilities }
             : undefined,
+        relations: nonEmpty(arrayItems(capability.relations).map(summarizeRelation)),
+        causation: summarizeCausation(capability.analysis),
         itemLocations: summarizeItemLocations(capability, effectivePolicies, symbolLocations, context),
+    };
+}
+function summarizeCausation(analysis) {
+    const outcomeCauses = nonEmpty(arrayItems(analysis?.outcome_causes).map(summarizeOutcomeCause));
+    return outcomeCauses ? { outcomeCauses } : undefined;
+}
+function summarizeOutcomeCause(cause) {
+    if (!cause?.outcome || !cause.source)
+        return undefined;
+    const separator = cause.source.indexOf(":");
+    const sourceKind = separator >= 0 ? cause.source.slice(0, separator) : cause.source;
+    const sourceName = separator >= 0 ? cause.source.slice(separator + 1) : undefined;
+    return {
+        outcome: cause.outcome,
+        sourceKind,
+        sourceName: sourceName || undefined,
+        condition: cause.condition,
+        precedence: typeof cause.precedence === "number" ? cause.precedence : 0,
     };
 }
 function summarizeItemLocations(capability, effectivePolicies, symbolLocations, context) {
@@ -118,6 +167,19 @@ function summarizeContexts(contexts, symbolLocations) {
         dependencies: nonEmpty(arrayItems(context.dependencies)),
         location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined));
+}
+function summarizeDependencies(dependencies) {
+    if (!Array.isArray(dependencies))
+        return undefined;
+    return nonEmpty(dependencies.map((dependency) => {
+        if (!isObject(dependency) || !dependency.source_context || !dependency.target_context)
+            return undefined;
+        return {
+            sourceContext: dependency.source_context,
+            targetContext: dependency.target_context,
+            referencedSymbols: nonEmpty(arrayItems(dependency.referenced_symbols)),
+        };
+    }));
 }
 function normalizeContextsForDisplay(contexts, capabilities, symbols = []) {
     const result = (contexts ?? []).filter((context) => {
@@ -275,6 +337,32 @@ function formatEffectivePolicy(policy) {
     const target = [policy.target_kind, policy.target_symbol].filter(Boolean).join(" ");
     return arrayItems(policy.applied_policies).map((name) => (target ? `${name} applies to ${target}` : name));
 }
+function summarizeEffectUse(effect) {
+    if (!effect?.effect)
+        return undefined;
+    return {
+        effect: effect.effect,
+        after: effect.after,
+        targetKind: effect.target_kind,
+        targetName: effect.target_name ?? effect.target_symbol,
+    };
+}
+function summarizePolicyUse(policy) {
+    if (!policy?.policy)
+        return undefined;
+    return {
+        policy: policy.policy,
+        targetKind: policy.target_kind,
+        targetName: policy.target_name,
+    };
+}
+function summarizeEffectivePolicy(policy) {
+    return arrayItems(policy.applied_policies).map((name) => ({
+        policy: name,
+        targetKind: policy.target_kind,
+        targetName: policy.target_symbol,
+    }));
+}
 function formatLifecycleStep(step) {
     if (!step?.name)
         return undefined;
@@ -306,6 +394,26 @@ function summarizeLifecycleTransition(transition) {
         triggerKind: transition.trigger_kind,
         triggerName: transition.trigger_name,
         sourceCapability: transition.source_capability,
+    };
+}
+function summarizeLifecycleContributor(contributor) {
+    if (!contributor?.capability)
+        return undefined;
+    return {
+        capability: contributor.capability,
+        usedByTransitions: nonEmpty(arrayItems(contributor.used_by_transitions)),
+        usedByWaitingSteps: nonEmpty(arrayItems(contributor.used_by_waiting_steps)),
+        usedByRecovery: nonEmpty(arrayItems(contributor.used_by_recovery)),
+    };
+}
+function summarizeRelation(relation) {
+    if (!relation?.kind || !relation.from || !relation.to)
+        return undefined;
+    return {
+        kind: relation.kind,
+        from: relation.from,
+        to: relation.to,
+        condition: relation.condition,
     };
 }
 function summarizeEmittedEvent(event) {

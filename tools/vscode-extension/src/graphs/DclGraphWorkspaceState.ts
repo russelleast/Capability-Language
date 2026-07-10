@@ -1,5 +1,8 @@
 import { buildArchitectureOverviewGraph, ArchitectureOverviewDetailLevel } from "./DclArchitectureOverviewGraphBuilder";
 import { buildCapabilityGraph } from "./DclCapabilityGraphBuilder";
+import { buildCapabilityInfluenceGraph } from "./DclCapabilityInfluenceGraphBuilder";
+import { buildCapabilityMap, capabilityMapItems, DclCapabilityMapModel, findCapabilityMapItemBySemanticIdentity } from "./DclCapabilityMapBuilder";
+import { buildCauseEffectGraph } from "./DclCauseEffectGraphBuilder";
 import { buildContextMapGraph } from "./DclContextMapGraphBuilder";
 import { buildEventFlowGraph } from "./DclEventFlowGraphBuilder";
 import { graphExportBaseName } from "./DclGraphExport";
@@ -8,7 +11,7 @@ import { DclGraphModel } from "./DclGraphModel";
 import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "./DclSemanticIdentity";
 import { normalizeContextsForDisplay, SemanticSummary } from "../views/semanticSummary";
 
-export type DclGraphWorkspaceType = "architecture" | "capability" | "lifecycle" | "event-flow" | "context-map";
+export type DclGraphWorkspaceType = "architecture" | "capability" | "capability-map" | "capability-influence" | "lifecycle" | "event-flow" | "context-map" | "cause-effect";
 
 export const ALL_EVENT_FLOWS = "__all_event_flows__";
 export const ALL_CONTEXTS = "__all_contexts__";
@@ -41,6 +44,7 @@ export type DclGraphWorkspaceState = {
   subjects: DclGraphWorkspaceOption[];
   architectureDetailLevel: ArchitectureOverviewDetailLevel;
   graph?: DclGraphModel;
+  capabilityMap?: DclCapabilityMapModel;
   focusNodeId?: string;
   graphSyncTargets: Record<string, DclGraphWorkspaceSyncTarget[]>;
   exportBaseName: string;
@@ -57,7 +61,8 @@ export function buildGraphWorkspaceState(
   const subjects = subjectOptions(summary, graphType);
   const subject = selectedSubject(selection.subject, subjects, graphType);
   const graph = buildSelectedGraph(summary, graphType, subject, architectureDetailLevel);
-  const empty = graph ? undefined : emptyState(summary, graphType, subject);
+  const capabilityMap = graphType === "capability-map" ? buildCapabilityMap(summary) : undefined;
+  const empty = graph || capabilityMap ? undefined : emptyState(summary, graphType, subject);
 
   return {
     graphType,
@@ -66,8 +71,14 @@ export function buildGraphWorkspaceState(
     subjects,
     architectureDetailLevel,
     graph,
-    focusNodeId: findGraphNodeBySemanticIdentity(graph, selection.focusIdentity)?.id,
-    graphSyncTargets: graph ? graphSyncTargetsByNode(summary, graph, graphType) : {},
+    capabilityMap,
+    focusNodeId: findGraphNodeBySemanticIdentity(graph, selection.focusIdentity)?.id
+      ?? findCapabilityMapItemBySemanticIdentity(capabilityMap, selection.focusIdentity)?.id,
+    graphSyncTargets: graph
+      ? graphSyncTargetsByNode(summary, graph, graphType)
+      : capabilityMap
+        ? graphSyncTargetsByMapItem(summary, capabilityMap, graphType)
+        : {},
     exportBaseName: graphExportBaseName(graphType, subject),
     emptyTitle: empty?.title,
     emptyMessage: empty?.message,
@@ -88,7 +99,8 @@ export function graphSyncTargetsForIdentity(
     const graphType = selection.graphType ?? "architecture";
     const architectureDetailLevel = selection.architectureDetailLevel ?? "overview";
     const graph = buildSelectedGraph(summary, graphType, selection.subject, architectureDetailLevel);
-    if (!findGraphNodeBySemanticIdentity(graph, identity)) continue;
+    const capabilityMap = graphType === "capability-map" ? buildCapabilityMap(summary) : undefined;
+    if (!findGraphNodeBySemanticIdentity(graph, identity) && !findCapabilityMapItemBySemanticIdentity(capabilityMap, identity)) continue;
 
     const key = `${graphType}:${selection.subject ?? ""}:${architectureDetailLevel}`;
     if (seen.has(key)) continue;
@@ -100,6 +112,19 @@ export function graphSyncTargetsForIdentity(
       architectureDetailLevel: selection.architectureDetailLevel,
       focusIdentity: identity,
     });
+  }
+  return targets;
+}
+
+function graphSyncTargetsByMapItem(
+  summary: SemanticSummary,
+  map: DclCapabilityMapModel,
+  currentGraphType: DclGraphWorkspaceType,
+): Record<string, DclGraphWorkspaceSyncTarget[]> {
+  const targets: Record<string, DclGraphWorkspaceSyncTarget[]> = {};
+  for (const item of capabilityMapItems(map)) {
+    const nodeTargets = graphSyncTargetsForIdentity(summary, item.semanticIdentity, currentGraphType);
+    if (nodeTargets.length) targets[item.id] = nodeTargets;
   }
   return targets;
 }
@@ -125,6 +150,8 @@ function graphSelectionsForIdentity(
 
   if (identity.kind === "context" || identity.kind === "capability") {
     selections.push({ graphType: "architecture", focusIdentity: identity });
+    selections.push({ graphType: "capability-map", focusIdentity: identity });
+    selections.push({ graphType: "capability-influence", focusIdentity: identity });
   }
   if (identity.kind === "event") {
     selections.push({ graphType: "architecture", architectureDetailLevel: "detailed", focusIdentity: identity });
@@ -135,6 +162,7 @@ function graphSelectionsForIdentity(
 
   for (const subject of capabilitySubjectsForIdentity(summary, identity)) {
     selections.push({ graphType: "capability", subject, focusIdentity: identity });
+    selections.push({ graphType: "cause-effect", subject, focusIdentity: identity });
   }
 
   if (identity.kind === "event") {
@@ -219,12 +247,18 @@ function showInLabel(graphType: DclGraphWorkspaceType): string {
       return "Show in Architecture Overview";
     case "capability":
       return "Show in Capability Graph";
+    case "capability-map":
+      return "Show in Capability Map";
+    case "capability-influence":
+      return "Show in Capability Influence Graph";
     case "lifecycle":
       return "Show in Lifecycle Graph";
     case "event-flow":
       return "Show in Event Flow Graph";
     case "context-map":
       return "Show in Context Map";
+    case "cause-effect":
+      return "Show in Cause and Effect Graph";
   }
 }
 
@@ -241,6 +275,12 @@ function buildSelectedGraph(
         : undefined;
     case "capability":
       return subject ? buildCapabilityGraph(summary, subject) : undefined;
+    case "capability-map":
+      return undefined;
+    case "capability-influence":
+      return buildCapabilityInfluenceGraph(summary);
+    case "cause-effect":
+      return subject ? buildCauseEffectGraph(summary, subject) : undefined;
     case "lifecycle":
       return subject ? buildLifecycleGraph(summary, subject) : undefined;
     case "event-flow":
@@ -256,6 +296,8 @@ function selectedSubject(
   graphType: DclGraphWorkspaceType,
 ): string | undefined {
   if (graphType === "architecture") return undefined;
+  if (graphType === "capability-map") return undefined;
+  if (graphType === "capability-influence") return undefined;
   if (requested && subjects.some((subject) => subject.value === requested)) return requested;
   return subjects[0]?.value;
 }
@@ -263,8 +305,11 @@ function selectedSubject(
 function subjectOptions(summary: SemanticSummary, graphType: DclGraphWorkspaceType): DclGraphWorkspaceOption[] {
   switch (graphType) {
     case "architecture":
+    case "capability-map":
+    case "capability-influence":
       return [];
     case "capability":
+    case "cause-effect":
       return summary.capabilities.map((capability) => ({
         label: capability.name,
         value: capability.name,
@@ -333,6 +378,21 @@ function emptyState(
           ? `No compiler summary found for capability '${subject ?? ""}'.`
           : "The compiled semantic summary does not include capabilities.",
       };
+    case "capability-map":
+      return {
+        title: "No Capabilities Found",
+        message: "The Capability Map requires declared DCL capabilities in the compiled semantic summary.",
+      };
+    case "capability-influence":
+      return summary.capabilities.length < 2
+        ? {
+          title: "Not Enough Capabilities",
+          message: "Explicit semantic influence requires at least two declared capabilities in the compiled semantic summary.",
+        }
+        : {
+          title: "No Explicit Capability Influence Found",
+          message: "The Capability Influence Graph only shows explicit compiler-derived semantic influence such as lifecycle supervision, event-triggered transitions, effect targets, policy constraints, explicit capability references, or concrete context dependency references.",
+        };
     case "lifecycle":
       return {
         title: "No Lifecycle Available",
@@ -350,6 +410,13 @@ function emptyState(
         title: "No Contexts Declared",
         message: "The compiled semantic summary does not include declared contexts.",
       };
+    case "cause-effect":
+      return {
+        title: "No Cause-And-Effect Relationships",
+        message: summary.capabilities.length
+          ? `No explicit cause-and-effect relationships are available for '${subject ?? ""}'. Add explicit when branches, outcome-scoped emits, effects, policies, or lifecycle declarations.`
+          : "The compiled semantic summary does not include capabilities.",
+      };
   }
 }
 
@@ -357,6 +424,9 @@ function graphTypeOptions(): DclGraphWorkspaceOption[] {
   return [
     { label: "Architecture Overview", value: "architecture" },
     { label: "Capability Graph", value: "capability" },
+    { label: "Capability Map", value: "capability-map" },
+    { label: "Capability Influence Graph", value: "capability-influence" },
+    { label: "Cause and Effect Graph", value: "cause-effect" },
     { label: "Lifecycle Graph", value: "lifecycle" },
     { label: "Event Flow Graph", value: "event-flow" },
     { label: "Context Map", value: "context-map" },

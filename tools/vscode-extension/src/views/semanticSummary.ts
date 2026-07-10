@@ -3,11 +3,13 @@ import { DclSourceLocation, normalizeSourceLocation as normalizeCompilerSourceLo
 export type SemanticSummary = {
   capabilities: CapabilitySummary[];
   contexts?: ContextSummary[];
+  dependencies?: ContextDependencySummary[];
   actors?: SemanticItem[];
   policies?: SemanticItem[];
   effects?: SemanticItem[];
   events?: SemanticItem[];
   lifecycles?: SemanticItem[];
+  diagnostics?: SemanticDiagnosticSummary[];
 };
 
 export type ContextSummary = {
@@ -16,6 +18,12 @@ export type ContextSummary = {
   children?: string[];
   dependencies?: string[];
   location?: SourceLocation;
+};
+
+export type ContextDependencySummary = {
+  sourceContext: string;
+  targetContext: string;
+  referencedSymbols?: string[];
 };
 
 export type SourceLocation = DclSourceLocation;
@@ -35,9 +43,11 @@ export type CapabilitySummary = {
   outcomes?: string[];
   rules?: string[];
   effects?: string[];
+  effectDetails?: EffectUseSummary[];
   events?: string[];
   eventDetails?: EventFlowSummary[];
   policies?: string[];
+  policyDetails?: PolicyUseSummary[];
   lifecycle?: {
     begin?: string;
     ends?: string[];
@@ -45,11 +55,27 @@ export type CapabilitySummary = {
     transitions?: string[];
     stepDetails?: LifecycleStepSummary[];
     transitionDetails?: LifecycleTransitionSummary[];
+    contributors?: LifecycleContributorSummary[];
+    participatingCapabilities?: string[];
   };
+  relations?: CapabilityRelationSummary[];
+  causation?: CapabilityCausationSummary;
   itemLocations?: Partial<Record<CapabilityItemKind, Record<string, SourceLocation>>>;
 };
 
 export type CapabilityItemKind = "intents" | "actors" | "outcomes" | "rules" | "effects" | "events" | "policies" | "lifecycle";
+
+export type CapabilityCausationSummary = {
+  outcomeCauses?: OutcomeCauseSummary[];
+};
+
+export type OutcomeCauseSummary = {
+  outcome: string;
+  sourceKind: string;
+  sourceName?: string;
+  condition?: string;
+  precedence: number;
+};
 
 export type LifecycleStepSummary = {
   name: string;
@@ -65,21 +91,58 @@ export type LifecycleTransitionSummary = {
   sourceCapability?: string;
 };
 
+export type LifecycleContributorSummary = {
+  capability: string;
+  usedByTransitions?: string[];
+  usedByWaitingSteps?: string[];
+  usedByRecovery?: string[];
+};
+
+export type CapabilityRelationSummary = {
+  kind: string;
+  from: string;
+  to: string;
+  condition?: string;
+};
+
+export type EffectUseSummary = {
+  effect: string;
+  after?: string;
+  targetKind?: string;
+  targetName?: string;
+};
+
+export type PolicyUseSummary = {
+  policy: string;
+  targetKind?: string;
+  targetName?: string;
+};
+
 export type EventFlowSummary = {
   event: string;
   label: string;
   sourceOutcome?: string;
 };
 
+export type SemanticDiagnosticSummary = {
+  code?: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  node?: string;
+  location?: SourceLocation;
+};
+
 type ProgramOutput = {
   capabilities?: CapabilityOutput[];
   contexts?: ContextOutput[];
+  dependencies?: DependencyOutput[];
   actors?: NamedOutput[];
   policies?: NamedOutput[];
   effects?: NamedOutput[];
   events?: NamedOutput[];
   effective_policies?: EffectivePolicyOutput[];
   symbols?: SymbolOutput[];
+  diagnostics?: DiagnosticOutput[];
 };
 
 type CapabilityOutput = {
@@ -96,6 +159,19 @@ type CapabilityOutput = {
   emitted_events?: EmittedEventOutput[];
   policies?: PolicyUseOutput[];
   lifecycle?: LifecycleOutput;
+  relations?: RelationOutput[];
+  analysis?: CapabilityAnalysisOutput;
+};
+
+type CapabilityAnalysisOutput = {
+  outcome_causes?: OutcomeCauseOutput[];
+};
+
+type OutcomeCauseOutput = {
+  outcome?: string;
+  source?: string;
+  condition?: string;
+  precedence?: number;
 };
 
 type ContextOutput = {
@@ -103,6 +179,12 @@ type ContextOutput = {
   parent?: string;
   children?: string[];
   dependencies?: string[];
+};
+
+type DependencyOutput = {
+  source_context?: string;
+  target_context?: string;
+  referenced_symbols?: string[];
 };
 
 type NamedOutput = {
@@ -127,6 +209,9 @@ type ActorRoleOutput = {
 type EffectUseOutput = {
   effect?: string;
   after?: string;
+  target_kind?: string;
+  target_name?: string;
+  target_symbol?: string;
 };
 
 type EmitOutput = {
@@ -156,6 +241,8 @@ type LifecycleOutput = {
   id?: string;
   name?: string;
   owner_capability?: string;
+  participating_capabilities?: string[];
+  contributors?: LifecycleContributorOutput[];
   initial_state?: string;
   terminal_states?: string[];
   steps?: LifecycleStepOutput[];
@@ -168,12 +255,26 @@ type LifecycleStepOutput = {
   is_terminal?: boolean;
 };
 
+type LifecycleContributorOutput = {
+  capability?: string;
+  used_by_transitions?: string[];
+  used_by_waiting_steps?: string[];
+  used_by_recovery?: string[];
+};
+
 type TransitionOutput = {
   from?: string;
   to?: string;
   trigger_kind?: string;
   trigger_name?: string;
   source_capability?: string;
+};
+
+type RelationOutput = {
+  kind?: string;
+  from?: string;
+  to?: string;
+  condition?: string;
 };
 
 export type SymbolOutput = {
@@ -189,6 +290,14 @@ type SourceLocationOutput = {
   column?: number;
 };
 
+type DiagnosticOutput = {
+  code?: string;
+  severity?: string;
+  message?: string;
+  node?: string;
+  span?: SourceLocationOutput;
+};
+
 type SymbolLocationIndex = Map<string, SourceLocation>;
 
 export function summarizeCompilerOutput(output: unknown): SemanticSummary {
@@ -202,12 +311,36 @@ export function summarizeCompilerOutput(output: unknown): SemanticSummary {
   return {
     capabilities: summarizedCapabilities,
     contexts: normalizeContextsForDisplay(summarizeContexts(program.contexts, symbolLocations), summarizedCapabilities, symbols),
+    dependencies: summarizeDependencies(program.dependencies),
     actors: topLevelItems(program.actors, "actor", symbolLocations),
     policies: topLevelItems(program.policies, "policy", symbolLocations),
     effects: topLevelItems(program.effects, "effect", symbolLocations),
     events: topLevelItems(program.events, "event", symbolLocations),
     lifecycles: nonEmpty(capabilities.map(formatLifecycleItem)),
+    diagnostics: summarizeDiagnostics(program.diagnostics),
   };
+}
+
+function summarizeDiagnostics(diagnostics: DiagnosticOutput[] | undefined): SemanticDiagnosticSummary[] | undefined {
+  if (!Array.isArray(diagnostics)) return undefined;
+
+  return nonEmpty(
+    diagnostics.map((diagnostic) => {
+      if (!isObject(diagnostic) || !diagnostic.message) return undefined;
+      return {
+        code: diagnostic.code,
+        severity: diagnosticSeverity(diagnostic.severity),
+        message: diagnostic.message,
+        node: diagnostic.node,
+        location: normalizedCompilerLocation(diagnostic.span),
+      };
+    }),
+  );
+}
+
+function diagnosticSeverity(value: string | undefined): SemanticDiagnosticSummary["severity"] {
+  if (value === "error" || value === "warning" || value === "info") return value;
+  return "info";
 }
 
 function summarizeCapability(
@@ -221,6 +354,8 @@ function summarizeCapability(
   const transitions = nonEmpty(capability.lifecycle?.transitions?.map(formatTransition));
   const stepDetails = nonEmpty(capability.lifecycle?.steps?.map(summarizeLifecycleStep));
   const transitionDetails = nonEmpty(capability.lifecycle?.transitions?.map(summarizeLifecycleTransition));
+  const contributors = nonEmpty(capability.lifecycle?.contributors?.map(summarizeLifecycleContributor));
+  const participatingCapabilities = nonEmpty(arrayItems(capability.lifecycle?.participating_capabilities));
   const eventDetails = nonEmpty([
     ...arrayItems(capability.emitted_events).map(summarizeEmittedEvent),
     ...arrayItems(capability.events).map(summarizeEventEmission),
@@ -238,6 +373,7 @@ function summarizeCapability(
     outcomes: nonEmpty(arrayItems(capability.outcomes).map((outcome) => isObject(outcome) ? outcome.name : undefined)),
     rules: nonEmpty(arrayItems(capability.invariants).map((rule) => isObject(rule) ? rule.name : undefined)),
     effects: nonEmpty(arrayItems(capability.effects).map(formatEffectUse)),
+    effectDetails: nonEmpty(arrayItems(capability.effects).map(summarizeEffectUse)),
     events: nonEmpty([
       ...arrayItems(capability.emitted_events).map((event) => isObject(event) ? event.event : undefined),
       ...arrayItems(capability.events).map(formatEventEmission),
@@ -247,10 +383,35 @@ function summarizeCapability(
       ...arrayItems(capability.policies).map(formatPolicyUse),
       ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(formatEffectivePolicy),
     ]),
-    lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails
-      ? { begin, ends, steps, transitions, stepDetails, transitionDetails }
+    policyDetails: nonEmpty([
+      ...arrayItems(capability.policies).map(summarizePolicyUse),
+      ...effectivePolicies.filter((policy) => policy.containing_capability === name).flatMap(summarizeEffectivePolicy),
+    ]),
+    lifecycle: begin || ends || steps || transitions || stepDetails || transitionDetails || contributors || participatingCapabilities
+      ? { begin, ends, steps, transitions, stepDetails, transitionDetails, contributors, participatingCapabilities }
       : undefined,
+    relations: nonEmpty(arrayItems(capability.relations).map(summarizeRelation)),
+    causation: summarizeCausation(capability.analysis),
     itemLocations: summarizeItemLocations(capability, effectivePolicies, symbolLocations, context),
+  };
+}
+
+function summarizeCausation(analysis: CapabilityAnalysisOutput | undefined): CapabilityCausationSummary | undefined {
+  const outcomeCauses = nonEmpty(arrayItems(analysis?.outcome_causes).map(summarizeOutcomeCause));
+  return outcomeCauses ? { outcomeCauses } : undefined;
+}
+
+function summarizeOutcomeCause(cause: OutcomeCauseOutput | undefined): OutcomeCauseSummary | undefined {
+  if (!cause?.outcome || !cause.source) return undefined;
+  const separator = cause.source.indexOf(":");
+  const sourceKind = separator >= 0 ? cause.source.slice(0, separator) : cause.source;
+  const sourceName = separator >= 0 ? cause.source.slice(separator + 1) : undefined;
+  return {
+    outcome: cause.outcome,
+    sourceKind,
+    sourceName: sourceName || undefined,
+    condition: cause.condition,
+    precedence: typeof cause.precedence === "number" ? cause.precedence : 0,
   };
 }
 
@@ -330,6 +491,21 @@ function summarizeContexts(contexts: ContextOutput[] | undefined, symbolLocation
       dependencies: nonEmpty(arrayItems(context.dependencies)),
       location: context.name ? symbolLocation(symbolLocations, "context", context.name, context.name) : undefined,
     }) : undefined),
+  );
+}
+
+function summarizeDependencies(dependencies: DependencyOutput[] | undefined): ContextDependencySummary[] | undefined {
+  if (!Array.isArray(dependencies)) return undefined;
+
+  return nonEmpty(
+    dependencies.map((dependency) => {
+      if (!isObject(dependency) || !dependency.source_context || !dependency.target_context) return undefined;
+      return {
+        sourceContext: dependency.source_context,
+        targetContext: dependency.target_context,
+        referencedSymbols: nonEmpty(arrayItems(dependency.referenced_symbols)),
+      };
+    }),
   );
 }
 
@@ -501,6 +677,33 @@ function formatEffectivePolicy(policy: EffectivePolicyOutput): string[] {
   return arrayItems(policy.applied_policies).map((name) => (target ? `${name} applies to ${target}` : name));
 }
 
+function summarizeEffectUse(effect: EffectUseOutput | undefined): EffectUseSummary | undefined {
+  if (!effect?.effect) return undefined;
+  return {
+    effect: effect.effect,
+    after: effect.after,
+    targetKind: effect.target_kind,
+    targetName: effect.target_name ?? effect.target_symbol,
+  };
+}
+
+function summarizePolicyUse(policy: PolicyUseOutput | undefined): PolicyUseSummary | undefined {
+  if (!policy?.policy) return undefined;
+  return {
+    policy: policy.policy,
+    targetKind: policy.target_kind,
+    targetName: policy.target_name,
+  };
+}
+
+function summarizeEffectivePolicy(policy: EffectivePolicyOutput): PolicyUseSummary[] {
+  return arrayItems(policy.applied_policies).map((name) => ({
+    policy: name,
+    targetKind: policy.target_kind,
+    targetName: policy.target_symbol,
+  }));
+}
+
 function formatLifecycleStep(step: LifecycleStepOutput | undefined): string | undefined {
   if (!step?.name) return undefined;
   const details = Array.from(new Set([step.kind, step.is_terminal ? "terminal" : undefined].filter(Boolean))).join(", ");
@@ -531,6 +734,26 @@ function summarizeLifecycleTransition(transition: TransitionOutput | undefined):
     triggerKind: transition.trigger_kind,
     triggerName: transition.trigger_name,
     sourceCapability: transition.source_capability,
+  };
+}
+
+function summarizeLifecycleContributor(contributor: LifecycleContributorOutput | undefined): LifecycleContributorSummary | undefined {
+  if (!contributor?.capability) return undefined;
+  return {
+    capability: contributor.capability,
+    usedByTransitions: nonEmpty(arrayItems(contributor.used_by_transitions)),
+    usedByWaitingSteps: nonEmpty(arrayItems(contributor.used_by_waiting_steps)),
+    usedByRecovery: nonEmpty(arrayItems(contributor.used_by_recovery)),
+  };
+}
+
+function summarizeRelation(relation: RelationOutput | undefined): CapabilityRelationSummary | undefined {
+  if (!relation?.kind || !relation.from || !relation.to) return undefined;
+  return {
+    kind: relation.kind,
+    from: relation.from,
+    to: relation.to,
+    condition: relation.condition,
   };
 }
 

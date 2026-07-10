@@ -64,6 +64,18 @@ describe("DclGraphWorkspacePanel", () => {
     expect(html).toContain("document.getElementById('center-selection').addEventListener('click', () => centerSelection())");
   });
 
+  it("serializes weighted edge metadata and edge detail handling", () => {
+    DclGraphWorkspacePanel.show(extensionUri(), workspaceState("capability-influence"), callbacksMock());
+    const html = vscode.window.createdWebviewPanels[0].webview.html;
+
+    expect(html).toContain('"score":4');
+    expect(html).toContain('"detail":"PaymentAuthorized triggers ConfirmOrder"');
+    expect(html).toContain("cy.on('tap', 'edge'");
+    expect(html).toContain("function updateEdgeDetails(edgeId)");
+    expect(html).toContain("'width': 'data(edgeWidth)'");
+  });
+
+
   it("requests export from the visible graph panel", async () => {
     DclGraphWorkspacePanel.show(extensionUri(), workspaceState("architecture"), callbacksMock());
     const panel = vscode.window.createdWebviewPanels[0];
@@ -131,6 +143,8 @@ function graph(sourceFile?: string): DclGraphModel {
       target: "capability:acceptorder",
       label: "emits",
       kind: "emits",
+      score: 4,
+      reasons: [{ kind: "event", label: "event", score: 4, detail: "PaymentAuthorized triggers ConfirmOrder" }],
     }],
   };
 }

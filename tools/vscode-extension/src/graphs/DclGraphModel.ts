@@ -16,10 +16,21 @@ export type DclGraphEdge = {
   target: string;
   label: string;
   kind: string;
+  score?: number;
+  reasons?: DclGraphEdgeReason[];
+};
+
+export type DclGraphEdgeReason = {
+  kind: string;
+  label: string;
+  score: number;
+  detail: string;
 };
 
 export type DclGraphModel = {
   title: string;
+  description?: string;
+  warnings?: string[];
   nodes: DclGraphNode[];
   edges: DclGraphEdge[];
 };
