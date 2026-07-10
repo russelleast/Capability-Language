@@ -1,7 +1,9 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { capabilityMapItems, DclCapabilityMapItem, DclCapabilityMapModel } from "../graphs/DclCapabilityMapBuilder";
+import { causeEffectLayoutPositions, GraphLayoutPositions } from "../graphs/DclCauseEffectLayout";
 import { DclGraphExportFormat } from "../graphs/DclGraphExport";
+import { displayNameForGraph, wrapGraphLabel } from "../graphs/DclGraphLabels";
 import { DclGraphModel } from "../graphs/DclGraphModel";
 import { DclGraphWorkspaceSelection, DclGraphWorkspaceState, DclGraphWorkspaceType } from "../graphs/DclGraphWorkspaceState";
 import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "../graphs/DclSemanticIdentity";
@@ -40,7 +42,8 @@ type GraphWorkspaceMessage = {
 };
 
 type WebviewGraphModel = Omit<DclGraphModel, "nodes"> & {
-  nodes: Array<Omit<DclGraphModel["nodes"][number], "source"> & { hasSource: boolean }>;
+  nodes: Array<Omit<DclGraphModel["nodes"][number], "source"> & { hasSource: boolean; wrappedLabel: string }>;
+  layoutPositions?: GraphLayoutPositions;
 };
 
 type WebviewCapabilityMapModel = Omit<DclCapabilityMapModel, "root"> & {
@@ -49,12 +52,16 @@ type WebviewCapabilityMapModel = Omit<DclCapabilityMapModel, "root"> & {
 
 type WebviewCapabilityMapContext = Omit<DclCapabilityMapModel["root"], "source" | "capabilities" | "children"> & {
   hasSource: boolean;
+  label: string;
+  sourceName: string;
   capabilities: WebviewCapabilityMapCapability[];
   children: WebviewCapabilityMapContext[];
 };
 
 type WebviewCapabilityMapCapability = Omit<DclCapabilityMapModel["root"]["capabilities"][number], "source"> & {
   hasSource: boolean;
+  label: string;
+  sourceName: string;
 };
 
 type GraphWorkspaceCallbacks = {
@@ -309,7 +316,7 @@ function pngBytes(dataUri: string): Buffer {
 function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: DclGraphWorkspaceState): string {
   const nonce = nonceValue();
   const cytoscapeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "cytoscape.min.js"));
-  const graphJson = escapeScriptJson(state.graph ? toWebviewGraph(state.graph) : undefined);
+  const graphJson = escapeScriptJson(state.graph ? toWebviewGraph(state.graph, state.graphType) : undefined);
   const mapJson = escapeScriptJson(state.capabilityMap ? toWebviewCapabilityMap(state.capabilityMap) : undefined);
   const stateJson = escapeScriptJson(toWebviewState(state));
   const graph = state.graph;
@@ -376,23 +383,19 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     .swatch.child-context { background: #1f9d8a; border-color: #64d8cb; }
     .swatch.external-context { background: #6e7681; border-color: #9da7b3; }
     .swatch.initial-step { background: #2ea043; border-color: #7ee787; }
-    .map-viewport { position: absolute; inset: 0; overflow: hidden; background: var(--vscode-editor-background); cursor: grab; }
+    .map-viewport { position: absolute; inset: 0; overflow: auto; background: var(--vscode-editor-background); cursor: grab; }
     .map-viewport.dragging { cursor: grabbing; }
     .capability-map-svg { display: block; transform-origin: 0 0; }
     .map-context-rect { fill: color-mix(in srgb, var(--vscode-sideBar-background) 68%, transparent); stroke: var(--vscode-panel-border); stroke-width: 1.2; }
     .map-context-header { fill: var(--vscode-sideBar-background); stroke: var(--vscode-panel-border); stroke-width: 1; }
     .map-context-label { fill: var(--vscode-editor-foreground); font-size: 13px; font-weight: 700; }
-    .map-context-meta { fill: var(--vscode-descriptionForeground); font-size: 10px; }
     .map-tile { fill: var(--vscode-editorWidget-background, #252526); stroke: var(--vscode-panel-border); stroke-width: 1.2; }
     .map-tile-title { fill: var(--vscode-editor-foreground); font-size: 12px; font-weight: 700; }
-    .map-badge { fill: var(--vscode-badge-background); }
-    .map-badge-text { fill: var(--vscode-badge-foreground); font-size: 9px; font-weight: 700; }
     .map-item { cursor: pointer; }
     .map-item.selected .map-context-rect, .map-item.selected .map-tile { stroke: var(--vscode-focusBorder, #007fd4); stroke-width: 2.5; }
     .map-help { margin: 0 0 14px; padding: 10px; border: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); background: var(--vscode-editor-background); line-height: 1.45; }
     .map-legend-context { background: transparent; border-color: var(--vscode-panel-border); }
     .map-legend-capability { background: var(--vscode-editorWidget-background, #252526); border-color: var(--vscode-panel-border); }
-    .swatch.badge { background: var(--vscode-badge-background); border-color: var(--vscode-badge-background); }
     .hidden { display: none; }
   </style>
 </head>
@@ -446,7 +449,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         <p class="detail-row"><span class="detail-label">Display Label</span><span id="detail-label" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Source Name</span><span id="detail-source-name" class="detail-value"></span></p>
         <p class="detail-row"><span class="detail-label">Kind</span><span id="detail-kind" class="detail-value"></span></p>
-        <p class="detail-row"><span class="detail-label">${map ? "Declarations" : "Relationships"}</span><span id="detail-relationships" class="detail-value"></span></p>
+        <p class="detail-row"><span class="detail-label">${map ? "Contents" : "Relationships"}</span><span id="detail-relationships" class="detail-value"></span></p>
         <div id="source-section" class="detail-row hidden"><span class="detail-label">Source</span><div class="detail-actions"><button id="open-source" type="button">Open Source</button></div></div>
         <div id="show-in-section" class="detail-row hidden"><span class="detail-label">Show In</span><div id="show-in-actions" class="detail-actions"></div></div>
       </div>
@@ -533,7 +536,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       });
     } else if (graph) {
       const elements = [
-        ...graph.nodes.map((node) => ({ data: { id: node.id, label: node.label, kind: node.kind }, classes: node.kind })),
+        ...graph.nodes.map((node) => ({ data: { id: node.id, label: node.wrappedLabel, displayLabel: node.label, kind: node.kind }, classes: node.kind })),
         ...graph.edges.map((edge) => ({ data: { id: edge.id, source: edge.source, target: edge.target, label: edge.label, kind: edge.kind, score: edge.score, edgeWidth: edge.score ? edgeWidth(edge.score) : 1.4 } }))
       ];
       cy = cytoscape({
@@ -543,7 +546,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         style: styleSheet(),
         minZoom: 0.25,
         maxZoom: 2.5,
-        wheelSensitivity: 2.0,
+        wheelSensitivity: 0.22,
         userZoomingEnabled: true,
         userPanningEnabled: true,
         boxSelectionEnabled: false
@@ -599,7 +602,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       const viewport = document.createElement('div');
       viewport.className = 'map-viewport';
       container.appendChild(viewport);
-      const layout = layoutMapContext(capabilityMap.root, 0);
+      const layout = layoutMapRoot(capabilityMap.root);
       mapLayout = collectMapLayout(layout);
       mapSvg = svgElement('svg');
       mapSvg.classList.add('capability-map-svg');
@@ -609,27 +612,54 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       mapGroup = svgElement('g');
       mapGroup.setAttribute('transform', transformValue());
       mapSvg.appendChild(mapGroup);
-      drawMapContext(mapGroup, layout, 0, 0);
+      drawMapLayout(mapGroup, layout, 0, 0);
       viewport.appendChild(mapSvg);
       wireMapPanZoom(viewport);
+    }
+
+    function layoutMapRoot(root) {
+      if (!root.synthetic) return layoutMapContext(root, 0);
+      const childLayouts = root.children.map((child) => layoutMapContext(child, 0));
+      const padding = 18;
+      const gap = 28;
+      const containerWidth = Math.max(720, document.getElementById('graph').clientWidth - 96);
+      const fallback = layoutMapTiles(root.capabilities || [], padding, 0, Math.max(1, Math.floor((containerWidth - padding * 2) / (174 + 14))));
+      let cursorX = padding;
+      let cursorY = fallback.height ? fallback.height + gap : padding;
+      let rowHeight = 0;
+      let width = Math.max(containerWidth, fallback.width);
+      const children = [];
+      for (const child of childLayouts) {
+        if (cursorX > padding && cursorX + child.width > containerWidth) {
+          cursorX = padding;
+          cursorY += rowHeight + gap;
+          rowHeight = 0;
+        }
+        children.push({ ...child, x: cursorX, y: cursorY });
+        cursorX += child.width + gap;
+        rowHeight = Math.max(rowHeight, child.height);
+        width = Math.max(width, cursorX);
+      }
+      return {
+        item: root,
+        x: 0,
+        y: 0,
+        width,
+        height: Math.max(cursorY + rowHeight + padding, fallback.height + padding),
+        tiles: fallback.tiles,
+        children,
+        synthetic: true
+      };
     }
 
     function layoutMapContext(context, depth) {
       const padding = 18;
       const headerHeight = 34;
-      const tileWidth = 174;
-      const tileHeight = 72;
       const gap = 14;
       const childLayouts = context.children.map((child) => layoutMapContext(child, depth + 1));
-      const tileRows = [];
-      const columns = Math.max(1, Math.min(3, Math.ceil(Math.sqrt(Math.max(1, context.capabilities.length)))));
-      context.capabilities.forEach((capability, index) => {
-        const column = index % columns;
-        const row = Math.floor(index / columns);
-        tileRows.push({ item: capability, x: padding + column * (tileWidth + gap), y: headerHeight + padding + row * (tileHeight + gap), width: tileWidth, height: tileHeight });
-      });
-      const tileAreaWidth = context.capabilities.length ? padding * 2 + columns * tileWidth + (columns - 1) * gap : 280;
-      const tileAreaHeight = context.capabilities.length ? headerHeight + padding * 2 + Math.ceil(context.capabilities.length / columns) * tileHeight + (Math.ceil(context.capabilities.length / columns) - 1) * gap : headerHeight + padding * 2 + 28;
+      const tiles = layoutMapTiles(context.capabilities || [], padding, headerHeight + padding);
+      const tileAreaWidth = context.capabilities.length ? tiles.width : 280;
+      const tileAreaHeight = context.capabilities.length ? headerHeight + padding + tiles.height : headerHeight + padding * 2 + 28;
       let cursorY = tileAreaHeight;
       let contentWidth = tileAreaWidth;
       const children = childLayouts.map((child) => {
@@ -644,8 +674,27 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         y: 0,
         width: Math.max(contentWidth, 300),
         height: Math.max(cursorY + padding, tileAreaHeight),
-        tiles: tileRows,
+        tiles: tiles.tiles,
         children
+      };
+    }
+
+    function layoutMapTiles(capabilities, padding, startY, requestedColumns) {
+      const tileWidth = 174;
+      const tileHeight = 72;
+      const gap = 14;
+      if (!capabilities.length) return { width: 0, height: 0, tiles: [] };
+      const columns = requestedColumns || Math.max(1, Math.min(4, Math.ceil(Math.sqrt(Math.max(1, capabilities.length)))));
+      const tiles = capabilities.map((capability, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        return { item: capability, x: padding + column * (tileWidth + gap), y: startY + row * (tileHeight + gap), width: tileWidth, height: tileHeight };
+      });
+      const rows = Math.ceil(capabilities.length / columns);
+      return {
+        width: padding * 2 + columns * tileWidth + (columns - 1) * gap,
+        height: rows * tileHeight + (rows - 1) * gap,
+        tiles
       };
     }
 
@@ -662,15 +711,22 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       return result;
     }
 
+    function drawMapLayout(parent, layout, offsetX, offsetY) {
+      if (layout.synthetic) {
+        for (const tile of layout.tiles) drawCapabilityTile(parent, tile, offsetX, offsetY);
+        for (const child of layout.children) drawMapContext(parent, child, offsetX, offsetY);
+        return;
+      }
+      drawMapContext(parent, layout, offsetX, offsetY);
+    }
+
     function drawMapContext(parent, layout, offsetX, offsetY) {
       const x = offsetX + layout.x;
       const y = offsetY + layout.y;
       const group = mapItemGroup(layout.item);
       group.appendChild(svgRect(x, y, layout.width, layout.height, 8, 'map-context-rect'));
       group.appendChild(svgRect(x, y, layout.width, 34, 8, 'map-context-header'));
-      group.appendChild(svgText(layout.item.name, x + 14, y + 22, 'map-context-label'));
-      const declarationCount = declarationCountForContext(layout.item);
-      group.appendChild(svgText(declarationCount + ' declaration' + (declarationCount === 1 ? '' : 's'), x + layout.width - 14, y + 22, 'map-context-meta', 'end'));
+      group.appendChild(svgText(layout.item.label, x + 14, y + 22, 'map-context-label'));
       parent.appendChild(group);
 
       for (const tile of layout.tiles) drawCapabilityTile(parent, tile, x, y);
@@ -682,16 +738,8 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       const y = offsetY + tile.y;
       const group = mapItemGroup(tile.item);
       group.appendChild(svgRect(x, y, tile.width, tile.height, 6, 'map-tile'));
-      for (const line of wrapWords(tile.item.name, 22).slice(0, 2)) {
+      for (const line of wrapWords(tile.item.label, 22).slice(0, 2)) {
         group.appendChild(svgText(line.text, x + 12, y + 20 + line.index * 15, 'map-tile-title'));
-      }
-      let badgeX = x + 12;
-      for (const badge of tile.item.badges || []) {
-        const text = badge.count ? badge.label + ' ' + badge.count : badge.label;
-        const width = Math.max(48, text.length * 6 + 14);
-        group.appendChild(svgRect(badgeX, y + tile.height - 24, width, 16, 8, 'map-badge'));
-        group.appendChild(svgText(text, badgeX + width / 2, y + tile.height - 12, 'map-badge-text', 'middle'));
-        badgeX += width + 6;
       }
       parent.appendChild(group);
     }
@@ -728,8 +776,8 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       if (!item) return;
       document.getElementById('details-empty').classList.add('hidden');
       document.getElementById('details-content').classList.remove('hidden');
-      document.getElementById('detail-label').textContent = item.name;
-      document.getElementById('detail-source-name').textContent = item.name;
+      document.getElementById('detail-label').textContent = item.label;
+      document.getElementById('detail-source-name').textContent = item.sourceName || item.name;
       document.getElementById('detail-kind').textContent = item.kind === 'capability' ? 'capability tile' : 'context container';
       document.getElementById('detail-relationships').textContent = item.kind === 'capability' ? capabilityDetail(item) : contextDetail(item);
       document.getElementById('source-section').classList.toggle('hidden', !item.hasSource);
@@ -737,18 +785,13 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     }
 
     function capabilityDetail(item) {
-      const badges = (item.badges || []).map((badge) => badge.count ? badge.label + ' ' + badge.count : badge.label);
-      return badges.length ? badges.join('; ') : 'No metadata badges';
+      return item.hasSource ? 'Source navigation available' : 'No source location available';
     }
 
     function contextDetail(item) {
       const capabilityCount = countCapabilities(item);
       const contextCount = item.children?.length || 0;
       return capabilityCount + ' capabilit' + (capabilityCount === 1 ? 'y' : 'ies') + ', ' + contextCount + ' child context' + (contextCount === 1 ? '' : 's');
-    }
-
-    function declarationCountForContext(item) {
-      return countCapabilities(item) + (item.children?.length || 0);
     }
 
     function countCapabilities(item) {
@@ -786,9 +829,11 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         viewport.classList.remove('dragging');
       });
       viewport.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
         event.preventDefault();
-        const scale = Math.max(0.25, Math.min(2.4, mapTransform.scale * (event.deltaY > 0 ? 0.9 : 1.1)));
-        mapTransform.scale = scale;
+        const delta = Math.max(-80, Math.min(80, event.deltaY));
+        const factor = Math.exp(-delta * 0.0018);
+        mapTransform.scale = Math.max(0.35, Math.min(2.0, mapTransform.scale * factor));
         applyMapTransform();
       }, { passive: false });
     }
@@ -818,7 +863,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
 
     function layoutOptions() {
       if (workspaceState.graphType === 'cause-effect') {
-        return { name: 'preset', positions: causeEffectPositions(), padding: 48, animate: false };
+        return { name: 'preset', positions: graph.layoutPositions || causeEffectPositions(), padding: 72, animate: false };
       }
       if (workspaceState.graphType === 'capability' && layoutMode === 'radial') {
         const capabilityId = graph.nodes.find((node) => node.kind === 'capability')?.id;
@@ -997,7 +1042,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
       const width = Number(mapSvg.getAttribute('width')) || 800;
       const height = Number(mapSvg.getAttribute('height')) || 600;
-      const style = '<style>.map-context-rect{fill:#f6f8fa;stroke:#8c959f;stroke-width:1.2}.map-context-header{fill:#eaeef2;stroke:#8c959f;stroke-width:1}.map-context-label{fill:#24292f;font:700 13px Inter,Segoe UI,Arial,sans-serif}.map-context-meta{fill:#57606a;font:10px Inter,Segoe UI,Arial,sans-serif}.map-tile{fill:#ffffff;stroke:#8c959f;stroke-width:1.2}.map-tile-title{fill:#24292f;font:700 12px Inter,Segoe UI,Arial,sans-serif}.map-badge{fill:#0969da}.map-badge-text{fill:#ffffff;font:700 9px Inter,Segoe UI,Arial,sans-serif}</style>';
+      const style = '<style>.map-context-rect{fill:#f6f8fa;stroke:#8c959f;stroke-width:1.2}.map-context-header{fill:#eaeef2;stroke:#8c959f;stroke-width:1}.map-context-label{fill:#24292f;font:700 13px Inter,Segoe UI,Arial,sans-serif}.map-tile{fill:#ffffff;stroke:#8c959f;stroke-width:1.2}.map-tile-title{fill:#24292f;font:700 12px Inter,Segoe UI,Arial,sans-serif}</style>';
       return [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.ceil(width) + '" height="' + Math.ceil(height) + '" viewBox="0 0 ' + Math.ceil(width) + ' ' + Math.ceil(height) + '">',
@@ -1011,6 +1056,11 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
     function drawMapCanvas(ctx, root, layoutMap) {
       ctx.font = '700 13px Inter, Segoe UI, Arial, sans-serif';
       function drawContext(context) {
+        if (context.synthetic) {
+          for (const capability of context.capabilities || []) drawCapability(capability);
+          for (const child of context.children || []) drawContext(child);
+          return;
+        }
         const box = layoutMap.get(context.id);
         if (!box) return;
         ctx.fillStyle = '#f6f8fa';
@@ -1023,7 +1073,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = '#24292f';
-        ctx.fillText(context.name, box.x + 38, box.y + 46);
+        ctx.fillText(context.label, box.x + 38, box.y + 46);
         for (const capability of context.capabilities || []) drawCapability(capability);
         for (const child of context.children || []) drawContext(child);
       }
@@ -1037,22 +1087,8 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
         ctx.stroke();
         ctx.fillStyle = '#24292f';
         ctx.font = '700 12px Inter, Segoe UI, Arial, sans-serif';
-        for (const line of wrapWords(capability.name, 22).slice(0, 2)) {
+        for (const line of wrapWords(capability.label, 22).slice(0, 2)) {
           ctx.fillText(line.text, box.x + 36, box.y + 44 + line.index * 15);
-        }
-        ctx.font = '700 9px Inter, Segoe UI, Arial, sans-serif';
-        let badgeX = box.x + 36;
-        for (const badge of capability.badges || []) {
-          const text = badge.count ? badge.label + ' ' + badge.count : badge.label;
-          const width = Math.max(48, text.length * 6 + 14);
-          ctx.fillStyle = '#0969da';
-          roundRect(ctx, badgeX, box.y + box.height + 24 - 24, width, 16, 8);
-          ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          ctx.fillText(text, badgeX + width / 2, box.y + box.height + 24 - 12);
-          ctx.textAlign = 'left';
-          badgeX += width + 6;
         }
       }
       drawContext(root);
@@ -1117,24 +1153,11 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       const shape = node.data('kind') === 'event'
         ? '<ellipse cx="' + round(x + width / 2) + '" cy="' + round(y + height / 2) + '" rx="' + round(width / 2) + '" ry="' + round(height / 2) + '" fill="' + colors.fill + '" stroke="' + colors.stroke + '" stroke-width="1.4"/>'
         : '<rect x="' + round(x) + '" y="' + round(y) + '" width="' + round(width) + '" height="' + round(height) + '" rx="' + round(rx) + '" fill="' + colors.fill + '" stroke="' + colors.stroke + '" stroke-width="1.4"/>';
-      return '<g>' + shape + wrappedText(node.data('label'), x + width / 2, y + height / 2) + '</g>';
+      return '<g>' + shape + wrappedText(node.data('displayLabel') || node.data('label'), x + width / 2, y + height / 2) + '</g>';
     }
 
     function wrappedText(label, centerX, centerY) {
-      const words = String(label || '').split(/\\s+/).filter(Boolean);
-      const lines = [];
-      let current = '';
-      for (const word of words) {
-        const next = current ? current + ' ' + word : word;
-        if (next.length > 16 && current) {
-          lines.push(current);
-          current = word;
-        } else {
-          current = next;
-        }
-      }
-      if (current) lines.push(current);
-      const visible = lines.slice(0, 4);
+      const visible = wrapWords(label, 16).slice(0, 4).map((line) => line.text);
       const lineHeight = 13;
       const startY = centerY - ((visible.length - 1) * lineHeight) / 2 + 4;
       return '<text text-anchor="middle" font-size="11" font-weight="600" fill="#f6f8fa">' +
@@ -1199,16 +1222,25 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
       const lines = [];
       let current = '';
       for (const word of words) {
-        const next = current ? current + ' ' + word : word;
-        if (next.length > maxLength && current) {
-          lines.push(current);
-          current = word;
-        } else {
-          current = next;
+        for (const part of splitLongWord(word, maxLength)) {
+          const next = current ? current + ' ' + part : part;
+          if (next.length > maxLength && current) {
+            lines.push(current);
+            current = part;
+          } else {
+            current = next;
+          }
         }
       }
       if (current) lines.push(current);
       return lines.map((text, index) => ({ text, index }));
+    }
+
+    function splitLongWord(word, maxLength) {
+      if (word.length <= maxLength) return [word];
+      const parts = [];
+      for (let index = 0; index < word.length; index += maxLength) parts.push(word.slice(index, index + maxLength));
+      return parts;
     }
 
     function xml(value) {
@@ -1292,7 +1324,7 @@ function renderHtml(webview: vscode.Webview, extensionUri: vscode.Uri, state: Dc
 
     function styleSheet() {
       return [
-        { selector: 'node', style: { 'label': 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 118, 'text-overflow-wrap': 'anywhere', 'font-size': 11, 'color': '#d4d4d4', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#4f6bed', 'border-width': 1, 'border-color': '#9db0ff', 'width': 122, 'height': 68, 'shape': 'round-rectangle' } },
+        { selector: 'node', style: { 'label': 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 118, 'text-overflow-wrap': 'whitespace', 'font-size': 11, 'color': '#d4d4d4', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#4f6bed', 'border-width': 1, 'border-color': '#9db0ff', 'width': 122, 'height': 68, 'shape': 'round-rectangle' } },
         { selector: 'node.capability, node.context, node.initial-step', style: { 'background-color': '#2ea043', 'border-color': '#7ee787', 'width': 138, 'height': 76, 'font-weight': 700 } },
         { selector: 'node.child-context, node.event', style: { 'background-color': '#1f9d8a', 'border-color': '#64d8cb' } },
         { selector: 'node.lifecycle', style: { 'background-color': '#8957e5', 'border-color': '#d2a8ff' } },
@@ -1375,10 +1407,15 @@ function isSemanticIdentity(value: unknown): value is DclSemanticIdentity {
     );
 }
 
-function toWebviewGraph(graph: DclGraphModel): WebviewGraphModel {
+function toWebviewGraph(graph: DclGraphModel, graphType: DclGraphWorkspaceType): WebviewGraphModel {
   return {
     ...graph,
-    nodes: graph.nodes.map(({ source, ...node }) => ({ ...node, hasSource: Boolean(source) })),
+    nodes: graph.nodes.map(({ source, ...node }) => ({
+      ...node,
+      wrappedLabel: wrapGraphLabel(node.label, 16).map((line) => line.text).join("\n"),
+      hasSource: Boolean(source),
+    })),
+    layoutPositions: graphType === "cause-effect" ? causeEffectLayoutPositions(graph) : undefined,
   };
 }
 
@@ -1394,6 +1431,8 @@ function toWebviewCapabilityMapContext(context: DclCapabilityMapModel["root"]): 
   return {
     ...rest,
     hasSource: Boolean(source),
+    label: displayNameForGraph(rest.name),
+    sourceName: rest.name,
     capabilities: capabilities.map(toWebviewCapabilityMapCapability),
     children: children.map(toWebviewCapabilityMapContext),
   };
@@ -1406,6 +1445,8 @@ function toWebviewCapabilityMapCapability(
   return {
     ...rest,
     hasSource: Boolean(source),
+    label: displayNameForGraph(rest.name),
+    sourceName: rest.name,
   };
 }
 
@@ -1432,7 +1473,6 @@ function capabilityMapLegendHtml(): string {
   return [
     `<span class="legend-item"><span class="swatch map-legend-context"></span>context container</span>`,
     `<span class="legend-item"><span class="swatch map-legend-capability"></span>capability tile</span>`,
-    `<span class="legend-item"><span class="swatch badge"></span>metadata badge</span>`,
   ].join("");
 }
 
@@ -1442,7 +1482,7 @@ function statusText(graph: DclGraphModel | undefined, map: DclCapabilityMapModel
   }
   if (map) {
     const items = capabilityMapItems(map);
-    const contexts = items.filter((item) => item.kind === "context").length;
+    const contexts = items.filter((item) => item.kind === "context" && !item.synthetic).length;
     const capabilities = items.filter((item) => item.kind === "capability").length;
     return `${contexts} context container${contexts === 1 ? "" : "s"}, ${capabilities} capability tile${capabilities === 1 ? "" : "s"}${map.warnings?.length ? `, ${map.warnings.length} warning${map.warnings.length === 1 ? "" : "s"}` : ""}`;
   }

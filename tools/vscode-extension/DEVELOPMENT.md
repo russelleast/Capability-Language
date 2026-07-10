@@ -181,19 +181,19 @@ The VS Code Marketplace release workflow publishes only from explicit extension 
 7. Create and push the release tag:
 
 ```bash
-git tag vscode-extension-v1.0.4
-git push origin vscode-extension-v1.0.4
+git tag vscode-extension-v1.0.6
+git push origin vscode-extension-v1.0.6
 ```
 
 8. Confirm GitHub Actions publishes the Marketplace extension using `VSCE_PAT`.
-9. Confirm the GitHub Release contains `dcl-vscode-extension-v1.0.4.vsix`.
+9. Confirm the GitHub Release contains `dcl-vscode-extension-v1.0.6.vsix`.
 10. Download and install the VSIX if release verification needs a manual package check.
 11. Uninstall any local VSIX build from VS Code.
 12. Install the extension from the VS Code Marketplace.
-13. Verify the extension version in VS Code is `1.0.4`.
+13. Verify the extension version in VS Code is `1.0.6`.
 14. Verify the website Marketplace and VSIX links.
 
-The release tag convention is `vscode-extension-vX.Y.Z`, for example `vscode-extension-v1.0.4`. This keeps extension releases distinct from language, compiler, and website tags in the monorepo.
+The release tag convention is `vscode-extension-vX.Y.Z`, for example `vscode-extension-v1.0.6`. This keeps extension releases distinct from language, compiler, and website tags in the monorepo.
 
 Required GitHub Actions secret:
 

@@ -26,6 +26,7 @@ export type DclCapabilityMapContext = {
   id: string;
   name: string;
   kind: "context";
+  synthetic?: boolean;
   source?: SourceLocation;
   semanticIdentity: DclSemanticIdentity;
   capabilities: DclCapabilityMapCapability[];
@@ -41,7 +42,7 @@ export type DclCapabilityMapModel = {
   warnings?: string[];
 };
 
-const PROGRAM_CONTEXT = "Program";
+const SYNTHETIC_ROOT_CONTEXT = "__capability_map_root__";
 
 export function buildCapabilityMap(summary: SemanticSummary): DclCapabilityMapModel | undefined {
   if (!summary.capabilities.length) return undefined;
@@ -50,12 +51,8 @@ export function buildCapabilityMap(summary: SemanticSummary): DclCapabilityMapMo
   const declaredContexts = declaredContextSummaries(summary.contexts);
   const contextByName = new Map(declaredContexts.map((context) => [context.name, context]));
   const parentByChild = parentByChildContext(declaredContexts);
-  const root = contextContainer(PROGRAM_CONTEXT);
-  const containerByName = new Map<string, DclCapabilityMapContext>([[PROGRAM_CONTEXT, root]]);
-
-  if (!declaredContexts.length) {
-    warnings.push("Declared context hierarchy was not available, so capabilities are grouped under Program.");
-  }
+  const root = contextContainer(SYNTHETIC_ROOT_CONTEXT, undefined, true);
+  const containerByName = new Map<string, DclCapabilityMapContext>();
 
   for (const context of declaredContexts) {
     containerByName.set(context.name, contextContainer(context.name, context.location));
@@ -69,7 +66,7 @@ export function buildCapabilityMap(summary: SemanticSummary): DclCapabilityMapMo
     if (parent) {
       parent.children.push(container);
     } else {
-      warnings.push(`Context '${context.name}' references missing parent context '${parentName}', so it is shown under Program.`);
+      warnings.push(`Context '${context.name}' references missing parent context '${parentName}', so it is shown in an unlabelled top-level map area.`);
       root.children.push(container);
     }
   }
@@ -93,7 +90,7 @@ export function buildCapabilityMap(summary: SemanticSummary): DclCapabilityMapMo
       owner.capabilities.push(tile);
     } else {
       if (ownerName && !contextByName.has(ownerName)) {
-        warnings.push(`Capability '${capability.name}' references context '${ownerName}', but that declared context was not available, so it is shown under Program.`);
+        warnings.push(`Capability '${capability.name}' references context '${ownerName}', but that declared context was not available, so it is shown in an unlabelled fallback area.`);
       }
       root.capabilities.push(tile);
     }
@@ -144,13 +141,14 @@ function parentByChildContext(contexts: ContextSummary[]): Map<string, string> {
   return parents;
 }
 
-function contextContainer(name: string, source?: SourceLocation): DclCapabilityMapContext {
+function contextContainer(name: string, source?: SourceLocation, synthetic = false): DclCapabilityMapContext {
   return {
-    id: `context:${slug(name)}`,
-    name,
+    id: synthetic ? "context:root" : `context:${slug(name)}`,
+    name: synthetic ? "" : name,
     kind: "context",
+    synthetic,
     source,
-    semanticIdentity: semanticIdentity("context", name)!,
+    semanticIdentity: semanticIdentity("context", synthetic ? "root" : name)!,
     capabilities: [],
     children: [],
   };
@@ -167,26 +165,9 @@ function capabilityTile(
     kind: "capability",
     source: capability.location,
     semanticIdentity: semanticIdentity("capability", capability.name)!,
-    badges: capabilityBadges(capability, diagnostics),
+    badges: [],
     diagnostics,
   };
-}
-
-function capabilityBadges(
-  capability: CapabilitySummary,
-  diagnostics: SemanticDiagnosticSummary[] | undefined,
-): DclCapabilityMapBadge[] {
-  return [
-    capability.lifecycle ? { kind: "lifecycle", label: "Lifecycle" } : undefined,
-    badgeWithCount("effects", "Effects", capability.effects?.length),
-    badgeWithCount("events", "Events", Math.max(capability.events?.length ?? 0, capability.eventDetails?.length ?? 0)),
-    badgeWithCount("policies", "Policies", capability.policies?.length),
-    badgeWithCount("diagnostics", "Warnings", diagnostics?.filter((diagnostic) => diagnostic.severity === "warning").length),
-  ].filter((badge): badge is DclCapabilityMapBadge => Boolean(badge));
-}
-
-function badgeWithCount(kind: DclCapabilityMapBadgeKind, label: string, count: number | undefined): DclCapabilityMapBadge | undefined {
-  return count ? { kind, label, count } : undefined;
 }
 
 function diagnosticsForCapability(

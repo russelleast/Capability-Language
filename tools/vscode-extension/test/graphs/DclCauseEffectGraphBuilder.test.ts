@@ -92,6 +92,33 @@ describe("DclCauseEffectGraphBuilder", () => {
       capabilities: [{ name: "Empty", intents: ["Input from User"] }],
     }), "Empty")).toBeUndefined();
   });
+
+  it("does not add artificial edges between disconnected causal groups", () => {
+    const graph = buildCauseEffectGraph(summary({
+      capabilities: [{
+        name: "ManageOrderFulfilment",
+        outcomes: ["OrderAccepted", "FulfilmentFailed"],
+        eventDetails: [{ event: "OrderAcceptedEvent", label: "OrderAcceptedEvent from OrderAccepted", sourceOutcome: "OrderAccepted" }],
+        lifecycle: {
+          transitionDetails: [
+            { from: "Pending", to: "Accepted", triggerKind: "event", triggerName: "OrderAcceptedEvent" },
+            { from: "Packing", to: "Failed", triggerKind: "outcome", triggerName: "FulfilmentFailed" },
+          ],
+        },
+        causation: {
+          outcomeCauses: [
+            { outcome: "OrderAccepted", sourceKind: "capability", sourceName: "ManageOrderFulfilment", condition: "otherwise", precedence: 0 },
+            { outcome: "FulfilmentFailed", sourceKind: "effect", sourceName: "ReserveStock", condition: "failed", precedence: 1 },
+          ],
+        },
+      }],
+    }), "ManageOrderFulfilment");
+
+    expect(graph?.edges).not.toContainEqual(expect.objectContaining({
+      source: "outcome:orderaccepted",
+      target: "outcome:fulfilmentfailed",
+    }));
+  });
 });
 
 function summary(value: Partial<SemanticSummary>): SemanticSummary {

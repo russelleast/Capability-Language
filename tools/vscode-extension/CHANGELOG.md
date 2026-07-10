@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.6
+
+### Improved
+
+- Added shared display-label formatting and whitespace-based wrapping across graph and map visualisations so PascalCase, snake_case, and kebab-case symbols remain readable without changing source names or semantic identities.
+- Simplified the Capability Map into a clearer business responsibility view by removing declaration counts, metadata badges, and the visible synthetic `Program` root.
+- Improved Capability Map canvas sizing, fit-to-view behaviour, and top-level context packing so the map uses the available workspace width more effectively.
+- Reduced Capability Map scroll sensitivity by preferring ordinary viewport scrolling and using deliberate Ctrl/Cmd-wheel zoom with sensible zoom limits.
+- Made the Cause and Effect Graph default layout component-aware, so disconnected causal groups are detected, laid out separately, and packed with clear spacing while preserving left-to-right causal flow where possible.
+
+### Fixed
+
+- Prevented ordinary labels from wrapping in the middle of words unless a single word exceeds the configured maximum line width.
+- Kept unresolved or missing-context capabilities in an unlabelled Capability Map fallback area while preserving warnings and source navigation.
+- Preserved compiler-derived graph semantics by avoiding artificial cause-and-effect edges for layout purposes.
+
 ## 1.0.5
 
 ### Added
