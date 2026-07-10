@@ -14,7 +14,7 @@
   },
   "vscode": {
     "name": "dcl-vscode-extension",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "supports": "1.0",
     "compiler": "1.0"
   }

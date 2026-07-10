@@ -1,9 +1,24 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
 
-- Updated language guidance for DCL v1.0 stable core vocabulary in snippets, highlighting, and hover text for agent actors, tool effects, and confidence policy thresholds.
-- Centralised extension release versioning through root `version.json` and version sync validation.
+### Added
+
+- Cause and Effect Graph for visualising compiler-derived causal relationships between intents, rules, policies, effects, outcomes, events, and lifecycle transitions.
+- Capability Map for viewing declared capabilities grouped by DCL context as a business responsibility landscape.
+- Capability Influence Graph for visualising explicit semantic influence between capabilities.
+- Weighted influence edges, where thicker arrows indicate stronger compiler-derived evidence such as lifecycle supervision, event-triggered transitions, explicit capability relations, effect targets, policy constraints, and concrete context references.
+
+### Improved
+
+- Architecture visualisation workspace now supports separate views for capability relationships, capability maps, cause-and-effect flow, and capability influence.
+- Graph edge details now expose influence score and semantic evidence where applicable.
+- Source navigation, zoom, pan, export, diagnostics, and graph synchronisation are available across the new visualisations.
+
+### Notes
+
+- The Capability Map is intentionally separate from implementation and infrastructure diagrams.
+- The Capability Influence Graph only shows explicit compiler-derived semantic influence. It does not infer relationships from naming, folders, shared actors, context proximity, or implementation structure.
 
 ## 1.0.4
 
