@@ -53,6 +53,21 @@ describe("DclGraphWorkspaceState", () => {
     expect(state.graphTypes).toContainEqual({ label: "Capability Map", value: "capability-map" });
   });
 
+  it("builds the capability influence graph without a subject", () => {
+    const state = buildGraphWorkspaceState(summary({
+      capabilities: [
+        { name: "StartJob" },
+        { name: "ManageJob", lifecycle: { transitionDetails: [{ from: "Queued", to: "Started", sourceCapability: "StartJob" }] } },
+      ],
+    }), { graphType: "capability-influence" });
+
+    expect(state.graphType).toBe("capability-influence");
+    expect(state.subject).toBeUndefined();
+    expect(state.graph?.title).toBe("DCL Capability Influence Graph");
+    expect(state.exportBaseName).toBe("dcl-capability-influence-graph");
+    expect(state.graphTypes).toContainEqual({ label: "Capability Influence Graph", value: "capability-influence" });
+  });
+
   it("only offers lifecycle subjects with lifecycle data", () => {
     const state = buildGraphWorkspaceState(summary({
       capabilities: [
@@ -129,6 +144,20 @@ describe("DclGraphWorkspaceState", () => {
 
     expect(state.capabilityMap).toBeUndefined();
     expect(state.emptyTitle).toBe("No Capabilities Found");
+  });
+
+  it("returns friendly empty states for capability influence graph", () => {
+    const notEnough = buildGraphWorkspaceState(summary({
+      capabilities: [{ name: "OnlyOne" }],
+    }), { graphType: "capability-influence" });
+    const none = buildGraphWorkspaceState(summary({
+      capabilities: [{ name: "A" }, { name: "B" }],
+    }), { graphType: "capability-influence" });
+
+    expect(notEnough.emptyTitle).toBe("Not Enough Capabilities");
+    expect(notEnough.emptyMessage).toMatch(/explicit semantic influence/i);
+    expect(none.emptyTitle).toBe("No Explicit Capability Influence Found");
+    expect(none.emptyMessage).toMatch(/explicit compiler-derived semantic influence/i);
   });
 
   it("offers graph sync from architecture capability nodes to capability graph", () => {

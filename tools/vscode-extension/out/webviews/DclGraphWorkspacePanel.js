@@ -385,6 +385,7 @@ function renderHtml(webview, extensionUri, state) {
     const detailInput = document.getElementById('architecture-detail');
     const layoutInput = document.getElementById('layout-mode');
     const nodeById = new Map((graph?.nodes || []).map((node) => [node.id, node]));
+    const edgeById = new Map((graph?.edges || []).map((edge) => [edge.id, edge]));
     const mapItemById = new Map();
     const incomingByNode = new Map();
     const outgoingByNode = new Map();
@@ -450,7 +451,7 @@ function renderHtml(webview, extensionUri, state) {
     } else if (graph) {
       const elements = [
         ...graph.nodes.map((node) => ({ data: { id: node.id, label: node.label, kind: node.kind }, classes: node.kind })),
-        ...graph.edges.map((edge) => ({ data: { id: edge.id, source: edge.source, target: edge.target, label: edge.label, kind: edge.kind } }))
+        ...graph.edges.map((edge) => ({ data: { id: edge.id, source: edge.source, target: edge.target, label: edge.label, kind: edge.kind, score: edge.score, edgeWidth: edge.score ? edgeWidth(edge.score) : 1.4 } }))
       ];
       cy = cytoscape({
         container: document.getElementById('graph'),
@@ -472,6 +473,11 @@ function renderHtml(webview, extensionUri, state) {
         lastSelectedNodeId = nodeId;
         updateDetails(nodeId);
         vscode.postMessage({ type: 'nodeSelected', nodeId });
+      });
+      cy.on('tap', 'edge', (event) => {
+        const edgeId = event.target.id();
+        lastSelectedNodeId = undefined;
+        updateEdgeDetails(edgeId);
       });
       cy.on('dbltap', 'node', (event) => {
         vscode.postMessage({ type: 'revealSource', nodeId: event.target.id() });
@@ -819,6 +825,11 @@ function renderHtml(webview, extensionUri, state) {
       }
     }
 
+    function edgeWidth(score) {
+      const numeric = Number(score) || 1;
+      return Math.max(1.4, Math.min(7, 1.2 + numeric * 0.42));
+    }
+
     function exportGraph(format) {
       if (capabilityMap) {
         exportCapabilityMap(format);
@@ -1006,7 +1017,7 @@ function renderHtml(webview, extensionUri, state) {
       const labelX = (x1 + x2) / 2;
       const labelY = (y1 + y2) / 2 - 6;
       return '<g>' +
-        '<line x1="' + round(x1) + '" y1="' + round(y1) + '" x2="' + round(x2) + '" y2="' + round(y2) + '" stroke="#6e7681" stroke-width="1.6" marker-end="url(#arrow)"/>' +
+        '<line x1="' + round(x1) + '" y1="' + round(y1) + '" x2="' + round(x2) + '" y2="' + round(y2) + '" stroke="#6e7681" stroke-width="' + round(edge.data('edgeWidth') || 1.6) + '" marker-end="url(#arrow)"/>' +
         '<rect x="' + round(labelX - textWidth(edge.data('label'), 9) / 2 - 4) + '" y="' + round(labelY - 12) + '" width="' + round(textWidth(edge.data('label'), 9) + 8) + '" height="16" fill="#ffffff" opacity="0.9"/>' +
         '<text x="' + round(labelX) + '" y="' + round(labelY) + '" text-anchor="middle" font-size="9" fill="#57606a">' + xml(edge.data('label')) + '</text>' +
         '</g>';
@@ -1134,6 +1145,26 @@ function renderHtml(webview, extensionUri, state) {
       updateShowInActions(nodeId);
     }
 
+    function updateEdgeDetails(edgeId) {
+      const edge = edgeById.get(edgeId);
+      if (!edge) return;
+      document.getElementById('details-empty').classList.add('hidden');
+      document.getElementById('details-content').classList.remove('hidden');
+      document.getElementById('detail-label').textContent = edge.label;
+      document.getElementById('detail-source-name').textContent = labelFor(edge.source) + ' -> ' + labelFor(edge.target);
+      document.getElementById('detail-kind').textContent = edge.kind;
+      document.getElementById('detail-relationships').textContent = edgeDetail(edge);
+      document.getElementById('source-section').classList.add('hidden');
+      document.getElementById('show-in-section').classList.add('hidden');
+    }
+
+    function edgeDetail(edge) {
+      const reasons = edge.reasons || [];
+      const score = typeof edge.score === 'number' ? edge.score : reasons.reduce((sum, reason) => sum + (Number(reason.score) || 0), 0);
+      const breakdown = reasons.map((reason) => reason.label + ' +' + reason.score + ': ' + reason.detail);
+      return ['Score ' + score, ...breakdown].join('; ');
+    }
+
     function updateShowInActions(nodeId) {
       const section = document.getElementById('show-in-section');
       const actions = document.getElementById('show-in-actions');
@@ -1187,9 +1218,10 @@ function renderHtml(webview, extensionUri, state) {
         { selector: 'node.policy, node.lifecycle-transition, node.terminal-step', style: { 'background-color': '#bf4b8a', 'border-color': '#ff9ece' } },
         { selector: 'node.external-context', style: { 'background-color': '#6e7681', 'border-color': '#9da7b3' } },
         { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#f2cc60', 'overlay-color': '#f2cc60', 'overlay-opacity': 0.16 } },
-        { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'line-color': '#6e7681', 'target-arrow-color': '#6e7681', 'font-size': 9, 'color': '#9da7b3', 'text-background-color': editorBackground, 'text-background-opacity': 1, 'text-background-padding': 2, 'width': 1.4 } },
+        { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'line-color': '#6e7681', 'target-arrow-color': '#6e7681', 'font-size': 9, 'color': '#9da7b3', 'text-background-color': editorBackground, 'text-background-opacity': 1, 'text-background-padding': 2, 'width': 'data(edgeWidth)' } },
         { selector: 'edge[kind *= "contains"], edge[kind = "begins"], edge[kind = "lifecycle-target"]', style: { 'line-style': 'dashed' } },
-        { selector: 'edge[kind = "entry"]', style: { 'line-style': 'dashed', 'line-color': '#4f6bed', 'target-arrow-color': '#4f6bed', 'color': '#9db0ff', 'width': 1.2 } }
+        { selector: 'edge[kind = "entry"]', style: { 'line-style': 'dashed', 'line-color': '#4f6bed', 'target-arrow-color': '#4f6bed', 'color': '#9db0ff', 'width': 1.2 } },
+        { selector: 'edge:selected', style: { 'line-color': '#f2cc60', 'target-arrow-color': '#f2cc60', 'color': '#f2cc60', 'overlay-color': '#f2cc60', 'overlay-opacity': 0.16 } }
       ];
     }
   </script>
@@ -1234,6 +1266,7 @@ function isGraphWorkspaceType(value) {
     return value === "architecture"
         || value === "capability"
         || value === "capability-map"
+        || value === "capability-influence"
         || value === "lifecycle"
         || value === "event-flow"
         || value === "context-map"

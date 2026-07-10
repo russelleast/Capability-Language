@@ -11,6 +11,8 @@ function graphExportBaseName(graphType, subject) {
             return `dcl-capability-${kebabSubject(subject)}`;
         case "capability-map":
             return "dcl-capability-map";
+        case "capability-influence":
+            return "dcl-capability-influence-graph";
         case "cause-effect":
             return `dcl-cause-effect-${kebabSubject(subject)}`;
         case "lifecycle":

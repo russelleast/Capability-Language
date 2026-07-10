@@ -1,5 +1,6 @@
 import { buildArchitectureOverviewGraph, ArchitectureOverviewDetailLevel } from "./DclArchitectureOverviewGraphBuilder";
 import { buildCapabilityGraph } from "./DclCapabilityGraphBuilder";
+import { buildCapabilityInfluenceGraph } from "./DclCapabilityInfluenceGraphBuilder";
 import { buildCapabilityMap, capabilityMapItems, DclCapabilityMapModel, findCapabilityMapItemBySemanticIdentity } from "./DclCapabilityMapBuilder";
 import { buildCauseEffectGraph } from "./DclCauseEffectGraphBuilder";
 import { buildContextMapGraph } from "./DclContextMapGraphBuilder";
@@ -10,7 +11,7 @@ import { DclGraphModel } from "./DclGraphModel";
 import { DclSemanticIdentity, findGraphNodeBySemanticIdentity } from "./DclSemanticIdentity";
 import { normalizeContextsForDisplay, SemanticSummary } from "../views/semanticSummary";
 
-export type DclGraphWorkspaceType = "architecture" | "capability" | "capability-map" | "lifecycle" | "event-flow" | "context-map" | "cause-effect";
+export type DclGraphWorkspaceType = "architecture" | "capability" | "capability-map" | "capability-influence" | "lifecycle" | "event-flow" | "context-map" | "cause-effect";
 
 export const ALL_EVENT_FLOWS = "__all_event_flows__";
 export const ALL_CONTEXTS = "__all_contexts__";
@@ -150,6 +151,7 @@ function graphSelectionsForIdentity(
   if (identity.kind === "context" || identity.kind === "capability") {
     selections.push({ graphType: "architecture", focusIdentity: identity });
     selections.push({ graphType: "capability-map", focusIdentity: identity });
+    selections.push({ graphType: "capability-influence", focusIdentity: identity });
   }
   if (identity.kind === "event") {
     selections.push({ graphType: "architecture", architectureDetailLevel: "detailed", focusIdentity: identity });
@@ -247,6 +249,8 @@ function showInLabel(graphType: DclGraphWorkspaceType): string {
       return "Show in Capability Graph";
     case "capability-map":
       return "Show in Capability Map";
+    case "capability-influence":
+      return "Show in Capability Influence Graph";
     case "lifecycle":
       return "Show in Lifecycle Graph";
     case "event-flow":
@@ -273,6 +277,8 @@ function buildSelectedGraph(
       return subject ? buildCapabilityGraph(summary, subject) : undefined;
     case "capability-map":
       return undefined;
+    case "capability-influence":
+      return buildCapabilityInfluenceGraph(summary);
     case "cause-effect":
       return subject ? buildCauseEffectGraph(summary, subject) : undefined;
     case "lifecycle":
@@ -291,6 +297,7 @@ function selectedSubject(
 ): string | undefined {
   if (graphType === "architecture") return undefined;
   if (graphType === "capability-map") return undefined;
+  if (graphType === "capability-influence") return undefined;
   if (requested && subjects.some((subject) => subject.value === requested)) return requested;
   return subjects[0]?.value;
 }
@@ -299,6 +306,7 @@ function subjectOptions(summary: SemanticSummary, graphType: DclGraphWorkspaceTy
   switch (graphType) {
     case "architecture":
     case "capability-map":
+    case "capability-influence":
       return [];
     case "capability":
     case "cause-effect":
@@ -375,6 +383,16 @@ function emptyState(
         title: "No Capabilities Found",
         message: "The Capability Map requires declared DCL capabilities in the compiled semantic summary.",
       };
+    case "capability-influence":
+      return summary.capabilities.length < 2
+        ? {
+          title: "Not Enough Capabilities",
+          message: "Explicit semantic influence requires at least two declared capabilities in the compiled semantic summary.",
+        }
+        : {
+          title: "No Explicit Capability Influence Found",
+          message: "The Capability Influence Graph only shows explicit compiler-derived semantic influence such as lifecycle supervision, event-triggered transitions, effect targets, policy constraints, explicit capability references, or concrete context dependency references.",
+        };
     case "lifecycle":
       return {
         title: "No Lifecycle Available",
@@ -407,6 +425,7 @@ function graphTypeOptions(): DclGraphWorkspaceOption[] {
     { label: "Architecture Overview", value: "architecture" },
     { label: "Capability Graph", value: "capability" },
     { label: "Capability Map", value: "capability-map" },
+    { label: "Capability Influence Graph", value: "capability-influence" },
     { label: "Cause and Effect Graph", value: "cause-effect" },
     { label: "Lifecycle Graph", value: "lifecycle" },
     { label: "Event Flow Graph", value: "event-flow" },

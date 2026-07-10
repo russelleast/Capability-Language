@@ -9,6 +9,7 @@ describe("DclGraphExport", () => {
     ["architecture", undefined, "dcl-architecture-overview"],
     ["capability", "PlaceOrder", "dcl-capability-place-order"],
     ["capability-map", undefined, "dcl-capability-map"],
+    ["capability-influence", undefined, "dcl-capability-influence-graph"],
     ["cause-effect", "PlaceOrder", "dcl-cause-effect-place-order"],
     ["lifecycle", "OrderFulfilment", "dcl-lifecycle-order-fulfilment"],
     ["event-flow", "OrderSubmitted", "dcl-event-flow-order-submitted"],
@@ -36,6 +37,10 @@ describe("DclGraphExport", () => {
         expect.objectContaining({
           command: "dcl.showCapabilityMap",
           title: "DCL: Show Capability Map",
+        }),
+        expect.objectContaining({
+          command: "dcl.showCapabilityInfluenceGraph",
+          title: "DCL: Show Capability Influence Graph",
         }),
       ]),
     );

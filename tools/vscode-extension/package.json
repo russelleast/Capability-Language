@@ -58,6 +58,7 @@
     "onCommand:dcl.showArchitectureOverview",
     "onCommand:dcl.showCapabilityGraph",
     "onCommand:dcl.showCapabilityMap",
+    "onCommand:dcl.showCapabilityInfluenceGraph",
     "onCommand:dcl.showCauseEffectGraph",
     "onCommand:dcl.showContextMap",
     "onCommand:dcl.showEventFlowGraph",
@@ -196,6 +197,11 @@
       {
         "command": "dcl.showCapabilityMap",
         "title": "DCL: Show Capability Map",
+        "category": "DCL"
+      },
+      {
+        "command": "dcl.showCapabilityInfluenceGraph",
+        "title": "DCL: Show Capability Influence Graph",
         "category": "DCL"
       },
       {
@@ -344,6 +350,9 @@
         },
         {
           "command": "dcl.showCapabilityMap"
+        },
+        {
+          "command": "dcl.showCapabilityInfluenceGraph"
         },
         {
           "command": "dcl.showCauseEffectGraph"

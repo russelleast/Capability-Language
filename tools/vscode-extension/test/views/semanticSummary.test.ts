@@ -50,6 +50,58 @@ describe("semantic summary normalization", () => {
     ]);
   });
 
+  it("preserves semantic influence evidence fields", () => {
+    const summary = summarizeCompilerOutput({
+      dependencies: [{
+        source_context: "Sales",
+        target_context: "Shared",
+        referenced_symbols: ["Shared.AuthorizePayment"],
+      }],
+      effective_policies: [{
+        containing_capability: "PlaceOrder",
+        applied_policies: ["PaymentConstraint"],
+        target_kind: "capability",
+        target_symbol: "AuthorizePayment",
+      }],
+      capabilities: [{
+        name: "PlaceOrder",
+        effects: [{ effect: "ReserveStock", target_kind: "capability", target_name: "AllocateStock" }],
+        policies: [{ policy: "OrderPolicy", target_kind: "capability", target_name: "AuthorizePayment" }],
+        lifecycle: {
+          participating_capabilities: ["AuthorizePayment"],
+          contributors: [{ capability: "AllocateStock", used_by_transitions: ["Requested -> Allocated"] }],
+        },
+        relations: [{ kind: "depends_on", from: "PlaceOrder", to: "AuthorizePayment", condition: "required" }],
+      }],
+    });
+
+    expect(summary.dependencies).toEqual([{
+      sourceContext: "Sales",
+      targetContext: "Shared",
+      referencedSymbols: ["Shared.AuthorizePayment"],
+    }]);
+    expect(summary.capabilities[0].effectDetails).toEqual([{
+      effect: "ReserveStock",
+      targetKind: "capability",
+      targetName: "AllocateStock",
+    }]);
+    expect(summary.capabilities[0].policyDetails).toEqual([
+      { policy: "OrderPolicy", targetKind: "capability", targetName: "AuthorizePayment" },
+      { policy: "PaymentConstraint", targetKind: "capability", targetName: "AuthorizePayment" },
+    ]);
+    expect(summary.capabilities[0].lifecycle?.participatingCapabilities).toEqual(["AuthorizePayment"]);
+    expect(summary.capabilities[0].lifecycle?.contributors).toEqual([{
+      capability: "AllocateStock",
+      usedByTransitions: ["Requested -> Allocated"],
+    }]);
+    expect(summary.capabilities[0].relations).toEqual([{
+      kind: "depends_on",
+      from: "PlaceOrder",
+      to: "AuthorizePayment",
+      condition: "required",
+    }]);
+  });
+
   it("normalizes compiler diagnostics for semantic visual metadata", () => {
     const summary = summarizeCompilerOutput({
       diagnostics: [{
