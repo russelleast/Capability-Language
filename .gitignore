@@ -4,3 +4,4 @@ compiler/dcl-lsp
 compiler/dcl-mcp
 bin/
 build/
+tools/vscode-extension/bin/

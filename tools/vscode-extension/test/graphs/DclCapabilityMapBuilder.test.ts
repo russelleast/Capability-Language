@@ -34,7 +34,7 @@ describe("DclCapabilityMapBuilder", () => {
     expect(map?.root.children[0].capabilities.map((capability) => capability.name)).toEqual(["AcceptOrder", "QuoteOrder"]);
   });
 
-  it("adds lifecycle, effects, events, policies, and diagnostics badges", () => {
+  it("does not add metadata badges to capability tiles", () => {
     const map = buildCapabilityMap(summary({
       contexts: [{ name: "Claims" }],
       capabilities: [{
@@ -48,26 +48,22 @@ describe("DclCapabilityMapBuilder", () => {
       diagnostics: [{ severity: "warning", message: "Ambiguous lifecycle transition", node: "AssessClaim" }],
     }));
 
-    expect(map?.root.children[0].capabilities[0].badges.map((badge) => badge.kind)).toEqual([
-      "lifecycle",
-      "effects",
-      "events",
-      "policies",
-      "diagnostics",
-    ]);
+    expect(map?.root.children[0].capabilities[0].badges).toEqual([]);
+    expect(map?.root.children[0].capabilities[0].diagnostics).toHaveLength(1);
   });
 
-  it("falls back to Program when declared contexts are unavailable", () => {
+  it("uses an unlabelled synthetic root when declared contexts are unavailable", () => {
     const map = buildCapabilityMap(summary({
       capabilities: [{ name: "AcceptOrder" }],
     }));
 
-    expect(map?.root.name).toBe("Program");
+    expect(map?.root.name).toBe("");
+    expect(map?.root.synthetic).toBe(true);
     expect(map?.root.capabilities.map((capability) => capability.name)).toEqual(["AcceptOrder"]);
-    expect(map?.warnings?.[0]).toMatch(/Declared context hierarchy was not available/);
+    expect(map?.warnings).toBeUndefined();
   });
 
-  it("places capabilities with missing declared contexts under Program with a warning", () => {
+  it("places capabilities with missing declared contexts in the unlabelled fallback area with a warning", () => {
     const map = buildCapabilityMap(summary({
       contexts: [{ name: "Sales" }],
       capabilities: [{ name: "AcceptOrder", context: "Missing" }],
@@ -75,6 +71,18 @@ describe("DclCapabilityMapBuilder", () => {
 
     expect(map?.root.capabilities.map((capability) => capability.name)).toEqual(["AcceptOrder"]);
     expect(map?.warnings?.[0]).toMatch(/references context 'Missing'/);
+    expect(map?.warnings?.[0]).not.toMatch(/Program/);
+  });
+
+  it("does not create a visible Program context for multiple top-level contexts", () => {
+    const map = buildCapabilityMap(summary({
+      contexts: [{ name: "Sales" }, { name: "Support" }],
+      capabilities: [{ name: "AcceptOrder", context: "Sales" }, { name: "AnswerCase", context: "Support" }],
+    }));
+
+    expect(map?.root.synthetic).toBe(true);
+    expect(map?.root.children.map((context) => context.name)).toEqual(["Sales", "Support"]);
+    expect(capabilityMapItems(map).some((item) => item.name === "Program")).toBe(false);
   });
 
   it("returns no model when no capabilities exist", () => {

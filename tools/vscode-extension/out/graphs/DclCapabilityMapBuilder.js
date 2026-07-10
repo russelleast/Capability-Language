@@ -6,7 +6,7 @@ exports.capabilityMapItems = capabilityMapItems;
 exports.findCapabilityMapItemBySemanticIdentity = findCapabilityMapItemBySemanticIdentity;
 const DclSemanticIdentity_1 = require("./DclSemanticIdentity");
 exports.CAPABILITY_MAP_DESCRIPTION = "The Capability Map shows declared capabilities grouped by DCL context. It is a responsibility map, not a dependency, runtime, service, or infrastructure diagram.";
-const PROGRAM_CONTEXT = "Program";
+const SYNTHETIC_ROOT_CONTEXT = "__capability_map_root__";
 function buildCapabilityMap(summary) {
     if (!summary.capabilities.length)
         return undefined;
@@ -14,11 +14,8 @@ function buildCapabilityMap(summary) {
     const declaredContexts = declaredContextSummaries(summary.contexts);
     const contextByName = new Map(declaredContexts.map((context) => [context.name, context]));
     const parentByChild = parentByChildContext(declaredContexts);
-    const root = contextContainer(PROGRAM_CONTEXT);
-    const containerByName = new Map([[PROGRAM_CONTEXT, root]]);
-    if (!declaredContexts.length) {
-        warnings.push("Declared context hierarchy was not available, so capabilities are grouped under Program.");
-    }
+    const root = contextContainer(SYNTHETIC_ROOT_CONTEXT, undefined, true);
+    const containerByName = new Map();
     for (const context of declaredContexts) {
         containerByName.set(context.name, contextContainer(context.name, context.location));
     }
@@ -32,7 +29,7 @@ function buildCapabilityMap(summary) {
             parent.children.push(container);
         }
         else {
-            warnings.push(`Context '${context.name}' references missing parent context '${parentName}', so it is shown under Program.`);
+            warnings.push(`Context '${context.name}' references missing parent context '${parentName}', so it is shown in an unlabelled top-level map area.`);
             root.children.push(container);
         }
     }
@@ -55,7 +52,7 @@ function buildCapabilityMap(summary) {
         }
         else {
             if (ownerName && !contextByName.has(ownerName)) {
-                warnings.push(`Capability '${capability.name}' references context '${ownerName}', but that declared context was not available, so it is shown under Program.`);
+                warnings.push(`Capability '${capability.name}' references context '${ownerName}', but that declared context was not available, so it is shown in an unlabelled fallback area.`);
             }
             root.capabilities.push(tile);
         }
@@ -97,13 +94,14 @@ function parentByChildContext(contexts) {
     }
     return parents;
 }
-function contextContainer(name, source) {
+function contextContainer(name, source, synthetic = false) {
     return {
-        id: `context:${slug(name)}`,
-        name,
+        id: synthetic ? "context:root" : `context:${slug(name)}`,
+        name: synthetic ? "" : name,
         kind: "context",
+        synthetic,
         source,
-        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("context", name),
+        semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("context", synthetic ? "root" : name),
         capabilities: [],
         children: [],
     };
@@ -116,21 +114,9 @@ function capabilityTile(capability, diagnostics) {
         kind: "capability",
         source: capability.location,
         semanticIdentity: (0, DclSemanticIdentity_1.semanticIdentity)("capability", capability.name),
-        badges: capabilityBadges(capability, diagnostics),
+        badges: [],
         diagnostics,
     };
-}
-function capabilityBadges(capability, diagnostics) {
-    return [
-        capability.lifecycle ? { kind: "lifecycle", label: "Lifecycle" } : undefined,
-        badgeWithCount("effects", "Effects", capability.effects?.length),
-        badgeWithCount("events", "Events", Math.max(capability.events?.length ?? 0, capability.eventDetails?.length ?? 0)),
-        badgeWithCount("policies", "Policies", capability.policies?.length),
-        badgeWithCount("diagnostics", "Warnings", diagnostics?.filter((diagnostic) => diagnostic.severity === "warning").length),
-    ].filter((badge) => Boolean(badge));
-}
-function badgeWithCount(kind, label, count) {
-    return count ? { kind, label, count } : undefined;
 }
 function diagnosticsForCapability(diagnostics, capability) {
     const matched = (diagnostics ?? []).filter((diagnostic) => {
