@@ -1,0 +1,165 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { sitePath } from "../../lib/playground/links";
+
+const frontmatter = {
+  title: "Replacing BDD Glue with Capability-Driven Verification",
+  description:
+    "How an autonomous software factory used DCL to separate compiler-verified capability specifications from outside-in verification.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <p><a href={sitePath("/use-cases/")}>Back to Use Cases</a></p>
+  <p class="eyebrow">
+    External use case · Provided by <a href="https://appmilla.com/">Appmilla</a>
+  </p>
+  <h1>Replacing BDD Glue with Capability-Driven Verification</h1>
+
+  <h2>The Context</h2>
+  <p>
+    An autonomous software factory was built to take a feature request through
+    specification, implementation, deployment, and verification using locally
+    hosted AI models.
+  </p>
+  <p>
+    The factory followed a strong principle: no stage should simply claim that
+    work is complete. Each stage should produce evidence that can be
+    independently checked.
+  </p>
+  <p>
+    Behaviour-Driven Development (BDD), using Gherkin and
+    specification-by-example, was originally used as part of the specification
+    and verification process.
+  </p>
+  <p>
+    The scenarios themselves were useful. The problem was everything required
+    to make them executable.
+  </p>
+
+  <h2>The Problem</h2>
+  <p>
+    Executing BDD scenarios required a growing layer of technical glue.
+  </p>
+  <p>
+    Each scenario needed step definitions that connected natural-language
+    statements to implementation code. Different technology stacks required
+    different test runners and integrations. Additional bridge code was needed
+    to make the specification layer work reliably within the automated factory.
+  </p>
+  <p>
+    Over time, much of the complexity was no longer improving the specification
+    or the software being built. It existed simply to connect the specification
+    to the test framework.
+  </p>
+  <p>
+    In one real service, eight Gherkin scenarios containing 29 steps had been
+    written but were never connected to executable verification. Doing so was
+    estimated to require around 22 step definitions, a 151-line bridge, another
+    test dependency, and additional runner configuration.
+  </p>
+  <p>The specification existed.</p>
+  <p>The verification did not.</p>
+  <p>
+    <strong>
+      Could the responsibility of the software be specified independently from
+      the mechanism used to verify it?
+    </strong>
+  </p>
+
+  <h2>The DCL Experiment</h2>
+  <p>DCL was evaluated as an alternative specification layer.</p>
+  <p>
+    Instead of describing executable test scenarios, the feature was described
+    as a capability: its intent, possible outcomes, rules, effects, events,
+    lifecycle, policies, and observations.
+  </p>
+  <p>
+    The DCL compiler then provided a deterministic check that the specification
+    itself was structurally and semantically valid.
+  </p>
+  <p>Verification was treated as a separate concern.</p>
+  <p>
+    Rather than executing the specification through step definitions inside the
+    application, verification obligations were derived from the capability
+    definition and executed from outside against the deployed service.
+  </p>
+  <p>The resulting model was:</p>
+  <p>
+    <strong>
+      DCL capability → compiler validation → derived verification → running
+      system
+    </strong>
+  </p>
+  <p>
+    This removed the need for the specification to know anything about the
+    language or framework used to implement the service.
+  </p>
+
+  <h2>The Result</h2>
+  <p>
+    A real feature was specified in 38 lines of DCL and reached a successful
+    compiler validation in 2 minutes and 35 seconds.
+  </p>
+  <p>
+    General derivation rules were then used to turn the capability definition
+    into outside-in assertions against the deployed application.
+  </p>
+  <p>
+    The final verification ran 13 derived assertions against the live service.
+  </p>
+  <p>All 13 passed.</p>
+  <p>
+    No BDD step definitions were required. No test-framework bridge was
+    required. No application-language-specific BDD runner was required.
+  </p>
+  <p>The experiment also demonstrated another property of DCL.</p>
+  <p>
+    When a locally hosted AI model was asked to generate a capability, it
+    produced a structurally convincing specification but invented two values
+    that did not exist in the DCL language. The compiler rejected both with
+    precise diagnostics.
+  </p>
+  <p>
+    This created a useful boundary between probabilistic generation and
+    deterministic verification:
+  </p>
+  <p>
+    <strong>
+      AI can propose the specification. The compiler decides whether it is
+      valid.
+    </strong>
+  </p>
+
+  <h2>What DCL Provided</h2>
+  <p>DCL did not replace testing.</p>
+  <p>
+    Instead, it changed the relationship between specification and
+    verification.
+  </p>
+  <p>
+    The capability became the machine-checkable statement of what the software
+    was responsible for. Verification could then be derived from that meaning
+    and executed using whatever mechanism was appropriate for the target system.
+  </p>
+  <p>
+    For this software factory, that meant replacing a growing layer of BDD
+    execution glue with a simpler model:
+  </p>
+  <p>
+    <strong>
+      Specify the capability. Validate the specification. Derive the
+      verification. Test the running system.
+    </strong>
+  </p>
+  <p>
+    Following the experiment, DCL was adopted as a trial specification path
+    within the factory, behind a configuration switch with the existing BDD
+    process retained as a fallback.
+  </p>
+  <p>
+    The experiment provides an early example of DCL being used beyond
+    architecture documentation: as a compiler-verified specification language
+    within an AI-assisted software delivery process.
+  </p>
+</DocsLayout>
