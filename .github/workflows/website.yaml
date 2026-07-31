@@ -28,7 +28,7 @@ jobs:
         with:
           go-version-file: compiler/go.mod
           cache-dependency-path: compiler/go.mod
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
