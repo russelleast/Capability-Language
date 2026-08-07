@@ -1,0 +1,55 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import domainTypes from "../../examples/domain-types.dcl?raw";
+import { playgroundExamplePath } from "../../lib/playground/links";
+
+const frontmatter = {
+  title: "Domain Modelling with the DCL Type System",
+  description: "Learn domain modelling in DCL with named shapes, enum types, collections, numeric constraints, and lightweight units of measure.",
+};
+---
+
+<DocsLayout frontmatter={frontmatter}>
+  <h1>Domain modelling with DCL types</h1>
+  <p>
+    DCL types encode domain distinctions, not merely storage representation.
+    Built-in types provide the foundations; record shapes, enum shapes,
+    collections, constraints, and measures let a model give those values
+    business meaning.
+  </p>
+
+  <h2>Choose the type that carries the meaning</h2>
+  <ul>
+    <li>Use <code>Integer</code> for whole numbers and <code>Number</code> when fractions are meaningful.</li>
+    <li>Use a record shape for a named group of fields that belongs together.</li>
+    <li>Use an enum shape for a closed choice between alternatives.</li>
+    <li>Use <code>List&lt;T&gt;</code> when a value contains a collection of another type.</li>
+    <li>Use a measure when numerically similar values have different domain meanings.</li>
+    <li>Use <code>min</code>, <code>max</code>, and <code>default</code> for numeric structural constraints.</li>
+  </ul>
+
+  <h2>Compose a domain model</h2>
+  <p>
+    The example below combines nested address and order shapes, closed payment
+    and delivery alternatives, typed enum values, collections, measured numeric
+    fields, and range constraints. It is compiled as part of the website's
+    example validation.
+  </p>
+  <CodeBlock title="domain-types.dcl" code={domainTypes} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("domain-types")}>Open in Playground</a>
+  </p>
+
+  <h2>Keep data and behaviour distinct</h2>
+  <p>
+    An enum shape such as <code>Result</code> is a reusable domain data type. A
+    capability outcome is behavioural: it records what result the capability
+    can cause. DCL may use the same supporting types in both places without
+    making enum alternatives and outcomes interchangeable.
+  </p>
+  <p>
+    See the <a href="/Capability-Language/docs/#shape">type-system reference</a>
+    for the exact syntax and compiler validation rules.
+  </p>
+</DocsLayout>

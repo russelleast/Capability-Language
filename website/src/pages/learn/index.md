@@ -12,6 +12,14 @@ The useful question is not "what does this term mean?" It is:
 
 > How do I express this system responsibility, decision, integration, policy, or lifecycle in DCL source?
 
+## Model Domain Data
+
+DCL types encode domain distinctions with named record and enum shapes,
+collections, numeric constraints, and lightweight measures.
+
+- [Domain modelling with DCL types](/Capability-Language/learn/domain-types/)
+- [Type-system reference](/Capability-Language/docs/#shape)
+
 ## Learning Path
 
 ### 1. Start With One Responsibility

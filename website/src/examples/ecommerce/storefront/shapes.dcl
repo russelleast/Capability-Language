@@ -1,6 +1,8 @@
 language dcl 1.0
 
 context Ecommerce.Storefront {
+  measure Items
+
   shape ProductSearch {
     query: Text required
     category: Text
@@ -9,7 +11,7 @@ context Ecommerce.Storefront {
   shape BasketItemInput {
     basketId: Uuid required
     productId: Uuid required
-    quantity: Number required
+    quantity: Integer<Items> min 1 required
   }
 
   shape BasketCheckoutInput {

@@ -10,6 +10,7 @@ Guides answer "How do I..." questions. Each guide focuses on a modelling task or
 
 ## Modelling Tasks
 
+- [How do I model domain data?](/Capability-Language/learn/domain-types/)
 - [How do I define a capability?](/Capability-Language/guides/define-capability/)
 - [How do I model validation?](/Capability-Language/guides/model-validation/)
 - [How do I model authorisation?](/Capability-Language/guides/model-authorisation/)

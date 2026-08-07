@@ -46,7 +46,7 @@ export const dclConceptHelp: DclConceptHelp[] = [
     label: "shape",
     kind: "core construct",
     explanation:
-      "A shape defines reusable structured data with typed fields. Shapes are used by capability intent inputs, event payloads, and outcome payloads.",
+      "A shape is a first-class named domain type. Record shapes compose fields and other types; enum shapes define a closed set of alternatives.",
     reference: "/docs/#shape",
   },
   {
@@ -306,7 +306,7 @@ export const dclSnippets: DclSnippet[] = [
     label: "shape",
     detail: "DCL shape declaration",
     documentation:
-      "Declares a reusable input or payload shape with typed fields. Use required when the field must be present.",
+      "Declares a reusable named domain type with typed fields. Use required when the field must be present.",
     insertText: "shape ${1:InputName} {\n  ${2:name}: ${3:Text} required\n}",
   },
   {

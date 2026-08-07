@@ -8,11 +8,12 @@ import contextShared from "../../examples/context-shared.dcl?raw";
 import contextSales from "../../examples/context-sales.dcl?raw";
 import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
 import paymentProcessing from "../../examples/payment-processing.dcl?raw";
+import domainTypes from "../../examples/domain-types.dcl?raw";
 import { languageLabel, languageStatus, compilerVersion } from "../../config/version";
 
 const frontmatter = {
-  title: "Reference",
-  description: "Detailed DCL language reference organised by language construct.",
+  title: "DCL Language and Type System Reference",
+  description: "DCL language reference for domain modelling with built-in types, named shapes, enum types, numeric constraints, collections, and units of measure.",
 };
 
 const constructs = [
@@ -118,11 +119,62 @@ const constructs = [
   <CodeBlock title="context-shared.dcl" code={contextShared} />
   <CodeBlock title="context-sales.dcl" code={contextSales} />
 
-  <h2 id="shape">Shape</h2>
+  <h2 id="shape">Type system and shapes</h2>
   <p>
-    A shape declares a reusable named domain type. Record shapes compose typed
-    fields; enum shapes declare a closed set of named alternatives. DCL types
-    encode domain distinctions, not merely storage representation.
+    DCL types encode domain distinctions, not merely storage representation. A
+    shape is a first-class named domain type: record shapes compose fields and
+    other types, while enum shapes define a closed set of alternatives.
+  </p>
+  <p>
+    Types describe data and domain meaning. They do not add methods, inheritance,
+    or runtime behaviour to a capability.
+  </p>
+  <p>
+    Jump to <a href="#built-in-types">built-in types</a>,
+    <a href="#record-shapes">record shapes</a>,
+    <a href="#numeric-constraints">numeric constraints</a>,
+    <a href="#enum-shapes">enum shapes</a>,
+    <a href="#result-types">Result/Either-style types</a>,
+    <a href="#measures">measures</a>, or
+    <a href="#complex-domain-types">the complete domain example</a>.
+  </p>
+
+  <h3 id="built-in-types">Built-in types</h3>
+  <p>
+    The compiler supports <code>Text</code>, <code>Boolean</code>,
+    <code>Integer</code>, <code>Number</code>, <code>Date</code>, and
+    <code>DateTime</code>. It also supports the convenience value types
+    <code>Uuid</code>, <code>Email</code>, and <code>Money</code>.
+  </p>
+  <pre><code>{`shape Product {
+  stock: Integer
+  price: Number
+}`}</code></pre>
+  <p>
+    <code>Integer</code> is a signed integral numeric type and is distinct from
+    <code>Number</code>. Use <code>Integer</code> for whole-number concepts such
+    as counts; use <code>Number</code> where fractional values are meaningful.
+  </p>
+
+  <h3 id="record-shapes">Record shapes</h3>
+  <p>
+    A record shape declares a reusable named domain type. Its fields may use a
+    built-in type, another record or enum shape, a <code>List&lt;T&gt;</code>, or a
+    measured numeric type. <code>required</code> marks a structurally mandatory
+    field.
+  </p>
+  <pre><code>{`shape Address {
+  line1: Text required
+  city: Text required
+}
+
+shape Customer {
+  name: Text required
+  address: Address required
+}`}</code></pre>
+  <p>
+    Here <code>Customer</code> composes <code>Address</code>; neither shape is
+    limited to use as a capability request or event payload.
   </p>
   <table class="reference-table">
     <thead>
@@ -138,7 +190,7 @@ const constructs = [
       </tr>
       <tr>
         <td><code>Type</code></td>
-        <td>Built-in type or declared shape name.</td>
+        <td>Built-in, shape, collection, or measured numeric type.</td>
       </tr>
       <tr>
         <td><code>required</code></td>
@@ -150,38 +202,127 @@ const constructs = [
       </tr>
     </tbody>
   </table>
+
+  <h3 id="numeric-constraints">Numeric constraints</h3>
   <p>
-    Built-in value types currently include <code>Text</code>,
-    <code>Boolean</code>, <code>Integer</code>, <code>Number</code>, <code>Date</code>,
-    <code>DateTime</code>, <code>Uuid</code>, <code>Email</code>, and
-    <code>Money</code>.
+    <code>Integer</code> and <code>Number</code> fields, including measured forms,
+    support <code>min</code>, <code>max</code>, and <code>default</code>.
   </p>
+  <pre><code>{`shape RetryConfiguration {
+  attempts: Integer min 0 max 10 default 3
+  delaySeconds: Number min 0 max 60 default 1.5
+}`}</code></pre>
   <p>
-    <code>Integer</code> is a signed integral type distinct from
-    <code>Number</code>. Fractional Integer constraints and defaults are invalid.
+    These are structural/type constraints, not capability rules. The compiler
+    checks that numeric literals are valid, <code>min</code> is not greater than
+    <code>max</code>, defaults fall within the declared range, and Integer
+    constraints do not contain fractional values.
   </p>
-  <h3>Enum shapes and payloads</h3>
-  <pre><code>{`shape PaymentMethod enum {
+  <pre><code>{`shape RetryConfiguration {
+  attempts: Integer min 1 max 5 default 10
+}`}</code></pre>
+  <p>
+    This definition is invalid: the compiler reports
+    <code>DCL_SEM_NUMERIC_DEFAULT_OUT_OF_RANGE</code> because <code>10</code> is
+    above the maximum of <code>5</code>.
+  </p>
+
+  <h3 id="enum-shapes">Enum shapes</h3>
+  <p>
+    An enum shape is a closed set of named alternatives. An alternative carries
+    either no value or one value of another DCL type. The <code>is</code> keyword
+    associates a value-carrying alternative with its type.
+  </p>
+  <pre><code>{`shape Currency enum {
+  GBP
+  USD
+  EUR
+}`}</code></pre>
+  <pre><code>{`shape HexColour {
+  value: Text required
+}
+
+shape Colour enum {
+  Red
+  Green
+  Blue
+  Hex is HexColour
+}`}</code></pre>
+  <p>
+    Alternatives may carry record shapes, built-ins, enum shapes, collections,
+    or measured numerics. They always use <code>is</code>; call-like forms such as
+    <code>Card(CardDetails)</code> are not DCL syntax.
+  </p>
+  <pre><code>{`shape CardDetails {
+  token: Text required
+}
+
+shape BankAccount {
+  accountNumber: Text required
+}
+
+shape PaymentMethod enum {
   Cash
   Card is CardDetails
+  BankTransfer is BankAccount
+}`}</code></pre>
+  <pre><code>{`shape SearchValue enum {
+  TextValue is Text
+  NumericValue is Integer
+}`}</code></pre>
+
+  <h3 id="result-types">Result/Either-style domain types</h3>
+  <pre><code>{`shape Failure {
+  name: Text
+  reason: Text required
+  code: Number
+}
+
+shape Result enum {
+  Success
   Failed is List<Failure>
 }`}</code></pre>
   <p>
-    Each alternative carries either no value or exactly one value of any valid
-    DCL type. Result/Either models use an ordinary enum shape; outcomes remain
-    separate behavioural primitives.
+    <code>Failed</code> carries a <code>List&lt;Failure&gt;</code>. Result/Either-style
+    domain models therefore use ordinary enum shapes; <code>Result</code> is not a
+    special built-in type.
   </p>
-  <h3>Measures</h3>
+
+  <h3 id="measures">Measures and measured numeric types</h3>
+  <p>A measure gives a numeric value a lightweight unit of domain meaning.</p>
   <pre><code>{`measure Quantity
+measure Weight
 measure Days
 
 shape OrderLine {
   quantity: Integer<Quantity> min 1 required
-  retention: Integer<Days> required
+  unitWeight: Number<Weight> required
+}
+
+shape RetentionPolicy {
+  retention: Integer<Days> min 1 required
 }`}</code></pre>
   <p>
-    Measured values are distinct types. DCL does not currently define implicit
-    conversions, dimensional algebra, derived units, or an SI library.
+    <code>Integer&lt;Quantity&gt;</code>, <code>Integer&lt;Days&gt;</code>, and unmeasured
+    <code>Integer</code> are semantically distinct types even though they share a
+    numeric representation. Measures are intentionally lightweight: the
+    compiler does not provide automatic conversion, dimensional algebra,
+    derived units, or an SI library.
+  </p>
+
+  <h3 id="complex-domain-types">Complex and nested domain types</h3>
+  <p>
+    Record shapes, enum shapes, collections, measured numerics, and constraints
+    compose into larger business models. The following compiler-validated source
+    includes ordering, delivery, payment, search, and failure types.
+  </p>
+  <CodeBlock title="domain-types.dcl" code={domainTypes} />
+  <p>
+    Enum shapes remain data/domain types. For example,
+    <code>shape ValidationResult enum &#123; ... &#125;</code> describes a reusable
+    value. A capability <code>outcomes &#123; ... &#125;</code> block describes
+    behaviour and causation. Similar payload types may be reused, but the two
+    constructs have different language semantics.
   </p>
 
   <h2 id="actor">Actor</h2>
