@@ -167,3 +167,27 @@ func TestFromIRSummarizesDiagnostics(t *testing.T) {
 		t.Fatalf("expected error count in diagnostics summary: %#v", got.DiagnosticsSummary)
 	}
 }
+
+func TestFromIRSummarizesDomainTypes(t *testing.T) {
+	result := compiler.CompileSource("types-summary.dcl", `measure Quantity
+shape Result enum {
+  Success
+  Count is Integer<Quantity>
+}
+shape Input {
+  quantity: Integer<Quantity> min 1 default 2 required
+}`)
+	if compiler.HasErrors(result.Diagnostics) {
+		t.Fatalf("fixture should compile: %#v", result.Diagnostics)
+	}
+	got := FromIR(result.IR)
+	if len(got.Measures) != 1 || got.Measures[0].Name != "Quantity" {
+		t.Fatalf("unexpected measures: %#v", got.Measures)
+	}
+	if len(got.Shapes) != 2 || got.Shapes[1].Kind != "enum" || len(got.Shapes[1].Alternatives) != 2 {
+		t.Fatalf("unexpected shapes: %#v", got.Shapes)
+	}
+	if got.Shapes[0].Fields[0].Constraints.Min != "1" || got.Shapes[0].Fields[0].Constraints.Default != "2" {
+		t.Fatalf("unexpected field constraints: %#v", got.Shapes[0].Fields[0])
+	}
+}

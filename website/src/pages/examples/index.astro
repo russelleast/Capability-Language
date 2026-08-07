@@ -10,6 +10,7 @@ import contextSales from "../../examples/context-sales.dcl?raw";
 import supervisingLifecycle from "../../examples/supervising-lifecycle.dcl?raw";
 import paymentProcessing from "../../examples/payment-processing.dcl?raw";
 import agenticCustomerSupport from "../../examples/agentic-customer-support.dcl?raw";
+import domainTypes from "../../examples/domain-types.dcl?raw";
 import { playgroundExamplePath, sitePath } from "../../lib/playground/links";
 
 const frontmatter = {
@@ -37,6 +38,18 @@ const frontmatter = {
   <p class="inline-actions">
     <a class="button secondary" href={playgroundExamplePath("ecommerce-platform")}>Open in Playground</a>
   </p>
+
+  <h2>Domain Types</h2>
+  <p>
+    A business domain model combining nested shapes, enum alternatives carrying
+    typed values, collections, Integer and Number constraints, and measured
+    numeric values.
+  </p>
+  <CodeBlock title="domain-types.dcl" code={domainTypes} />
+  <p class="inline-actions">
+    <a class="button secondary" href={playgroundExamplePath("domain-types")}>Open in Playground</a>
+  </p>
+  <p><strong>Key concepts:</strong> named domain types, enum shapes, collections, measures, numeric constraints.</p>
 
   <h2>Hello World</h2>
   <p>

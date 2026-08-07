@@ -178,6 +178,10 @@ func (i *SemanticSourceIndex) addDeclarations(program ast.Program, sources []Sou
 		context := declContext(shape.Meta.ContextName)
 		i.addDeclaration("shape", shape.Name, shape.Name, context, "", context, shape.Span, tokenCache.nameRange(shape.Span, shape.Name))
 	}
+	for _, measure := range program.Measures {
+		context := declContext(measure.Meta.ContextName)
+		i.addDeclaration("measure", measure.Name, measure.Name, context, "", context, measure.Span, tokenCache.nameRange(measure.Span, measure.Name))
+	}
 	for _, actor := range program.Actors {
 		context := declContext(actor.Meta.ContextName)
 		i.addDeclaration("actor", actor.Name, actor.Name, context, "", context, actor.Span, tokenCache.nameRange(actor.Span, actor.Name))

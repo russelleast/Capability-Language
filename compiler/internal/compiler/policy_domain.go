@@ -59,7 +59,7 @@ var concernSpecs = map[string]concernSpec{
 
 func isBuiltinType(name string) bool {
 	switch name {
-	case "Text", "Boolean", "Number", "Date", "DateTime", "Uuid", "Email", "Money":
+	case "Text", "Boolean", "Integer", "Number", "Date", "DateTime", "Uuid", "Email", "Money":
 		return true
 	}
 	return false

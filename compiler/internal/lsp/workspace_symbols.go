@@ -64,6 +64,9 @@ func (b WorkspaceSymbolBuilder) collect(program ast.Program) []WorkspaceSymbol {
 	for _, shape := range program.Shapes {
 		symbols = append(symbols, b.symbol(shape.Name, "Shape", symbolKindStruct, shape.Span, displayContext(shape.Meta.ContextName), semanticIdentity("shape", shape.Meta.ContextName, shape.Name))...)
 	}
+	for _, measure := range program.Measures {
+		symbols = append(symbols, b.symbol(measure.Name, "Measure", symbolKindStruct, measure.Span, displayContext(measure.Meta.ContextName), semanticIdentity("measure", measure.Meta.ContextName, measure.Name))...)
+	}
 	for _, actor := range program.Actors {
 		symbols = append(symbols, b.symbol(actor.Name, "Actor", symbolKindObject, actor.Span, displayContext(actor.Meta.ContextName), semanticIdentity("actor", actor.Meta.ContextName, actor.Name))...)
 	}

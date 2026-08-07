@@ -30,7 +30,7 @@ const path = (href) => `${base}${href}`;
       <p class="lead secondary-lead">
         DCL v1.0 defines the stable core language for describing capabilities,
         intents, outcomes, rules, effects, events, lifecycles, actors, policies,
-        observations, and contexts.
+        observations, contexts, and domain types.
       </p>
       <p class="version-line">{languageLabel} · Status: {languageStatus}</p>
       <div class="actions">
@@ -191,6 +191,7 @@ const path = (href) => `${base}${href}`;
     <h2>Language Concepts</h2>
     <div class="concept-grid">
       <div class="concept"><strong>Capabilities</strong><p>System responsibilities described as language primitives.</p></div>
+      <div class="concept"><strong>Domain types</strong><p>Named shapes, closed alternatives, constraints, collections, and measured values that preserve business meaning.</p></div>
       <div class="concept"><strong>Intent</strong><p>The input or request a capability is designed to handle.</p></div>
       <div class="concept"><strong>Outcomes</strong><p>Named results that make success, refusal, and deferral explicit.</p></div>
       <div class="concept"><strong>Rules</strong><p>Invariants and decision constraints that shape valid behavior.</p></div>

@@ -18,7 +18,7 @@ import { playgroundExamplePath } from "../../lib/playground/links";
 
 const frontmatter = {
   title: "E-Commerce Platform Example",
-  description: "A validated multi-context DCL example for customer ordering, warehouse fulfilment, delivery, events, policies, and lifecycle progression.",
+  description: "A validated multi-context DCL example for domain modelling, customer ordering, warehouse fulfilment, delivery, events, policies, and lifecycle progression.",
 };
 
 const sourceFiles = [
@@ -57,7 +57,8 @@ const sourceFiles = [
   <p>
     The platform is split by business responsibility. Storefront owns the
     customer-facing order submission language, including basket and checkout
-    inputs, <code>OrderCreated</code>, and checkout policies. Warehouse owns
+    inputs, an <code>Integer&lt;Items&gt;</code> basket quantity,
+    <code>OrderCreated</code>, and checkout policies. Warehouse owns
     fulfilment inputs and warehouse events. Delivery owns courier confirmation
     and delivery events. A small Coordination context depends on the operating
     contexts only to supervise the end-to-end lifecycle.
@@ -119,8 +120,8 @@ Ecommerce.Coordination
   <p>
     Storefront captures the customer path from product discovery through order
     submission. It demonstrates intents from <code>Customer</code>, validation
-    rules, persistence and integration effects, event emission, and policy
-    attachment.
+    rules, a measured and constrained item quantity, persistence and integration
+    effects, event emission, and policy attachment.
   </p>
   <section id="source-storefront-shapes">
     <CodeBlock title="ecommerce/storefront/shapes.dcl" code={storefrontShapes} />
@@ -199,6 +200,7 @@ Delivery.DeliverPackage
   <ul>
     <li>Actors for customers, warehouse operators, couriers, and external systems.</li>
     <li>Contexts with explicit dependencies and business-owned declarations.</li>
+    <li>A basket quantity modelled as <code>Integer&lt;Items&gt; min 1</code>.</li>
     <li>Capabilities with intents, outcomes, rules, effects, events, and policies.</li>
     <li>Cross-context event flow without a generic shared declarations context.</li>
     <li>A compiled supervising lifecycle that coordinates multiple contributors.</li>

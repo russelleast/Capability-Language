@@ -16,6 +16,7 @@ const modules = import.meta.glob<RawExampleModule>("../../examples/**/*.dcl", {
 
 const preferredOrder = [
   "hello-world",
+  "domain-types",
   "register-customer",
   "ecommerce-platform",
   "leave-request",
@@ -34,6 +35,7 @@ const playgroundExampleIds = new Set(preferredOrder);
 
 const descriptions: Record<string, string> = {
   "hello-world": "A minimal capability with one actor, one input shape, and one outcome.",
+  "domain-types": "Domain modelling with nested shapes, enum alternatives, collections, numeric constraints, and measured values.",
   "register-customer": "Registration with rules, ordered effects, events, and outcome selection.",
   "ecommerce-platform": "A multi-context e-commerce model composed from the validated website source files.",
   "leave-request": "Actor roles and rules for a simple approval capability.",

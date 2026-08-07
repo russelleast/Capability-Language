@@ -44,6 +44,15 @@ func (c referenceCollector) collect() []ReferenceLocation {
 			refs = append(refs, c.reference("context", dep.TargetContext, dep.SourceContext, dep.Span))
 		}
 	}
+	for _, shape := range c.program.Shapes {
+		context := declContext(shape.Meta.ContextName)
+		for _, field := range shape.Fields {
+			refs = append(refs, c.typeReferences(field.Type, context, field.Span)...)
+		}
+		for _, alternative := range shape.Alternatives {
+			refs = append(refs, c.typeReferences(alternative.PayloadType, context, alternative.Span)...)
+		}
+	}
 	for _, event := range c.program.Events {
 		context := declContext(event.Meta.ContextName)
 		refs = append(refs, c.payloadReferences(event.Payload, context, event.Span)...)
@@ -53,6 +62,28 @@ func (c referenceCollector) collect() []ReferenceLocation {
 		refs = append(refs, c.capabilityReferences(cap, context)...)
 	}
 	return refs
+}
+
+func (c referenceCollector) typeReferences(name, context string, span diagnostic.Span) []ReferenceLocation {
+	if name == "" || isBuiltinType(name) {
+		return nil
+	}
+	outer, inner, generic := splitGenericType(name)
+	if generic {
+		switch outer {
+		case "List":
+			return c.typeReferences(inner, context, span)
+		case "Integer", "Number":
+			if c.matchesResolved("measure", inner, context, span) {
+				return []ReferenceLocation{c.reference("measure", inner, context, span)}
+			}
+		}
+		return nil
+	}
+	if c.matchesResolved("shape", name, context, span) {
+		return []ReferenceLocation{c.reference("shape", name, context, span)}
+	}
+	return nil
 }
 
 func (c referenceCollector) capabilityReferences(cap ast.CapabilityDecl, context string) []ReferenceLocation {

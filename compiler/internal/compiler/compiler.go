@@ -177,6 +177,7 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 	}
 	c.indexContexts()
 	c.indexSymbols()
+	c.validateTypeNamespace()
 	c.validateLanguageVersions()
 	for _, policy := range program.Policies {
 		key := policyKey(policy.Meta.ContextName, policy.Name)
@@ -222,13 +223,31 @@ func (c *compiler) buildIR() ir.ProgramIR {
 }
 
 func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
+	for _, measure := range c.program.Measures {
+		if isBuiltinType(measure.Name) {
+			c.diags.Error("DCL_SEM_TYPE_BUILTIN_SHADOWED", "measure cannot shadow a built-in type", measure.Span, measure.Name)
+		}
+		out.Measures = append(out.Measures, ir.MeasureIR{ID: id("measure", symbolIdentity(measure.Meta.ContextName, measure.Name)), Name: measure.Name})
+		out.Symbols = append(out.Symbols, c.symbolIR("measure", measure.Name, measure.Meta.ContextName, measure.Span))
+	}
 	for _, shape := range c.program.Shapes {
 		if isBuiltinType(shape.Name) {
 			c.diags.Error("DCL_SEM_TYPE_BUILTIN_SHADOWED", "shape cannot shadow a built-in type", shape.Span, shape.Name)
 		}
-		out.Shapes = append(out.Shapes, ir.ShapeIR{ID: id("shape", symbolIdentity(shape.Meta.ContextName, shape.Name)), Name: shape.Name, Fields: fieldsIR(shape.Fields)})
+		shapeKind := shape.Kind
+		if shapeKind == "" {
+			shapeKind = "record"
+		}
+		shapeIR := ir.ShapeIR{ID: id("shape", symbolIdentity(shape.Meta.ContextName, shape.Name)), Name: shape.Name, Kind: shapeKind, Fields: []ir.FieldIR{}}
+		if shapeKind == "enum" {
+			shapeIR.Alternatives = c.enumAlternativesIR(shape)
+			c.validateEnumAlternatives(shape)
+		} else {
+			shapeIR.Fields = c.fieldsIR(shape.Fields, shape.Meta.ContextName)
+			c.validateFields(shape.Fields, shape.Meta.ContextName)
+		}
+		out.Shapes = append(out.Shapes, shapeIR)
 		out.Symbols = append(out.Symbols, c.symbolIR("shape", shape.Name, shape.Meta.ContextName, shape.Span))
-		c.validateFields(shape.Fields, shape.Meta.ContextName)
 	}
 	for _, actor := range c.program.Actors {
 		if actor.Kind == "" {
@@ -252,7 +271,7 @@ func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 	}
 	for _, event := range c.program.Events {
 		c.validatePayload(event.Payload, event.Meta.ContextName)
-		out.Events = append(out.Events, ir.EventIR{ID: id("event", symbolIdentity(event.Meta.ContextName, event.Name)), Name: event.Name, Payload: payloadIR(event.Payload)})
+		out.Events = append(out.Events, ir.EventIR{ID: id("event", symbolIdentity(event.Meta.ContextName, event.Name)), Name: event.Name, Payload: c.payloadIR(event.Payload, event.Meta.ContextName)})
 		out.Symbols = append(out.Symbols, c.symbolIR("event", event.Name, event.Meta.ContextName, event.Span))
 	}
 	for _, policy := range c.program.Policies {
@@ -320,7 +339,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		c.requireInContext("shape", intent.InputType, context, intent.Span)
 		capIR.Intents = append(capIR.Intents, ir.IntentIR{
 			ID: id("intent", symbolIdentity(context, cap.Name+"."+intent.Name)), Name: intent.Name, Capability: cap.Name,
-			InputShape: intent.InputType, Actor: intent.Actor, Source: "declared",
+			InputShape: intent.InputType, InputType: c.typeIR(intent.InputType, context), Actor: intent.Actor, Source: "declared",
 		})
 	}
 	for _, role := range cap.Actors {
@@ -332,7 +351,7 @@ func (c *compiler) capabilityIR(cap ast.CapabilityDecl) ir.CapabilityIR {
 		localOutcomes[outcome.Name] = outcome
 		c.validatePayload(outcome.Payload, context)
 		capIR.Outcomes = append(capIR.Outcomes, ir.OutcomeIR{
-			ID: id("outcome", symbolIdentity(context, cap.Name+"."+outcome.Name)), Name: outcome.Name, Capability: cap.Name, Payload: payloadIR(outcome.Payload),
+			ID: id("outcome", symbolIdentity(context, cap.Name+"."+outcome.Name)), Name: outcome.Name, Capability: cap.Name, Payload: c.payloadIR(outcome.Payload, context),
 		})
 	}
 	for _, rule := range cap.Rules {
@@ -1187,6 +1206,7 @@ func (c *compiler) validateRuleExpression(rule ast.RuleDecl, actors map[string]a
 func (c *compiler) validateFields(fields []ast.Field, context string) {
 	for _, field := range fields {
 		c.validateType(field.Type, context, field.Span)
+		c.validateNumericConstraints(field)
 	}
 }
 
@@ -1482,13 +1502,24 @@ func (c *compiler) applyPolicyAttachments(out *ir.ProgramIR) {
 }
 
 func (c *compiler) validateType(name string, context string, span diagnostic.Span) {
-	if name == "" || isBuiltinType(name) || strings.HasPrefix(name, "List<") {
-		if strings.HasPrefix(name, "List<") {
-			inner := strings.TrimSuffix(strings.TrimPrefix(name, "List<"), ">")
+	if name == "" || isBuiltinType(name) {
+		return
+	}
+	outer, inner, generic := splitGenericType(name)
+	if generic {
+		switch outer {
+		case "List":
 			c.validateType(inner, context, span)
+		case "Integer", "Number":
+			c.requireInContext("measure", inner, context, span)
+		default:
+			c.diags.Error("DCL_SEM_TYPE_GENERIC_UNSUPPORTED", "only List<T>, Integer<Measure>, and Number<Measure> are valid generic types", span, name)
 		}
 		return
 	}
+	// Unqualified scalar-like names have historically been permitted in the
+	// default context. Keep that compatibility for record fields and legacy
+	// payloads; enum payloads use the stricter closed type resolver.
 	if declContext(context) == "default" {
 		if _, ok := c.resolve("shape", name, context, span, false); !ok {
 			return
@@ -1566,6 +1597,9 @@ func (c *compiler) indexSymbols() {
 	}
 	for _, item := range c.program.Shapes {
 		add("shape", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
+	}
+	for _, item := range c.program.Measures {
+		add("measure", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
 	}
 	for _, item := range c.program.Actors {
 		add("actor", item.Name, item.Meta.ContextName, item.Meta.Visibility, item.Span)
@@ -1730,6 +1764,7 @@ func mergeProgram(dst *ast.Program, src *ast.Program) {
 	dst.Languages = append(dst.Languages, src.Languages...)
 	dst.Contexts = append(dst.Contexts, src.Contexts...)
 	dst.Dependencies = append(dst.Dependencies, src.Dependencies...)
+	dst.Measures = append(dst.Measures, src.Measures...)
 	dst.Shapes = append(dst.Shapes, src.Shapes...)
 	dst.Actors = append(dst.Actors, src.Actors...)
 	dst.Events = append(dst.Events, src.Events...)
@@ -1738,17 +1773,26 @@ func mergeProgram(dst *ast.Program, src *ast.Program) {
 	dst.Capabilities = append(dst.Capabilities, src.Capabilities...)
 }
 
-func fieldsIR(fields []ast.Field) []ir.FieldIR {
+func (c *compiler) fieldsIR(fields []ast.Field, context string) []ir.FieldIR {
 	out := make([]ir.FieldIR, 0, len(fields))
 	for _, field := range fields {
-		out = append(out, ir.FieldIR{Name: field.Name, Type: field.Type, Required: field.Required})
+		item := ir.FieldIR{Name: field.Name, Type: field.Type, TypeRef: c.typeIR(field.Type, context), Required: field.Required}
+		if field.Constraints.Min != "" || field.Constraints.Max != "" || field.Constraints.Default != "" {
+			item.Constraints = &ir.NumericConstraintsIR{Min: field.Constraints.Min, Max: field.Constraints.Max, Default: field.Constraints.Default}
+		}
+		out = append(out, item)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 
-func payloadIR(payload ast.Payload) ir.PayloadIR {
-	return ir.PayloadIR{NamedType: payload.NamedType, Fields: fieldsIR(payload.Fields)}
+func (c *compiler) payloadIR(payload ast.Payload, context string) ir.PayloadIR {
+	out := ir.PayloadIR{NamedType: payload.NamedType, Fields: c.fieldsIR(payload.Fields, context)}
+	if payload.NamedType != "" {
+		typeRef := c.typeIR(payload.NamedType, context)
+		out.TypeRef = &typeRef
+	}
+	return out
 }
 
 func (c *compiler) symbolIR(kind, name, context string, span diagnostic.Span) ir.SymbolIR {
@@ -2023,6 +2067,7 @@ func sortProgramIR(out *ir.ProgramIR) {
 	})
 	sort.Slice(out.Symbols, func(i, j int) bool { return out.Symbols[i].ID < out.Symbols[j].ID })
 	sort.Slice(out.Shapes, func(i, j int) bool { return out.Shapes[i].Name < out.Shapes[j].Name })
+	sort.Slice(out.Measures, func(i, j int) bool { return out.Measures[i].Name < out.Measures[j].Name })
 	sort.Slice(out.Actors, func(i, j int) bool { return out.Actors[i].Name < out.Actors[j].Name })
 	sort.Slice(out.Effects, func(i, j int) bool { return out.Effects[i].Name < out.Effects[j].Name })
 	sort.Slice(out.Events, func(i, j int) bool { return out.Events[i].Name < out.Events[j].Name })
