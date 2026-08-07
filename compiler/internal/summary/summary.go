@@ -14,6 +14,8 @@ type SemanticSummary struct {
 	Outcomes           []OutcomeSummary    `json:"outcomes"`
 	Effects            []NamedSummary      `json:"effects"`
 	Policies           []NamedSummary      `json:"policies"`
+	Measures           []NamedSummary      `json:"measures,omitempty"`
+	Shapes             []ShapeSummary      `json:"shapes,omitempty"`
 	Lifecycles         []LifecycleSummary  `json:"lifecycles"`
 	DiagnosticsSummary DiagnosticSummary   `json:"diagnosticsSummary"`
 }
@@ -31,6 +33,26 @@ type NamedSummary struct {
 	Kind     string          `json:"kind,omitempty"`
 	Type     string          `json:"type,omitempty"`
 	Location diagnostic.Span `json:"location,omitempty"`
+}
+
+type ShapeSummary struct {
+	Name         string                   `json:"name"`
+	Kind         string                   `json:"kind"`
+	Fields       []FieldSummary           `json:"fields,omitempty"`
+	Alternatives []EnumAlternativeSummary `json:"alternatives,omitempty"`
+	Location     diagnostic.Span          `json:"location,omitempty"`
+}
+
+type FieldSummary struct {
+	Name        string                   `json:"name"`
+	Type        string                   `json:"type"`
+	Required    bool                     `json:"required"`
+	Constraints *ir.NumericConstraintsIR `json:"constraints,omitempty"`
+}
+
+type EnumAlternativeSummary struct {
+	Name        string `json:"name"`
+	PayloadType string `json:"payloadType,omitempty"`
 }
 
 type CapabilitySummary struct {
@@ -105,6 +127,8 @@ func FromIR(program ir.ProgramIR) SemanticSummary {
 	capabilityContexts := symbolContexts(program.Symbols, "capability")
 	effectContexts := symbolContexts(program.Symbols, "effect")
 	policyContexts := symbolContexts(program.Symbols, "policy")
+	measureContexts := symbolContexts(program.Symbols, "measure")
+	shapeContexts := symbolContexts(program.Symbols, "shape")
 
 	capabilities := make([]CapabilitySummary, 0, len(program.Capabilities))
 	intents := make([]IntentSummary, 0)
@@ -142,9 +166,34 @@ func FromIR(program ir.ProgramIR) SemanticSummary {
 		Outcomes:           outcomes,
 		Effects:            summarizeEffects(program.Effects, symbols, effectContexts),
 		Policies:           summarizePolicies(program.Policies, symbols, policyContexts),
+		Measures:           summarizeMeasures(program.Measures, symbols, measureContexts),
+		Shapes:             summarizeShapes(program.Shapes, symbols, shapeContexts),
 		Lifecycles:         lifecycles,
 		DiagnosticsSummary: SummarizeDiagnostics(program.Diagnostics),
 	}
+}
+
+func summarizeMeasures(measures []ir.MeasureIR, symbols locationIndex, contexts map[string]string) []NamedSummary {
+	out := make([]NamedSummary, 0, len(measures))
+	for _, measure := range measures {
+		out = append(out, NamedSummary{Name: measure.Name, Kind: "measure", Location: symbols.location("measure", measure.Name, contexts[measure.Name])})
+	}
+	return out
+}
+
+func summarizeShapes(shapes []ir.ShapeIR, symbols locationIndex, contexts map[string]string) []ShapeSummary {
+	out := make([]ShapeSummary, 0, len(shapes))
+	for _, shape := range shapes {
+		item := ShapeSummary{Name: shape.Name, Kind: shape.Kind, Location: symbols.location("shape", shape.Name, contexts[shape.Name])}
+		for _, field := range shape.Fields {
+			item.Fields = append(item.Fields, FieldSummary{Name: field.Name, Type: field.Type, Required: field.Required, Constraints: field.Constraints})
+		}
+		for _, alternative := range shape.Alternatives {
+			item.Alternatives = append(item.Alternatives, EnumAlternativeSummary{Name: alternative.Name, PayloadType: alternative.PayloadType})
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func SummarizeDiagnostics(items []diagnostic.Diagnostic) DiagnosticSummary {

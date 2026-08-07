@@ -7,6 +7,7 @@ type Program struct {
 	Languages    []LanguageDecl
 	Contexts     []ContextDecl
 	Dependencies []DependencyDecl
+	Measures     []MeasureDecl
 	Shapes       []ShapeDecl
 	Actors       []ActorDecl
 	Events       []EventDecl
@@ -39,10 +40,20 @@ type DependencyDecl struct {
 }
 
 type Field struct {
-	Name     string
-	Type     string
-	Required bool
-	Span     diagnostic.Span
+	Name        string
+	Type        string
+	Required    bool
+	Constraints NumericConstraints
+	Span        diagnostic.Span
+}
+
+type NumericConstraints struct {
+	Min         string
+	Max         string
+	Default     string
+	MinSpan     diagnostic.Span
+	MaxSpan     diagnostic.Span
+	DefaultSpan diagnostic.Span
 }
 
 type Payload struct {
@@ -51,10 +62,24 @@ type Payload struct {
 }
 
 type ShapeDecl struct {
-	Name   string
-	Fields []Field
-	Span   diagnostic.Span
-	Meta   DeclMeta
+	Name         string
+	Kind         string
+	Fields       []Field
+	Alternatives []EnumAlternative
+	Span         diagnostic.Span
+	Meta         DeclMeta
+}
+
+type EnumAlternative struct {
+	Name        string
+	PayloadType string
+	Span        diagnostic.Span
+}
+
+type MeasureDecl struct {
+	Name string
+	Span diagnostic.Span
+	Meta DeclMeta
 }
 
 type ActorDecl struct {

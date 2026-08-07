@@ -144,7 +144,7 @@ func definitionInCapability(c *compiler, cap ast.CapabilityDecl, tokens []lexer.
 			}
 		}
 	}
-	for _, kind := range []string{"shape", "event", "capability", "context"} {
+	for _, kind := range []string{"shape", "measure", "event", "capability", "context"} {
 		if info, ok := c.resolve(kind, token.Text, context, token.Span, false); ok {
 			return definitionFromSymbol(info), true
 		}
@@ -165,7 +165,7 @@ func definitionByGlobalReference(c *compiler, program ast.Program, tokens []lexe
 			return definitionFromSymbol(info), true
 		}
 	}
-	for _, kind := range []string{"shape", "event", "capability"} {
+	for _, kind := range []string{"shape", "measure", "event", "capability"} {
 		if info, ok := c.resolve(kind, token.Text, context, token.Span, false); ok {
 			return definitionFromSymbol(info), true
 		}
@@ -184,6 +184,8 @@ func referenceKind(tokens []lexer.Token, tokenIndex int) (string, bool) {
 	switch {
 	case prev == "shape":
 		return "shape", true
+	case prev == "measure":
+		return "measure", true
 	case prev == "context":
 		return "context", true
 	case prev == "emits":

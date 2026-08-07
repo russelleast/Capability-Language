@@ -163,7 +163,7 @@ func symbolKindForSemanticKind(kind string) int {
 		return symbolKindProperty
 	case "lifecycle":
 		return symbolKindInterface
-	case "shape":
+	case "shape", "measure":
 		return symbolKindStruct
 	case "actor":
 		return symbolKindObject

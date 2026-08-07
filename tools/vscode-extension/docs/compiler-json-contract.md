@@ -29,7 +29,16 @@ On success, stdout must be a JSON object representing the compiler IR. The exten
 - `policies`
 - `effects`
 - `events`
+- `measures`
+- `shapes`
 - `effective_policies`
+
+Domain type information is additive. `shapes[].kind` distinguishes `record`
+from `enum`; record fields retain their authored `type` and expose a structured
+`type_ref` plus optional numeric `constraints`; enum shapes expose
+`alternatives` with optional payload type metadata. Structured type kinds are
+`built_in`, `measured_numeric`, `record_shape`, `enum_shape`, and `collection`.
+Consumers should continue to tolerate unknown additive fields.
 
 Diagnostics are expected to use the compiler diagnostic shape:
 

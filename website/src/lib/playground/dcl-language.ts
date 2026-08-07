@@ -50,6 +50,13 @@ export const dclConceptHelp: DclConceptHelp[] = [
     reference: "/docs/#shape",
   },
   {
+    label: "measure",
+    kind: "core construct",
+    explanation:
+      "A measure gives Integer or Number values a distinct domain meaning, such as Integer<Quantity> or Number<Weight>.",
+    reference: "/docs/#shape",
+  },
+  {
     label: "capability",
     kind: "core construct",
     explanation:
@@ -191,6 +198,8 @@ export const dclKeywords = [
   "context",
   "actor",
   "shape",
+  "measure",
+  "enum",
   "intent",
   "input",
   "outcome",
@@ -225,6 +234,9 @@ export const dclKeywords = [
   "violated",
   "unresolved",
   "required",
+  "min",
+  "max",
+  "default",
   "family",
   "kind",
   "reliability",
@@ -249,6 +261,7 @@ const keywordCompletions = [
   "depends on",
   "actor",
   "shape",
+  "measure",
   "capability",
   "input",
   "intent",
@@ -276,7 +289,7 @@ const keywordCompletions = [
   "on",
 ];
 
-const typeCompletions = ["Text", "Boolean", "Number", "Date", "DateTime", "List<T>", "Email", "Uuid", "Money"];
+const typeCompletions = ["Text", "Boolean", "Integer", "Number", "Date", "DateTime", "List<T>", "Email", "Uuid", "Money"];
 const actorKindCompletions = ["human", "system", "agent", "scheduled_process"];
 const effectKindCompletions = ["persistence", "notification", "invocation", "tool"];
 const triggerCharacters = [" ", "\n", ...Array.from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")];
@@ -295,6 +308,18 @@ export const dclSnippets: DclSnippet[] = [
     documentation:
       "Declares a reusable input or payload shape with typed fields. Use required when the field must be present.",
     insertText: "shape ${1:InputName} {\n  ${2:name}: ${3:Text} required\n}",
+  },
+  {
+    label: "enum shape",
+    detail: "DCL enum shape declaration",
+    documentation: "Declares a closed set of named alternatives, optionally carrying one typed value via is.",
+    insertText: "shape ${1:Result} enum {\n  ${2:Success}\n  ${3:Failed} is ${4:Failure}\n}",
+  },
+  {
+    label: "measure",
+    detail: "DCL numeric measure declaration",
+    documentation: "Declares a lightweight unit used by Integer<Measure> or Number<Measure>.",
+    insertText: "measure ${1:Quantity}",
   },
   {
     label: "capability",

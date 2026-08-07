@@ -15,6 +15,7 @@ type ProgramIR struct {
 	Policies          []PolicyIR                  `json:"policies"`
 	EffectivePolicies []EffectivePolicyIR         `json:"effective_policies,omitempty"`
 	Observations      []ObservationIR             `json:"observations,omitempty"`
+	Measures          []MeasureIR                 `json:"measures,omitempty"`
 	Shapes            []ShapeIR                   `json:"shapes"`
 	Diagnostics       []diagnostic.Diagnostic     `json:"diagnostics"`
 	Analysis          map[string]PortabilityFacts `json:"analysis,omitempty"`
@@ -57,15 +58,44 @@ type DependencyIR struct {
 }
 
 type ShapeIR struct {
-	ID     string    `json:"id"`
-	Name   string    `json:"name"`
-	Fields []FieldIR `json:"fields"`
+	ID           string              `json:"id"`
+	Name         string              `json:"name"`
+	Kind         string              `json:"kind"`
+	Fields       []FieldIR           `json:"fields"`
+	Alternatives []EnumAlternativeIR `json:"alternatives,omitempty"`
 }
 
 type FieldIR struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Required bool   `json:"required"`
+	Name        string                `json:"name"`
+	Type        string                `json:"type"`
+	TypeRef     TypeIR                `json:"type_ref"`
+	Required    bool                  `json:"required"`
+	Constraints *NumericConstraintsIR `json:"constraints,omitempty"`
+}
+
+type MeasureIR struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type EnumAlternativeIR struct {
+	Name        string  `json:"name"`
+	PayloadType string  `json:"payload_type,omitempty"`
+	Payload     *TypeIR `json:"payload,omitempty"`
+}
+
+type TypeIR struct {
+	Kind    string  `json:"kind"`
+	Name    string  `json:"name,omitempty"`
+	Numeric string  `json:"numeric,omitempty"`
+	Measure string  `json:"measure,omitempty"`
+	Element *TypeIR `json:"element,omitempty"`
+}
+
+type NumericConstraintsIR struct {
+	Min     string `json:"min,omitempty"`
+	Max     string `json:"max,omitempty"`
+	Default string `json:"default,omitempty"`
 }
 
 type ActorIR struct {
@@ -95,6 +125,7 @@ type IntentIR struct {
 	Name       string `json:"name"`
 	Capability string `json:"capability"`
 	InputShape string `json:"input_shape"`
+	InputType  TypeIR `json:"input_type"`
 	Actor      string `json:"actor"`
 	Source     string `json:"source"`
 }
@@ -106,6 +137,7 @@ type ActorRoleIR struct {
 
 type PayloadIR struct {
 	NamedType string    `json:"named_type,omitempty"`
+	TypeRef   *TypeIR   `json:"type_ref,omitempty"`
 	Fields    []FieldIR `json:"fields,omitempty"`
 }
 

@@ -18,7 +18,7 @@ const frontmatter = {
 const constructs = [
   ["Program", "Language declaration, source files, declaration order, compiler model."],
   ["Context", "Semantic ownership boundary, dependencies, visibility, hierarchy."],
-  ["Shape", "Reusable structured data with fields and built-in value types."],
+  ["Shape", "Named record and enum domain types, constraints, collections, and measures."],
   ["Actor", "Initiating or participating human, system, agent, or scheduled process."],
   ["Event", "Named signal with optional structured payload."],
   ["Effect", "Externally meaningful action caused by a capability."],
@@ -120,8 +120,9 @@ const constructs = [
 
   <h2 id="shape">Shape</h2>
   <p>
-    A shape defines reusable structured data. Shapes are used by intent inputs,
-    event payloads, and outcome payloads.
+    A shape declares a reusable named domain type. Record shapes compose typed
+    fields; enum shapes declare a closed set of named alternatives. DCL types
+    encode domain distinctions, not merely storage representation.
   </p>
   <table class="reference-table">
     <thead>
@@ -143,13 +144,44 @@ const constructs = [
         <td><code>required</code></td>
         <td>Marks a structurally mandatory field.</td>
       </tr>
+      <tr>
+        <td><code>min</code>, <code>max</code>, <code>default</code></td>
+        <td>Structural constraints for Integer and Number fields.</td>
+      </tr>
     </tbody>
   </table>
   <p>
     Built-in value types currently include <code>Text</code>,
-    <code>Boolean</code>, <code>Number</code>, <code>Date</code>,
+    <code>Boolean</code>, <code>Integer</code>, <code>Number</code>, <code>Date</code>,
     <code>DateTime</code>, <code>Uuid</code>, <code>Email</code>, and
     <code>Money</code>.
+  </p>
+  <p>
+    <code>Integer</code> is a signed integral type distinct from
+    <code>Number</code>. Fractional Integer constraints and defaults are invalid.
+  </p>
+  <h3>Enum shapes and payloads</h3>
+  <pre><code>{`shape PaymentMethod enum {
+  Cash
+  Card is CardDetails
+  Failed is List<Failure>
+}`}</code></pre>
+  <p>
+    Each alternative carries either no value or exactly one value of any valid
+    DCL type. Result/Either models use an ordinary enum shape; outcomes remain
+    separate behavioural primitives.
+  </p>
+  <h3>Measures</h3>
+  <pre><code>{`measure Quantity
+measure Days
+
+shape OrderLine {
+  quantity: Integer<Quantity> min 1 required
+  retention: Integer<Days> required
+}`}</code></pre>
+  <p>
+    Measured values are distinct types. DCL does not currently define implicit
+    conversions, dimensional algebra, derived units, or an SI library.
   </p>
 
   <h2 id="actor">Actor</h2>

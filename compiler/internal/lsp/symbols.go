@@ -119,6 +119,11 @@ func (b DocumentSymbolBuilder) attachContextChildren(context *DocumentSymbol, co
 
 func (b DocumentSymbolBuilder) topLevelSymbols(program ast.Program) []DocumentSymbol {
 	var symbols []DocumentSymbol
+	for _, measure := range program.Measures {
+		if b.sameFile(measure.Span) {
+			symbols = append(symbols, NewDocumentSymbol(measure.Name, "Measure", symbolKindStruct, measure.Span))
+		}
+	}
 	for _, shape := range program.Shapes {
 		if b.sameFile(shape.Span) {
 			symbols = append(symbols, NewDocumentSymbol(shape.Name, "Shape", symbolKindStruct, shape.Span))
@@ -248,6 +253,11 @@ func symbolBefore(left, right DocumentSymbol) bool {
 }
 
 func symbolContext(symbol DocumentSymbol, program ast.Program) string {
+	for _, measure := range program.Measures {
+		if measure.Name == symbol.Name && measure.Span.Line == symbol.Range.Start.Line+1 {
+			return measure.Meta.ContextName
+		}
+	}
 	for _, shape := range program.Shapes {
 		if shape.Name == symbol.Name && shape.Span.Line == symbol.Range.Start.Line+1 {
 			return shape.Meta.ContextName

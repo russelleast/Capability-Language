@@ -62,6 +62,10 @@ func (p *Parser) parseTopLevel(prog *ast.Program) {
 			p.diags.Error("DCL_PARSE_PRIVATE_DEPENDENCY_UNSUPPORTED", "dependency declarations cannot be private", tok.Span, tok.Text)
 		}
 		prog.Dependencies = append(prog.Dependencies, p.parseDependency())
+	case "measure":
+		decl := p.parseMeasure()
+		decl.Meta = p.declMeta(visibility)
+		prog.Measures = append(prog.Measures, decl)
 	case "shape":
 		decl := p.parseShape()
 		decl.Meta = p.declMeta(visibility)
@@ -145,9 +149,32 @@ func (p *Parser) declMeta(visibility string) ast.DeclMeta {
 func (p *Parser) parseShape() ast.ShapeDecl {
 	start := p.expectText("shape")
 	name := p.expectIdent("shape name")
+	if p.matchText("enum") {
+		p.expect(lexer.LBrace, "{")
+		return ast.ShapeDecl{Name: name.Text, Kind: "enum", Alternatives: p.parseEnumAlternatives(), Span: start.Span}
+	}
 	p.expect(lexer.LBrace, "{")
 	fields := p.parseFields()
-	return ast.ShapeDecl{Name: name.Text, Fields: fields, Span: start.Span}
+	return ast.ShapeDecl{Name: name.Text, Kind: "record", Fields: fields, Span: start.Span}
+}
+
+func (p *Parser) parseMeasure() ast.MeasureDecl {
+	start := p.expectText("measure")
+	name := p.expectIdent("measure name")
+	return ast.MeasureDecl{Name: name.Text, Span: start.Span}
+}
+
+func (p *Parser) parseEnumAlternatives() []ast.EnumAlternative {
+	var alternatives []ast.EnumAlternative
+	p.parseBlockItems(func() {
+		name := p.expectIdent("enum alternative")
+		alternative := ast.EnumAlternative{Name: name.Text, Span: name.Span}
+		if p.matchText("is") {
+			alternative.PayloadType = p.parseType()
+		}
+		alternatives = append(alternatives, alternative)
+	})
+	return alternatives
 }
 
 func (p *Parser) parseActor() ast.ActorDecl {
@@ -349,18 +376,43 @@ func (p *Parser) parseFieldsBody() []ast.Field {
 		name := p.expectIdent("field name")
 		p.expect(lexer.Colon, ":")
 		fieldType := p.parseType()
-		required := p.matchText("required")
-		fields = append(fields, ast.Field{Name: name.Text, Type: fieldType, Required: required, Span: name.Span})
+		field := ast.Field{Name: name.Text, Type: fieldType, Span: name.Span}
+		for !p.at(lexer.EOF) && !p.at(lexer.Newline) && !p.at(lexer.RBrace) {
+			if p.peek().Kind == lexer.Ident && p.nextIs(lexer.Colon) {
+				break
+			}
+			switch p.peek().Text {
+			case "required":
+				p.advance()
+				field.Required = true
+			case "min":
+				start := p.advance()
+				field.Constraints.MinSpan = start.Span
+				field.Constraints.Min = p.expectIdent("minimum value").Text
+			case "max":
+				start := p.advance()
+				field.Constraints.MaxSpan = start.Span
+				field.Constraints.Max = p.expectIdent("maximum value").Text
+			case "default":
+				start := p.advance()
+				field.Constraints.DefaultSpan = start.Span
+				field.Constraints.Default = p.expectIdent("default value").Text
+			default:
+				tok := p.advance()
+				p.diags.Error("DCL_PARSE_UNKNOWN_FIELD_MODIFIER", "unknown field modifier", tok.Span, tok.Text)
+			}
+		}
+		fields = append(fields, field)
 	})
 	return fields
 }
 
 func (p *Parser) parseType() string {
 	name := p.expectIdent("type").Text
-	if name == "List" && p.match(lexer.Less) {
+	if p.match(lexer.Less) {
 		inner := p.parseType()
 		p.expect(lexer.Greater, ">")
-		return "List<" + inner + ">"
+		return name + "<" + inner + ">"
 	}
 	return name
 }
