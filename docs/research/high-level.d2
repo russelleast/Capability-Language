@@ -1,0 +1,79 @@
+direction: down
+
+docs: {
+  label: "Architectural Knowledge"
+
+  style: {
+    fill: "#f8f9fa"
+    stroke: "#6c757d"
+  }
+
+  docs: "Documents"
+  adrs: "ADRs"
+  diagrams: "Diagrams"
+  conversations: "Conversations"
+}
+
+dcl: {
+  label: "Declarative Capability Language"
+
+  style: {
+    fill: "#dbeafe"
+    stroke: "#2563eb"
+    bold: true
+  }
+
+  capability: "Capabilities"
+  intent: "Intent"
+  outcomes: "Outcomes"
+  actors: "Actors"
+  rules: "Rules"
+  invariants: "Invariants"
+  effects: "Effects"
+  policies: "Policies"
+  lifecycle: "Lifecycle"
+}
+
+semantic: {
+  label: "Semantic Model"
+
+  style: {
+    fill: "#dcfce7"
+    stroke: "#16a34a"
+    bold: true
+  }
+
+  compiler: "Compiler"
+  ir: "Intermediate\nRepresentation"
+  analysis: "Analysis Passes"
+}
+
+consumers: {
+  label: "Consumers"
+
+  style: {
+    fill: "#fef3c7"
+    stroke: "#d97706"
+  }
+
+  docs_out: "Documentation"
+  diagrams_out: "Visualisations"
+  ai: "AI Reasoning"
+  implementation: "Implementation"
+  conformance: "Conformance"
+  assurance: "Assurance"
+}
+
+docs -> dcl
+dcl -> semantic
+semantic -> consumers
+
+semantic.compiler -> semantic.ir
+semantic.ir -> semantic.analysis
+
+semantic.analysis -> consumers.docs_out
+semantic.analysis -> consumers.diagrams_out
+semantic.analysis -> consumers.ai
+semantic.analysis -> consumers.implementation
+semantic.analysis -> consumers.conformance
+semantic.analysis -> consumers.assurance
