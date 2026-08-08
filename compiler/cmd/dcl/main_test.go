@@ -62,6 +62,13 @@ func TestVersionJSONReadsVersionMetadata(t *testing.T) {
 	if compiler["version"] == "" {
 		t.Fatalf("expected compiler version metadata: %#v", out)
 	}
+	if out["compilerVersion"] == "" || out["latestLanguageVersion"] != "1.1" {
+		t.Fatalf("expected unambiguous compiler/language metadata: %#v", out)
+	}
+	supported := out["supportedLanguageVersions"].([]any)
+	if len(supported) != 2 || supported[0] != "1.0" || supported[1] != "1.1" {
+		t.Fatalf("unexpected supported language versions: %#v", out)
+	}
 }
 
 func TestCheckCompatibilityAlias(t *testing.T) {

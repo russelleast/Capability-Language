@@ -1,4 +1,4 @@
-language dcl 1.0
+language dcl 1.1
 
 measure Items
 measure Weight

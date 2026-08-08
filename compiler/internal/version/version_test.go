@@ -23,9 +23,9 @@ func TestLoadFileReadsRootVersionMetadata(t *testing.T) {
 func TestCurrentUsesEmbeddedMetadataWhenProvided(t *testing.T) {
 	resetCurrentForTest(`{
 		"language": {"name": "dcl", "version": "9.8"},
-		"compiler": {"name": "dcl", "version": "7.6", "supports": "9.8"},
+		"compiler": {"name": "dcl", "version": "7.6", "supports": ["9.7", "9.8"]},
 		"mcp": {"name": "dcl-mcp", "version": "0.1.0"},
-		"vscode": {"name": "dcl-vscode-extension", "version": "5.4", "supports": "9.8", "compiler": "7.6"}
+		"vscode": {"name": "dcl-vscode-extension", "version": "5.4", "supports": ["9.7", "9.8"], "compiler": "7.6"}
 	}`)
 	defer resetCurrentForTest("")
 
@@ -36,7 +36,7 @@ func TestCurrentUsesEmbeddedMetadataWhenProvided(t *testing.T) {
 	if metadata.Language.Version != "9.8" || metadata.Compiler.Version != "7.6" {
 		t.Fatalf("Current() = %+v, want embedded metadata", metadata)
 	}
-	if Summary() != "dcl compiler 7.6 (DCL language 9.8)" {
+	if Summary() != "DCL Compiler 7.6\nSupported language versions: 9.7, 9.8\nLatest language version: 9.8" {
 		t.Fatalf("Summary() = %q", Summary())
 	}
 }

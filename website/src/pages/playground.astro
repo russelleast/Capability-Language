@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { compilerVersion, languageLabel } from "../config/version";
+import { compilerVersion, languageLabel, supportedLanguageVersionsLabel } from "../config/version";
 import { dclEditorHelpSnippetLabels, dclSnippets } from "../lib/playground/dcl-language";
 import { playgroundExamples } from "../lib/playground/examples";
 import { sitePath } from "../lib/playground/links";
@@ -24,7 +24,8 @@ const editorHelpSnippets = dclSnippets.filter((snippet) => dclEditorHelpSnippetL
       </p>
       <p class="version-line">
         Current language: <strong>{languageLabel}</strong>. Compiler:
-        <code>dcl {compilerVersion}</code>.
+        <code>dcl {compilerVersion}</code>. Supported authored language versions:
+        <strong>{supportedLanguageVersionsLabel}</strong>.
       </p>
     </article>
 

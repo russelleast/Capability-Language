@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+
+- DCL Language 1.1 support for `Integer`, measured numeric types, numeric constraints, enum shapes, and typed enum cases.
+- Authored-version-aware completions and hover guidance for DCL Language 1.0 and 1.1.
+
+### Changed
+
+- Bundled DCL Compiler and language server version to 1.1.0 while retaining DCL Language 1.0 compatibility.
+
 ## 1.0.6
 
 ### Improved

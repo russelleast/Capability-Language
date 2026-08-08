@@ -258,6 +258,9 @@ func callVersion() (toolResult, error) {
 		return errorResult(err), nil
 	}
 	return structuredResult(map[string]any{
+		"compilerVersion": metadata.Compiler.Version,
+		"supportedLanguageVersions": metadata.Compiler.Supports,
+		"latestLanguageVersion": metadata.Language.Version,
 		"version": metadata,
 		"summary": version.Summary(),
 	}), nil

@@ -25,25 +25,10 @@
     "prefix": "shape",
     "body": [
       "shape ${1:ShapeName} {",
-      "  ${2:fieldName}: ${3|Text,Integer,Number,Boolean,Uuid,Email,Date,DateTime|} required",
+      "  ${2:fieldName}: ${3|Text,Number,Boolean,Uuid,Email,Date,DateTime|} required",
       "}"
     ],
     "description": "DCL shape"
-  },
-  "Enum Shape": {
-    "prefix": "shape-enum",
-    "body": [
-      "shape ${1:Result} enum {",
-      "  ${2:Success}",
-      "  ${3:Failed} is ${4:Failure}",
-      "}"
-    ],
-    "description": "DCL enum shape"
-  },
-  "Measure": {
-    "prefix": "measure",
-    "body": ["measure ${1:Quantity}"],
-    "description": "DCL numeric measure"
   },
   "Event": {
     "prefix": "event",

@@ -105,7 +105,7 @@
       "patterns": [
         {
           "name": "support.type.dcl",
-          "match": "\\b(Text|Integer|Number|Boolean|Uuid|Email|Date|DateTime)\\b"
+          "match": "\\b(Text|Integer|Number|Boolean|Uuid|Email|Money|Date|DateTime|List)\\b"
         }
       ]
     }

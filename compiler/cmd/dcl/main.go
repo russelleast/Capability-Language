@@ -78,7 +78,13 @@ func runVersion(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if jsonOut {
-		writeJSON(stdout, map[string]any{"version": metadata, "summary": version.Summary()})
+		writeJSON(stdout, map[string]any{
+			"compilerVersion": metadata.Compiler.Version,
+			"supportedLanguageVersions": metadata.Compiler.Supports,
+			"latestLanguageVersion": metadata.Language.Version,
+			"version": metadata,
+			"summary": version.Summary(),
+		})
 		return 0
 	}
 	fmt.Fprintln(stdout, version.Summary())

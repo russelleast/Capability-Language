@@ -1,6 +1,6 @@
 ---
 import DocsLayout from "../layouts/DocsLayout.astro";
-import { languageLabel, languageStatus, compilerVersion } from "../config/version";
+import { languageLabel, languageStatus, compilerVersion, supportedLanguageVersionsLabel } from "../config/version";
 
 const frontmatter = {
   title: "Roadmap",
@@ -20,16 +20,23 @@ const frontmatter = {
   <p><strong>{languageLabel}</strong></p>
   <p>Status: <strong>{languageStatus}</strong></p>
   <p>Compiler: <code>dcl {compilerVersion}</code></p>
+  <p>Supported authored language versions: <strong>{supportedLanguageVersionsLabel}</strong></p>
   <p>
     DCL v1.0 defines the stable core language for describing capabilities,
     intents, outcomes, rules, effects, events, lifecycles, actors, policies,
     observations, and contexts.
+  </p>
+  <p>
+    DCL Language 1.1 adds <code>Integer</code>, measures and measured numerics,
+    numeric constraints, enum shapes, and typed enum cases. DCL Compiler 1.1
+    supports both language contracts.
   </p>
 
   <h2>Implemented</h2>
   <ul>
     <li>Compiler CLI for version, check, and IR output.</li>
     <li>Contexts and cross-context dependencies.</li>
+    <li>DCL 1.1 domain types, including typed enum cases and measured numerics.</li>
     <li>Policies and policy attachments.</li>
     <li>Local and supervising lifecycles.</li>
     <li>Effects, events, observations, rules, and outcome causation.</li>

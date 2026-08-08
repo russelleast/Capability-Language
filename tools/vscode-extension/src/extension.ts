@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { DclCompileOnSaveScheduler, resolveCompileOnSaveMode } from "./DclCompileOnSave";
 import { DclCompilerAdapter, DclCompilerError } from "./compiler/DclCompilerAdapter";
+import { DclCompletionProvider } from "./completions/DclCompletionProvider";
 import { DclDiagnosticProvider } from "./diagnostics/DclDiagnosticProvider";
 import { DclFormattingProvider } from "./formatting/DclFormattingProvider";
 import { DclHoverProvider } from "./hovers/DclHoverProvider";
@@ -55,6 +56,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     diagnostics,
     vscode.languages.registerHoverProvider(DCL_SELECTOR, new DclHoverProvider()),
+    vscode.languages.registerCompletionItemProvider(DCL_SELECTOR, new DclCompletionProvider(), " ", "<"),
     vscode.languages.registerDocumentFormattingEditProvider(DCL_SELECTOR, new DclFormattingProvider(compiler)),
     vscode.window.registerTreeDataProvider("dclSemanticSummary", summary),
     explorerView,

@@ -77,7 +77,11 @@ const constructs = [
   </p>
   <div class="construct-card">
     <h3>Required</h3>
-    <p>A language declaration, normally <code>language dcl 1.0</code>.</p>
+    <p>
+      A language declaration: <code>language dcl 1.0</code> for the stable core,
+      or <code>language dcl 1.1</code> when the source uses 1.1 type-system features.
+      Every file in one compilation must declare the same version.
+    </p>
     <h3>Compiler Duties</h3>
     <p>
       Parse source, resolve symbols, validate semantics, analyse ambiguity and
@@ -120,6 +124,7 @@ const constructs = [
   <CodeBlock title="context-sales.dcl" code={contextSales} />
 
   <h2 id="shape">Type system and shapes</h2>
+  <p><strong>Since DCL 1.1:</strong> <code>Integer</code>, numeric constraints, measures, measured numerics, enum shapes, and typed enum cases.</p>
   <p>
     DCL types encode domain distinctions, not merely storage representation. A
     shape is a first-class named domain type: record shapes compose fields and
@@ -146,7 +151,9 @@ const constructs = [
     <code>DateTime</code>. It also supports the convenience value types
     <code>Uuid</code>, <code>Email</code>, and <code>Money</code>.
   </p>
-  <pre><code>{`shape Product {
+  <pre><code>{`language dcl 1.1
+
+shape Product {
   stock: Integer
   price: Number
 }`}</code></pre>
@@ -204,6 +211,7 @@ shape Customer {
   </table>
 
   <h3 id="numeric-constraints">Numeric constraints</h3>
+  <p><strong>Since DCL 1.1.</strong></p>
   <p>
     <code>Integer</code> and <code>Number</code> fields, including measured forms,
     support <code>min</code>, <code>max</code>, and <code>default</code>.
@@ -228,6 +236,7 @@ shape Customer {
   </p>
 
   <h3 id="enum-shapes">Enum shapes</h3>
+  <p><strong>Since DCL 1.1.</strong></p>
   <p>
     An enum shape is a closed set of named alternatives. An alternative carries
     either no value or one value of another DCL type. The <code>is</code> keyword
@@ -272,6 +281,7 @@ shape PaymentMethod enum {
 }`}</code></pre>
 
   <h3 id="result-types">Result/Either-style domain types</h3>
+  <p><strong>Since DCL 1.1.</strong> These are ordinary typed enum cases, not a special built-in Result type.</p>
   <pre><code>{`shape Failure {
   name: Text
   reason: Text required
@@ -289,6 +299,7 @@ shape Result enum {
   </p>
 
   <h3 id="measures">Measures and measured numeric types</h3>
+  <p><strong>Since DCL 1.1.</strong></p>
   <p>A measure gives a numeric value a lightweight unit of domain meaning.</p>
   <pre><code>{`measure Quantity
 measure Weight

@@ -1,12 +1,15 @@
 {
   "language": {
     "name": "dcl",
-    "version": "1.0"
+    "version": "1.1"
   },
   "compiler": {
     "name": "dcl",
-    "version": "1.0",
-    "supports": "1.0"
+    "version": "1.1.0",
+    "supports": [
+      "1.0",
+      "1.1"
+    ]
   },
   "mcp": {
     "name": "dcl-mcp",
@@ -14,8 +17,11 @@
   },
   "vscode": {
     "name": "dcl-vscode-extension",
-    "version": "1.0.6",
-    "supports": "1.0",
-    "compiler": "1.0"
+    "version": "1.1.0",
+    "supports": [
+      "1.0",
+      "1.1"
+    ],
+    "compiler": "1.1.0"
   }
 }

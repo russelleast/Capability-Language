@@ -8,6 +8,8 @@ OUT_DIR="${WEBSITE_DIR}/public/compiler"
 GOCACHE_DIR="${WEBSITE_DIR}/.cache/go-build"
 GOROOT="$(go env GOROOT)"
 WASM_EXEC=""
+VERSION_JSON="$(node -e 'const fs=require("fs"); process.stdout.write(JSON.stringify(JSON.parse(fs.readFileSync(process.argv[1], "utf8"))))' "${REPO_DIR}/version.json")"
+VERSION_LDFLAGS="-X capabilitylanguage/internal/version.embeddedJSON=${VERSION_JSON}"
 
 mkdir -p "${OUT_DIR}"
 mkdir -p "${GOCACHE_DIR}"
@@ -31,5 +33,5 @@ cp "${WASM_EXEC}" "${OUT_DIR}/wasm_exec.js"
 
 (
   cd "${REPO_DIR}/compiler"
-  GOCACHE="${GOCACHE_DIR}" GOOS=js GOARCH=wasm go build -o "${OUT_DIR}/dcl.wasm" ./cmd/dclwasm
+  GOCACHE="${GOCACHE_DIR}" GOOS=js GOARCH=wasm go build -ldflags "${VERSION_LDFLAGS}" -o "${OUT_DIR}/dcl.wasm" ./cmd/dclwasm
 )

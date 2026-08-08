@@ -51,10 +51,14 @@ if (!versions?.mcp?.name || !versions?.mcp?.version) {
   errors.push("version.json.mcp must include name and version");
 }
 
-if (versions?.compiler?.supports !== versions?.language?.version) {
+if (!Array.isArray(versions?.compiler?.supports) || !versions.compiler.supports.includes(versions?.language?.version)) {
   errors.push(
-    `version.json.compiler.supports (${versions?.compiler?.supports ?? "missing"}) must match version.json.language.version (${versions?.language?.version ?? "missing"})`,
+    `version.json.compiler.supports (${versions?.compiler?.supports ?? "missing"}) must include version.json.language.version (${versions?.language?.version ?? "missing"})`,
   );
+}
+
+if (!Array.isArray(versions?.vscode?.supports) || versions.vscode.supports.join(",") !== versions.compiler.supports.join(",")) {
+  errors.push("version.json.vscode.supports must match version.json.compiler.supports");
 }
 
 if (versions?.vscode?.compiler !== versions?.compiler?.version) {
