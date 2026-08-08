@@ -5,13 +5,13 @@ export const HOVERS: Record<string, string> = {
   context: "Groups DCL declarations and controls cross-context visibility through explicit dependencies.",
   capability: "The core DCL unit: a named business capability with intent, outcomes, effects, policies, and optional lifecycle.",
   actor: "Declares a participant that can initiate or participate in capabilities. Valid DCL v1.0 actor types are human, system, agent, and scheduled_process.",
-  shape: "Declares a named domain type: either a record of typed fields or a closed enum of alternatives.",
-  measure: "Declares a lightweight unit that distinguishes Integer or Number values with different domain meanings.",
-  enum: "Marks a shape as a closed set of named alternatives; an alternative may carry one value using is Type.",
-  Integer: "Signed integral built-in type, distinct from Number. Fractional constraints and defaults are invalid.",
-  min: "Structural lower bound for an Integer or Number field.",
-  max: "Structural upper bound for an Integer or Number field.",
-  default: "Structural default for an Integer or Number field; it must be compatible and within range.",
+  shape: "Declares a named domain type. DCL 1.1 adds enum shapes and typed alternatives.",
+  measure: "Declares a lightweight unit that distinguishes Integer or Number values with different domain meanings. Since DCL 1.1.",
+  enum: "Marks a shape as a closed set of named alternatives; an alternative may carry one value using is Type. Since DCL 1.1.",
+  Integer: "Signed integral built-in type, distinct from Number. Fractional constraints and defaults are invalid. Since DCL 1.1.",
+  min: "Structural lower bound for an Integer or Number field. Since DCL 1.1.",
+  max: "Structural upper bound for an Integer or Number field. Since DCL 1.1.",
+  default: "Structural default for an Integer or Number field; it must be compatible and within range. Since DCL 1.1.",
   event: "Declares a named signal with an optional payload.",
   effect: "Declares an externally meaningful action. Valid DCL v1.0 effect types are persistence, notification, invocation, and tool.",
   policy: "Declares architectural constraints, obligations, and thresholds in grouped family blocks, for example policy InvoiceExecution { performance { ... } confidence { threshold 0.8 } }.",
@@ -43,7 +43,12 @@ export class DclHoverProvider implements vscode.HoverProvider {
     if (!help) return undefined;
 
     const markdown = new vscode.MarkdownString();
-    markdown.appendMarkdown(`**${word}**\n\n${help}`);
+    const languageVersion = /^\s*language\s+dcl\s+(\d+\.\d+)\b/m.exec(document.getText())?.[1];
+    const requires11 = ["measure", "enum", "Integer", "min", "max", "default"].includes(word);
+    const content = languageVersion === "1.0" && requires11
+      ? `${word} requires DCL language 1.1 or later. This source declares DCL language 1.0.`
+      : help;
+    markdown.appendMarkdown(`**${word}**\n\n${content}`);
     return new vscode.Hover(markdown, range);
   }
 }

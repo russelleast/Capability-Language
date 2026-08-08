@@ -57,14 +57,6 @@ var concernSpecs = map[string]concernSpec{
 	"confidence":           {allowedFamilies: stringSet("confidence"), composition: modeNarrow},
 }
 
-func isBuiltinType(name string) bool {
-	switch name {
-	case "Text", "Boolean", "Integer", "Number", "Date", "DateTime", "Uuid", "Email", "Money":
-		return true
-	}
-	return false
-}
-
 func validActorKind(kind string) bool {
 	switch kind {
 	case "human", "system", "agent", "scheduled_process":

@@ -4,7 +4,7 @@ import { sitePath } from "./links";
 
 export const DCL_LANGUAGE_ID = "dcl";
 
-type DclConceptKind = "core construct" | "section" | "lifecycle keyword";
+type DclConceptKind = "core construct" | "section" | "lifecycle keyword" | "type";
 
 type DclConceptHelp = {
   label: string;
@@ -53,7 +53,13 @@ export const dclConceptHelp: DclConceptHelp[] = [
     label: "measure",
     kind: "core construct",
     explanation:
-      "A measure gives Integer or Number values a distinct domain meaning, such as Integer<Quantity> or Number<Weight>.",
+      "A measure gives Integer or Number values a distinct domain meaning, such as Integer<Quantity> or Number<Weight>. Since DCL 1.1.",
+    reference: "/docs/#shape",
+  },
+  {
+    label: "Integer",
+    kind: "type",
+    explanation: "A signed integral built-in type, distinct from Number. Since DCL 1.1.",
     reference: "/docs/#shape",
   },
   {
@@ -289,7 +295,8 @@ const keywordCompletions = [
   "on",
 ];
 
-const typeCompletions = ["Text", "Boolean", "Integer", "Number", "Date", "DateTime", "List<T>", "Email", "Uuid", "Money"];
+const language10TypeCompletions = ["Text", "Boolean", "Number", "Date", "DateTime", "List<T>", "Email", "Uuid", "Money"];
+const language11TypeCompletions = [...language10TypeCompletions, "Integer"];
 const actorKindCompletions = ["human", "system", "agent", "scheduled_process"];
 const effectKindCompletions = ["persistence", "notification", "invocation", "tool"];
 const triggerCharacters = [" ", "\n", ...Array.from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")];
@@ -427,6 +434,14 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
   monaco.languages.registerCompletionItemProvider(DCL_LANGUAGE_ID, {
     triggerCharacters,
     provideCompletionItems(model, position) {
+	  const languageVersion = authoredLanguageVersion(model.getValue());
+	  const typeCompletions = languageVersion === "1.0" ? language10TypeCompletions : language11TypeCompletions;
+	  const keywordSuggestions = languageVersion === "1.0"
+	    ? keywordCompletions.filter((keyword) => keyword !== "measure")
+	    : keywordCompletions;
+	  const snippetSuggestions = languageVersion === "1.0"
+	    ? dclSnippets.filter((snippet) => snippet.label !== "measure" && snippet.label !== "enum shape")
+	    : dclSnippets;
       const word = model.getWordUntilPosition(position);
       const range = {
         startLineNumber: position.lineNumber,
@@ -435,7 +450,7 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
         endColumn: word.endColumn,
       };
       const suggestions = [
-        ...keywordCompletions.map((keyword) =>
+        ...keywordSuggestions.map((keyword) =>
           completion(monaco, keyword, monaco.languages.CompletionItemKind.Keyword, range, "2"),
         ),
         ...typeCompletions.map((typeName) =>
@@ -443,7 +458,7 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
         ),
         ...actorKindCompletions.map((kind) => completion(monaco, kind, monaco.languages.CompletionItemKind.Value, range, "4")),
         ...effectKindCompletions.map((kind) => completion(monaco, kind, monaco.languages.CompletionItemKind.Value, range, "4")),
-        ...dclSnippets.map((snippet) => snippetCompletion(monaco, snippet, range)),
+        ...snippetSuggestions.map((snippet) => snippetCompletion(monaco, snippet, range)),
       ];
       debug("DCL completion provider called", {
         word: word.word,
@@ -466,6 +481,11 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
       const concept = conceptHelpByLabel.get(match.label);
       if (!concept) return null;
 
+	  const languageVersion = authoredLanguageVersion(model.getValue());
+	  const requires11 = ["measure", "Integer"].includes(concept.label);
+	  const explanation = languageVersion === "1.0" && requires11
+	    ? `${concept.label} requires DCL language 1.1 or later. This source declares DCL language 1.0.`
+	    : concept.explanation;
       const reference = concept.reference
         ? `\n\n[Reference: ${concept.label}](${sitePath(concept.reference)})`
         : "";
@@ -474,7 +494,7 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
         range: match.range,
         contents: [
           {
-            value: `**${concept.label}**\n\n${concept.explanation}\n\nKind: ${concept.kind}.${reference}`,
+            value: `**${concept.label}**\n\n${explanation}\n\nKind: ${concept.kind}.${reference}`,
           },
         ],
       };
@@ -515,6 +535,10 @@ export function registerDclLanguage(monaco: typeof Monaco): void {
       "editorLineNumber.activeForeground": "#cfe0d4",
     },
   });
+}
+
+function authoredLanguageVersion(text: string): string {
+  return /^\s*language\s+dcl\s+(\d+\.\d+)\b/m.exec(text)?.[1] ?? "1.1";
 }
 
 function debug(message: string, detail?: unknown): void {

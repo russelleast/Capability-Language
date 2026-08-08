@@ -3,7 +3,7 @@ package compiler
 import "testing"
 
 func TestDomainTypeSystemIsPreservedInIR(t *testing.T) {
-	src := `language dcl 1.0
+	src := `language dcl 1.1
 measure Quantity
 measure Weight
 

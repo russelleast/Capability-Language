@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -31,16 +32,16 @@ type ComponentMetadata struct {
 }
 
 type CompilerMetadata struct {
-	Name     string `json:"name"`
-	Version  string `json:"version"`
-	Supports string `json:"supports"`
+	Name     string   `json:"name"`
+	Version  string   `json:"version"`
+	Supports []string `json:"supports"`
 }
 
 type VSCodeMetadata struct {
-	Name     string `json:"name"`
-	Version  string `json:"version"`
-	Supports string `json:"supports"`
-	Compiler string `json:"compiler"`
+	Name     string   `json:"name"`
+	Version  string   `json:"version"`
+	Supports []string `json:"supports"`
+	Compiler string   `json:"compiler"`
 }
 
 func Current() (Metadata, error) {
@@ -88,9 +89,9 @@ func FindFile() (string, error) {
 func Summary() string {
 	metadata, err := Current()
 	if err != nil {
-		return "dcl compiler unknown (DCL language unknown)"
+		return "DCL Compiler unknown\nSupported language versions: unknown\nLatest language version: unknown"
 	}
-	return fmt.Sprintf("%s compiler %s (DCL language %s)", metadata.Compiler.Name, metadata.Compiler.Version, metadata.Language.Version)
+	return fmt.Sprintf("DCL Compiler %s\nSupported language versions: %s\nLatest language version: %s", metadata.Compiler.Version, strings.Join(metadata.Compiler.Supports, ", "), metadata.Language.Version)
 }
 
 func LanguageName() string {
@@ -102,11 +103,23 @@ func LanguageName() string {
 }
 
 func LanguageVersion() string {
+	return LatestLanguageVersion()
+}
+
+func LatestLanguageVersion() string {
 	metadata, err := Current()
 	if err != nil {
 		return ""
 	}
 	return metadata.Language.Version
+}
+
+func SupportedLanguageVersions() []string {
+	metadata, err := Current()
+	if err != nil {
+		return nil
+	}
+	return append([]string(nil), metadata.Compiler.Supports...)
 }
 
 func CompilerVersion() string {
@@ -143,7 +156,7 @@ func parse(payload []byte, source string) (Metadata, error) {
 	if metadata.Language.Name == "" || metadata.Language.Version == "" {
 		return Metadata{}, fmt.Errorf("%s is missing language metadata", source)
 	}
-	if metadata.Compiler.Name == "" || metadata.Compiler.Version == "" || metadata.Compiler.Supports == "" {
+	if metadata.Compiler.Name == "" || metadata.Compiler.Version == "" || len(metadata.Compiler.Supports) == 0 {
 		return Metadata{}, fmt.Errorf("%s is missing compiler metadata", source)
 	}
 	if metadata.MCP.Name == "" || metadata.MCP.Version == "" {

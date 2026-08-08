@@ -227,7 +227,7 @@ func TestMissingLanguageVersionWarns(t *testing.T) {
 }
 
 func TestNewerLanguageVersionIsRejected(t *testing.T) {
-	src := `language dcl 1.1
+	src := `language dcl 1.2
 actor User is human
 shape Input {}
 capability FutureVersion {

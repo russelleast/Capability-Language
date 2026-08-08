@@ -1,5 +1,12 @@
 # Changelog
 
+## DCL Language 1.1 / Compiler 1.1.0
+
+- Added `Integer`, measures and measured numerics, numeric constraints, enum shapes, and typed enum cases using `is`.
+- Added explicit language-contract selection, unsupported-version diagnostics, and mixed-version compilation rejection.
+- Kept DCL Language 1.0 as a supported compatibility contract.
+- Updated compiler metadata, IR language metadata, LSP, MCP, VS Code, WASM playground, examples, and reference documentation.
+
 ## DCL v1.0 Stable Core
 
 DCL v1.0 defines the stable core language for describing capabilities, intents, outcomes, rules, effects, events, lifecycles, actors, policies, observations, and contexts.

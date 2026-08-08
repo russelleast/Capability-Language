@@ -55,6 +55,16 @@ func (c *compiler) typeIR(name, context string) ir.TypeIR {
 	return ir.TypeIR{Kind: "unresolved", Name: name}
 }
 
+func (c *compiler) validateVersionedType(name string, span diagnostic.Span) {
+	outer, _, generic := splitGenericType(name)
+	if name == "Integer" || outer == "Integer" {
+		c.requireFeature(featureInteger, span, name)
+	}
+	if generic && (outer == "Integer" || outer == "Number") {
+		c.requireFeature(featureMeasuredNumeric, span, name)
+	}
+}
+
 func (c *compiler) shapeDecl(context, name string) (ast.ShapeDecl, bool) {
 	for _, shape := range c.program.Shapes {
 		if declContext(shape.Meta.ContextName) == declContext(context) && shape.Name == name {
@@ -86,12 +96,14 @@ func (c *compiler) validateEnumAlternatives(shape ast.ShapeDecl) {
 			seen[alternative.Name] = alternative.Span
 		}
 		if alternative.PayloadType != "" {
+			c.requireFeature(featureTypedEnumCase, alternative.Span, alternative.Name)
 			c.validateEnumPayloadType(alternative.PayloadType, shape.Meta.ContextName, alternative.Span)
 		}
 	}
 }
 
 func (c *compiler) validateEnumPayloadType(name, context string, span diagnostic.Span) {
+	c.validateVersionedType(name, span)
 	if name == "" || isBuiltinType(name) {
 		return
 	}
@@ -117,6 +129,7 @@ func (c *compiler) validateNumericConstraints(field ast.Field) {
 	if constraints.Min == "" && constraints.Max == "" && constraints.Default == "" {
 		return
 	}
+	c.requireFeature(featureNumericConstraint, field.Span, field.Name)
 	base := numericBase(field.Type)
 	if base == "" {
 		c.diags.Error("DCL_SEM_NUMERIC_CONSTRAINT_TYPE", "min, max, and default constraints are only valid on Integer and Number fields", field.Span, field.Type)

@@ -148,6 +148,9 @@ func TestVersionToolCallReturnsVersionMetadata(t *testing.T) {
 	if compiler["version"] == "" {
 		t.Fatalf("expected compiler version metadata: %#v", structured)
 	}
+	if structured["compilerVersion"] != "1.1.0" || structured["latestLanguageVersion"] != "1.1" {
+		t.Fatalf("expected DCL Compiler 1.1 language metadata: %#v", structured)
+	}
 }
 
 func TestSummaryToolReturnsCompilerDerivedSummary(t *testing.T) {

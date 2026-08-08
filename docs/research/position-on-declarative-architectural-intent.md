@@ -320,7 +320,7 @@ The current implementation includes:
 * Website
 * Examples
 
-The language is currently released as Version 1.0.
+At the time this research paper was written, the language was released as Version 1.0. The current repository also supports DCL Language 1.1; this historical section otherwise describes the 1.0 baseline.
 
 ---
 

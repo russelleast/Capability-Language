@@ -183,6 +183,26 @@ func (s *Server) handle(method string, params json.RawMessage) (any, *rpcError) 
 		s.log("references requested", map[string]any{"uri": request.TextDocument.URI, "line": request.Position.Line, "character": request.Position.Character, "token": token, "resultCount": len(locations), "reason": reason})
 		s.log("references found", map[string]any{"uri": request.TextDocument.URI, "token": token, "resultCount": len(locations), "referencesCount": len(locations), "reason": reason})
 		return locations, nil
+	case "textDocument/completion":
+		var request definitionParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		document, ok := s.host.Documents().Get(request.TextDocument.URI)
+		if !ok {
+			return []completionItem{}, nil
+		}
+		return completionsForText(document.Text), nil
+	case "textDocument/hover":
+		var request definitionParams
+		if err := json.Unmarshal(params, &request); err != nil {
+			return nil, invalidParams(err)
+		}
+		document, ok := s.host.Documents().Get(request.TextDocument.URI)
+		if !ok {
+			return nil, nil
+		}
+		return hoverForText(document.Text, wordAt(document.Text, request.Position)), nil
 	case "dcl/inspectSymbol":
 		var request inspectSymbolParams
 		if err := json.Unmarshal(params, &request); err != nil {
@@ -333,6 +353,8 @@ func initializeResult() map[string]any {
 			"workspaceSymbolProvider": true,
 			"definitionProvider":      true,
 			"referencesProvider":      true,
+			"completionProvider":      map[string]any{"triggerCharacters": []string{" ", "<"}},
+			"hoverProvider":           true,
 		},
 	}
 }

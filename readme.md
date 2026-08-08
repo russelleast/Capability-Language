@@ -3,20 +3,36 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Build](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml/badge.svg)](https://github.com/russelleast/Capability-Language/actions/workflows/build.yml)
 
-**DCL (Declarative Capability Language)** is a language for describing software systems in terms of capabilities, intent, outcomes, effects, policies, and lifecycle progression.
+**DCL (Declarative Capability Language)** is a declarative programming language for describing software systems in terms of business capabilities rather than infrastructure.
 
-Rather than modelling systems as controllers, services, endpoints, queues, or infrastructure, DCL models what a system is responsible for, what it guarantees, and what it causes.
+Instead of modelling controllers, services, APIs, queues, or deployment concerns, DCL models what a system is responsible for, what it guarantees, and what effects it causes.
 
-Current versions:
+The compiler validates architectural intent and produces a semantic model that can generate documentation, diagrams, tests, runtime projections, and AI-consumable representations from a single source.
 
-* Language: v1.0
-* Compiler: v1.0
+DCL is designed for architects, software engineers and AI systems to collaborate using a single, unambiguous architectural language.
+
+## Features
+
+- Capability-first modelling
+- Declarative architectural intent
+- Semantic compiler with diagnostics
+- AI-friendly language design
+- VS Code extension
+- MCP server for AI tooling
+- Capability diagrams and visualisation
+- Portable execution model
+- Documentation and test generation
+
+## Current versions:
+
+* Latest language: v1.1 (compiler supports 1.0 and 1.1)
+* Compiler: v1.1.0
 
 See [version.json](version.json) for the current project versions.
 
 For local AI-assisted DCL analysis, download `dcl-mcp` from the dedicated `mcp-v*` GitHub Releases or run `make install-mcp` from a source checkout. See the [DCL MCP server setup guide](docs/mcp.md). The local stdio MCP server exposes compiler-backed tools for validation, compilation, IR inspection, diagnostics explanation, version metadata, and semantic summaries.
 
-DCL v1.0 defines the stable core language for describing capabilities, intents, outcomes, rules, effects, events, lifecycles, actors, policies, observations, and contexts.
+DCL Language 1.0 defines the stable core. DCL Language 1.1 adds the expanded type system: `Integer`, measures and measured numerics, numeric constraints, enum shapes, and typed enum cases. DCL Compiler 1.1 compiles both contracts according to each source file's `language` declaration.
 
 ## Why DCL?
 
@@ -185,7 +201,7 @@ See LICENSE for details.
 
 ## Status
 
-DCL v1.0 defines the stable language core.
+DCL Language 1.0 defines the stable language core; DCL Language 1.1 extends its type system.
 
 Tooling, integrations, examples, and ecosystem support continue to evolve around that stable core.
 

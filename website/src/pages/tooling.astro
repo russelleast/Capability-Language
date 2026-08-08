@@ -3,6 +3,7 @@ import DocsLayout from "../layouts/DocsLayout.astro";
 import {
   compilerVersion,
   languageLabel,
+  supportedLanguageVersionsLabel,
   mcpAllReleasesUrl,
   mcpReleasePageUrl,
   vscodeExtensionMarketplaceUrl,
@@ -24,7 +25,8 @@ const frontmatter = {
   </p>
   <p>
     Current language: <strong>{languageLabel}</strong>. Compiler:
-    <code>dcl {compilerVersion}</code>.
+    <code>dcl {compilerVersion}</code>. Supported authored language versions:
+    <strong>{supportedLanguageVersionsLabel}</strong>.
   </p>
 
   <h2>Command-Line Tools</h2>

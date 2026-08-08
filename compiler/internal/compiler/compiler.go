@@ -132,6 +132,7 @@ func MarshalIR(program ir.ProgramIR) ([]byte, error) {
 type compiler struct {
 	program           ast.Program
 	diags             *diagnostic.Bag
+	languageVersion   string
 	contexts          map[string]*contextInfo
 	dependencies      map[string]map[string]diagnostic.Span
 	symbolsByContext  map[string]map[string]map[string]*symbolInfo
@@ -177,8 +178,8 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 	}
 	c.indexContexts()
 	c.indexSymbols()
+	c.selectLanguageContract()
 	c.validateTypeNamespace()
-	c.validateLanguageVersions()
 	for _, policy := range program.Policies {
 		key := policyKey(policy.Meta.ContextName, policy.Name)
 		if _, exists := c.policies[key]; !exists {
@@ -195,21 +196,9 @@ func newCompiler(program ast.Program, diags *diagnostic.Bag) *compiler {
 	return c
 }
 
-func (c *compiler) validateLanguageVersions() {
-	for _, decl := range c.program.Languages {
-		if decl.Name != version.LanguageName() {
-			continue
-		}
-		supported := version.LanguageVersion()
-		if compareVersion(decl.Version, supported) > 0 {
-			c.diags.Error("DCL_VERSION_UNSUPPORTED", fmt.Sprintf("language version %s is newer than supported version %s", decl.Version, supported), decl.Span, decl.Version)
-		}
-	}
-}
-
 func (c *compiler) buildIR() ir.ProgramIR {
 	out := ir.ProgramIR{
-		Version:  ir.VersionIR{Language: version.LanguageVersion(), Compiler: version.CompilerVersion()},
+		Version:  ir.VersionIR{Language: c.languageVersion, Compiler: version.CompilerVersion()},
 		Modules:  []ir.ModuleIR{{ID: "module:main", Files: c.program.Files}},
 		Analysis: map[string]ir.PortabilityFacts{"default": {Classification: "portable"}},
 	}
@@ -224,6 +213,7 @@ func (c *compiler) buildIR() ir.ProgramIR {
 
 func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 	for _, measure := range c.program.Measures {
+		c.requireFeature(featureMeasure, measure.Span, measure.Name)
 		if isBuiltinType(measure.Name) {
 			c.diags.Error("DCL_SEM_TYPE_BUILTIN_SHADOWED", "measure cannot shadow a built-in type", measure.Span, measure.Name)
 		}
@@ -240,6 +230,7 @@ func (c *compiler) emitTopLevelDeclarations(out *ir.ProgramIR) {
 		}
 		shapeIR := ir.ShapeIR{ID: id("shape", symbolIdentity(shape.Meta.ContextName, shape.Name)), Name: shape.Name, Kind: shapeKind, Fields: []ir.FieldIR{}}
 		if shapeKind == "enum" {
+			c.requireFeature(featureEnumShape, shape.Span, shape.Name)
 			shapeIR.Alternatives = c.enumAlternativesIR(shape)
 			c.validateEnumAlternatives(shape)
 		} else {
@@ -1502,6 +1493,7 @@ func (c *compiler) applyPolicyAttachments(out *ir.ProgramIR) {
 }
 
 func (c *compiler) validateType(name string, context string, span diagnostic.Span) {
+	c.validateVersionedType(name, span)
 	if name == "" || isBuiltinType(name) {
 		return
 	}

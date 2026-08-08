@@ -2,6 +2,8 @@
 
 DCL v1.0 defines the stable core language for describing capabilities, intents, outcomes, rules, effects, events, lifecycles, actors, policies, observations, and contexts.
 
+DCL Language 1.1 adds the expanded domain type system. DCL Compiler 1.1 supports both DCL Language 1.0 and 1.1.
+
 ## Current
 
 - Compiler CLI

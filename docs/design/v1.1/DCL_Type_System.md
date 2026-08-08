@@ -1,4 +1,6 @@
-# DCL Domain Type System
+# DCL Language 1.1 Domain Type System
+
+The features in this document are available since DCL 1.1. Compiler 1.1 also continues to support the DCL Language 1.0 contract.
 
 ## Principle
 
@@ -17,6 +19,8 @@ DCL provides `Text`, `Boolean`, `Integer`, `Number`, `Date`, and `DateTime`, tog
 Every record shape declares a reusable named domain type. A field can use a built-in, another shape, an enum shape, a collection, or a measured numeric type.
 
 ```dcl
+language dcl 1.1
+
 shape Address {
   line1: Text required
   city: Text required
