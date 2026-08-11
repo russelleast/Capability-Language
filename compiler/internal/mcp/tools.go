@@ -129,7 +129,22 @@ func Tools() []Tool {
 			OutputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"version": map[string]any{"type": "object"},
+					"compilerVersion":           map[string]any{"type": "string"},
+					"supportedLanguageVersions": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"latestLanguageVersion":     map[string]any{"type": "string"},
+					"version": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"compiler": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"name":     map[string]any{"type": "string"},
+									"version":  map[string]any{"type": "string"},
+									"supports": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+								},
+							},
+						},
+					},
 					"summary": map[string]any{"type": "string"},
 				},
 			},
@@ -258,11 +273,11 @@ func callVersion() (toolResult, error) {
 		return errorResult(err), nil
 	}
 	return structuredResult(map[string]any{
-		"compilerVersion": metadata.Compiler.Version,
+		"compilerVersion":           metadata.Compiler.Version,
 		"supportedLanguageVersions": metadata.Compiler.Supports,
-		"latestLanguageVersion": metadata.Language.Version,
-		"version": metadata,
-		"summary": version.Summary(),
+		"latestLanguageVersion":     metadata.Language.Version,
+		"version":                   metadata,
+		"summary":                   version.Summary(),
 	}), nil
 }
 

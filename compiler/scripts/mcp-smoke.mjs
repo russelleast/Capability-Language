@@ -62,6 +62,43 @@ capability SayHello {
       },
     },
   },
+  ...["dcl_validate", "dcl_compile", "dcl_ir"].map((name, index) => ({
+    jsonrpc: "2.0",
+    id: 5 + index,
+    method: "tools/call",
+    params: {
+      name,
+      arguments: {
+        filename: "smoke.dcl",
+        source: `language dcl 1.0
+
+actor User is human
+
+shape GreetingInput {
+  name: Text required
+}
+
+capability SayHello {
+  intent GreetingInput from User
+
+  outcome GreetingPrepared
+
+  when {
+    always GreetingPrepared
+  }
+}`,
+      },
+    },
+  })),
+  {
+    jsonrpc: "2.0",
+    id: 8,
+    method: "tools/call",
+    params: {
+      name: "dcl_explain_diagnostics",
+      arguments: { diagnostics: [] },
+    },
+  },
 ];
 
 const child = spawn(binary, [], {
@@ -122,8 +159,15 @@ child.on("close", (code) => {
     assert(toolNames.includes(name), `tools/list missing ${name}`);
   }
   assert(byId.get(3)?.result?.structuredContent?.version?.compiler?.version, "dcl_version call missing version metadata");
+  assert(Array.isArray(byId.get(3)?.result?.structuredContent?.version?.compiler?.supports), "dcl_version compiler.supports is not an array");
+  assert(Array.isArray(byId.get(3)?.result?.structuredContent?.supportedLanguageVersions), "dcl_version supportedLanguageVersions is not an array");
   assert(byId.get(4)?.result?.structuredContent?.ok === true, "dcl_summary call did not succeed");
   assert(byId.get(4)?.result?.structuredContent?.summary?.capabilities?.[0]?.name === "SayHello", "dcl_summary missing SayHello capability");
+  assert(byId.get(5)?.result?.structuredContent?.valid === true, "dcl_validate call did not succeed");
+  assert(byId.get(6)?.result?.structuredContent?.ok === true, "dcl_compile call did not succeed");
+  assert(byId.get(7)?.result?.structuredContent?.ok === true, "dcl_ir call did not succeed");
+  assert(byId.get(7)?.result?.structuredContent?.ir, "dcl_ir call did not return IR");
+  assert(byId.get(8)?.result?.structuredContent?.count === 0, "dcl_explain_diagnostics call did not succeed");
 
   console.log(`DCL MCP smoke test passed for ${binary}`);
 });
