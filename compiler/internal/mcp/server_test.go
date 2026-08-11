@@ -148,9 +148,36 @@ func TestVersionToolCallReturnsVersionMetadata(t *testing.T) {
 	if compiler["version"] == "" {
 		t.Fatalf("expected compiler version metadata: %#v", structured)
 	}
+	supports, ok := compiler["supports"].([]any)
+	if !ok || len(supports) != 2 || supports[0] != "1.0" || supports[1] != "1.1" {
+		t.Fatalf("compiler.supports = %#v, want [1.0 1.1] array", compiler["supports"])
+	}
+	supported, ok := structured["supportedLanguageVersions"].([]any)
+	if !ok || len(supported) != 2 || supported[0] != "1.0" || supported[1] != "1.1" {
+		t.Fatalf("supportedLanguageVersions = %#v, want [1.0 1.1] array", structured["supportedLanguageVersions"])
+	}
 	if structured["compilerVersion"] != "1.1.0" || structured["latestLanguageVersion"] != "1.1" {
 		t.Fatalf("expected DCL Compiler 1.1 language metadata: %#v", structured)
 	}
+}
+
+func TestVersionToolSchemaDescribesCompilerSupportsAsArray(t *testing.T) {
+	for _, tool := range Tools() {
+		if tool.Name != "dcl_version" {
+			continue
+		}
+		properties := tool.OutputSchema["properties"].(map[string]any)
+		version := properties["version"].(map[string]any)
+		versionProperties := version["properties"].(map[string]any)
+		compiler := versionProperties["compiler"].(map[string]any)
+		compilerProperties := compiler["properties"].(map[string]any)
+		supports := compilerProperties["supports"].(map[string]any)
+		if supports["type"] != "array" || supports["items"].(map[string]any)["type"] != "string" {
+			t.Fatalf("compiler.supports schema = %#v, want array of strings", supports)
+		}
+		return
+	}
+	t.Fatal("dcl_version tool not found")
 }
 
 func TestSummaryToolReturnsCompilerDerivedSummary(t *testing.T) {
